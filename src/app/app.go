@@ -155,6 +155,8 @@ func (a *Application) runAccount(ctx context.Context, args []string) error {
 		return a.runAccountActivate(ctx, args[1:])
 	case "ledger":
 		return a.runAccountLedger(ctx, args[1:])
+	case "delete":
+		return a.runAccountDelete(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], usageText)
 	}
@@ -345,6 +347,7 @@ Usage:
   lootsheet account rename --code CODE --name NAME
   lootsheet account deactivate --code CODE
   lootsheet account activate --code CODE
+  lootsheet account delete --code CODE
   lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
   lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
   lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]
@@ -352,6 +355,7 @@ Usage:
   lootsheet quest accept --id ID --date YYYY-MM-DD
   lootsheet quest complete --id ID --date YYYY-MM-DD
   lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]
   lootsheet loot create --name TEXT [--source TEXT] [--quantity N] [--holder TEXT] [--notes TEXT]
   lootsheet loot list
   lootsheet loot appraise --id ID --value AMOUNT --date DATE [--appraiser TEXT] [--notes TEXT]
@@ -359,5 +363,7 @@ Usage:
   lootsheet loot sell --id ID --amount AMOUNT --date DATE [--description TEXT]
   lootsheet account ledger --code CODE
   lootsheet report trial-balance
+  lootsheet report quest-receivables
+  lootsheet report loot-summary
   lootsheet help
 `

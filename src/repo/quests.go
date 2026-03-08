@@ -431,6 +431,160 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 	}, nil
 }
 
+// WriteOffQuestInput holds the parameters for writing off a quest receivable.
+type WriteOffQuestInput struct {
+	QuestID     string
+	Date        string
+	Description string
+}
+
+// WriteOffQuest writes off an outstanding quest receivable as a failed patron loss.
+// The quest must be in 'completed', 'collectible', or 'partially_paid' status.
+// Debits Failed Patron Loss (5500) and credits Quest Receivable (1100).
+// Updates quest status to 'defaulted' and sets closed_on.
+func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuestInput) (PostedJournalEntry, error) {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return PostedJournalEntry{}, err
+	}
+
+	questID := strings.TrimSpace(input.QuestID)
+	if questID == "" {
+		return PostedJournalEntry{}, fmt.Errorf("quest ID is required")
+	}
+
+	date := strings.TrimSpace(input.Date)
+	if date == "" {
+		return PostedJournalEntry{}, fmt.Errorf("write-off date is required")
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return PostedJournalEntry{}, err
+	}
+	defer db.Close()
+
+	// Load the quest.
+	var quest QuestRecord
+	var statusStr string
+	var acceptedOn, completedOn, closedOn sql.NullString
+
+	if err := db.QueryRowContext(ctx,
+		"SELECT id, title, promised_base_reward, partial_advance, status, accepted_on, completed_on, closed_on FROM quests WHERE id = ?",
+		questID,
+	).Scan(&quest.ID, &quest.Title, &quest.PromisedBaseReward, &quest.PartialAdvance, &statusStr, &acceptedOn, &completedOn, &closedOn); err != nil {
+		if err == sql.ErrNoRows {
+			return PostedJournalEntry{}, fmt.Errorf("quest %q does not exist", questID)
+		}
+		return PostedJournalEntry{}, fmt.Errorf("query quest: %w", err)
+	}
+
+	quest.Status = service.QuestStatus(statusStr)
+
+	// Validate quest status for write-off.
+	writeOffStatuses := map[service.QuestStatus]bool{
+		service.QuestStatusCompleted:     true,
+		service.QuestStatusCollectible:   true,
+		service.QuestStatusPartiallyPaid: true,
+	}
+
+	if !writeOffStatuses[quest.Status] {
+		return PostedJournalEntry{}, fmt.Errorf("quest %q cannot be written off: current status is %q, expected one of completed, collectible, partially_paid", questID, quest.Status)
+	}
+
+	// Calculate total already paid from journal entries linked to this quest.
+	var totalPaid int64
+	if err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(jl.debit_amount), 0) FROM journal_lines jl
+		 JOIN journal_entries je ON je.id = jl.journal_entry_id
+		 WHERE je.description LIKE ? AND je.status = 'posted'
+		 AND jl.account_id = (SELECT id FROM accounts WHERE code = '1000')`,
+		fmt.Sprintf("Quest payment: %s%%", quest.Title),
+	).Scan(&totalPaid); err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("query total paid: %w", err)
+	}
+
+	outstanding := quest.PromisedBaseReward - totalPaid
+	if outstanding <= 0 {
+		return PostedJournalEntry{}, fmt.Errorf("quest has no outstanding balance to write off")
+	}
+
+	description := strings.TrimSpace(input.Description)
+	if description == "" {
+		description = fmt.Sprintf("Quest write-off: %s", quest.Title)
+	}
+
+	// Post the journal entry: Dr Failed Patron Loss (5500), Cr Quest Receivable (1100).
+	journalInput := service.JournalPostInput{
+		EntryDate:   date,
+		Description: description,
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5500", DebitAmount: outstanding, Memo: fmt.Sprintf("Quest write-off: %s", quest.Title)},
+			{AccountCode: "1100", CreditAmount: outstanding, Memo: fmt.Sprintf("Quest write-off: %s", quest.Title)},
+		},
+	}
+
+	validated, err := service.ValidateJournalPostInput(journalInput)
+	if err != nil {
+		return PostedJournalEntry{}, err
+	}
+
+	accountIDsByCode, err := resolveActiveAccountIDsByCode(ctx, db, validated.Lines)
+	if err != nil {
+		return PostedJournalEntry{}, err
+	}
+
+	entryNumber, err := nextJournalEntryNumber(ctx, db)
+	if err != nil {
+		return PostedJournalEntry{}, err
+	}
+
+	entryID := uuid.NewString()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("begin quest write-off transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+		entryID, entryNumber, "posted", validated.EntryDate, validated.Description,
+	); err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("insert quest write-off journal entry: %w", err)
+	}
+
+	for index, line := range validated.Lines {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO journal_lines (id, journal_entry_id, line_number, account_id, memo, debit_amount, credit_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			uuid.NewString(), entryID, index+1, accountIDsByCode[line.AccountCode], line.Memo, line.DebitAmount, line.CreditAmount,
+		); err != nil {
+			return PostedJournalEntry{}, fmt.Errorf("insert quest write-off journal line %d: %w", index+1, err)
+		}
+	}
+
+	// Update quest status to defaulted and set closed_on.
+	if _, err := tx.ExecContext(ctx,
+		"UPDATE quests SET status = ?, closed_on = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+		string(service.QuestStatusDefaulted), date, questID,
+	); err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("update quest status to defaulted: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("commit quest write-off transaction: %w", err)
+	}
+
+	return PostedJournalEntry{
+		ID:          entryID,
+		EntryNumber: entryNumber,
+		EntryDate:   validated.EntryDate,
+		Description: validated.Description,
+		LineCount:   len(validated.Lines),
+		DebitTotal:  validated.Totals.DebitAmount,
+		CreditTotal: validated.Totals.CreditAmount,
+	}, nil
+}
+
 // getQuestStatus returns the current status of a quest.
 func getQuestStatus(ctx context.Context, db *sql.DB, questID string) (service.QuestStatus, error) {
 	var status string

@@ -27,6 +27,8 @@ func (a *Application) runQuest(ctx context.Context, args []string) error {
 		return a.runQuestComplete(ctx, args[1:])
 	case "collect":
 		return a.runQuestCollect(ctx, args[1:])
+	case "writeoff":
+		return a.runQuestWriteoff(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown quest subcommand %q\n\n%s", args[0], usageText)
 	}
@@ -303,4 +305,67 @@ const questCollectUsageText = `LootSheet CLI
 
 Usage:
   lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+`
+
+func (a *Application) runQuestWriteoff(ctx context.Context, args []string) error {
+	var id, date, description string
+
+	flagSet := flag.NewFlagSet("quest writeoff", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&id, "id", "", "quest ID (required)")
+	flagSet.StringVar(&date, "date", "", "write-off date in YYYY-MM-DD (required)")
+	flagSet.StringVar(&description, "description", "", "optional description")
+
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("%s\n\n%s", err, questWriteoffUsageText)
+	}
+
+	if id == "" {
+		return fmt.Errorf("--id is required\n\n%s", questWriteoffUsageText)
+	}
+
+	if date == "" {
+		return fmt.Errorf("--date is required\n\n%s", questWriteoffUsageText)
+	}
+
+	a.log.logger.InfoContext(ctx, "writing off quest",
+		slog.String("database_path", a.config.Paths.DatabasePath),
+		slog.String("quest_id", id),
+		slog.String("date", date),
+	)
+
+	result, err := repo.WriteOffQuest(ctx, a.config.Paths.DatabasePath, repo.WriteOffQuestInput{
+		QuestID:     id,
+		Date:        date,
+		Description: description,
+	})
+	if err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to write off quest", slog.String("error", err.Error()))
+		return err
+	}
+
+	a.log.logger.InfoContext(ctx, "wrote off quest",
+		slog.String("quest_id", id),
+		slog.Int("entry_number", result.EntryNumber),
+	)
+
+	if _, err := fmt.Fprintf(
+		a.stdout,
+		"Wrote off quest as journal entry #%d\nDate: %s\nDescription: %s\nDebits: %s\nCredits: %s\n",
+		result.EntryNumber,
+		result.EntryDate,
+		result.Description,
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
+	); err != nil {
+		return fmt.Errorf("write writeoff output: %w", err)
+	}
+
+	return nil
+}
+
+const questWriteoffUsageText = `LootSheet CLI
+
+Usage:
+  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]
 `
