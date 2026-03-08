@@ -19,7 +19,7 @@ Implemented so far:
 - loot create/list/appraise/recognize/sell lifecycle flows
 - reporting for trial balance, account ledger, quest receivables, promised quests, loot summary, and write-off candidates
 - installed-binary-style smoke coverage in `./testapp.sh`
-- structured application logging with OTel-backed instrumentation and text levels `DBG`, `INFO`, `WARN`, `ERR`
+- structured application logging via stdlib `slog` with text levels `DBG`, `INFO`, `WARN`, `ERR`
 
 ## Current Architecture
 

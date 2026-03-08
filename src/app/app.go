@@ -39,7 +39,7 @@ func Run(ctx context.Context, args []string, stdout io.Writer) error {
 
 // New creates a new Application with the given configuration, stdout destination,
 // and log output writer. It validates the configuration and initializes the
-// OTel-backed structured logger.
+// structured logger.
 func New(cfg *config.Config, stdout io.Writer, logOutput io.Writer) (*Application, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
