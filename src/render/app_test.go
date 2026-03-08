@@ -350,6 +350,63 @@ func TestRunDispatchesQuestCollectAndRefreshesSelection(t *testing.T) {
 	}
 }
 
+func TestRunDispatchesLootRecognizeAndRefreshesSelection(t *testing.T) {
+	screen := &scriptedScreen{
+		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
+		onInit: func(sim tcell.SimulationScreen) {
+			sim.SetSize(120, 40)
+		},
+		afterFirstShow: func(sim tcell.SimulationScreen) {
+			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'n', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+		},
+	}
+
+	initial := testLootShellData(false)
+	updated := testLootShellData(true)
+	var got Command
+
+	if err := Run(context.Background(), &Options{
+		ScreenFactory: func() (Screen, error) {
+			return screen, nil
+		},
+		ShellLoader: func(context.Context) (ShellData, error) {
+			return initial, nil
+		},
+		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+			got = command
+			return updated, StatusMessage{
+				Level: StatusSuccess,
+				Text:  "Recognized loot item \"Gold Necklace\" as entry #9.",
+			}, nil
+		},
+	}); err != nil {
+		t.Fatalf("run render app: %v", err)
+	}
+
+	if got.ID != "loot.recognize_latest" {
+		t.Fatalf("command id = %q, want loot.recognize_latest", got.ID)
+	}
+	if got.Section != SectionLoot {
+		t.Fatalf("command section = %v, want loot", got.Section)
+	}
+	if got.ItemKey != "loot-1" {
+		t.Fatalf("command item key = %q, want loot-1", got.ItemKey)
+	}
+
+	for _, token := range []string{
+		"Recognized loot item \"Gold Necklace\" as entry #9.",
+		"Status: recognized",
+		"Accounting state: on-ledger recognized inventory",
+	} {
+		if !strings.Contains(screen.lastFrame, token) {
+			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
+		}
+	}
+}
+
 func testAccountsShellData(active bool) ShellData {
 	status := "inactive"
 	summary := []string{"Accounts: 1 total", "Active: 0  Inactive: 1"}
@@ -495,6 +552,60 @@ func testQuestShellData(collected bool) ShellData {
 					Key:         "quest-1",
 					Row:         "25 GP        " + status + "    " + outstanding + " Goblin Bounty (Mayor Rowan)",
 					DetailTitle: "Goblin Bounty",
+					DetailLines: detailLines,
+					Actions:     actions,
+				},
+			},
+		},
+	}
+}
+
+func testLootShellData(recognized bool) ShellData {
+	status := "held"
+	detailLines := []string{
+		"Status: held",
+		"Quantity: 1",
+		"Accounting state: appraised but off-ledger",
+		"Latest appraisal: 7 GP 5 SP",
+		"Appraisals tracked: 2",
+		"Appraised on: 2026-03-09",
+		"Appraiser: Master jeweler",
+		"Source: Merchant",
+		"Holder: Bard",
+	}
+	actions := []ItemActionData{{
+		Trigger:      ActionRecognize,
+		ID:           "loot.recognize_latest",
+		Label:        "n recognize",
+		ConfirmTitle: "Recognize \"Gold Necklace\"?",
+		ConfirmLines: []string{"Latest appraisal: 7 GP 5 SP"},
+	}}
+	if recognized {
+		status = "recognized"
+		detailLines = []string{
+			"Status: recognized",
+			"Quantity: 1",
+			"Accounting state: on-ledger recognized inventory",
+			"Latest appraisal: 7 GP 5 SP",
+			"Appraisals tracked: 2",
+			"Appraised on: 2026-03-09",
+			"Appraiser: Master jeweler",
+			"Source: Merchant",
+			"Holder: Bard",
+		}
+		actions = nil
+	}
+
+	return ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			HeaderLines:  []string{"Unrealized loot register from smoke.db.", "Select a loot item to inspect it."},
+			SummaryLines: []string{"Tracked items: 1", "Recognized: 0", "Total quantity: 1", "Appraised value: 7 GP 5 SP"},
+			Items: []ListItemData{
+				{
+					Key:         "loot-1",
+					Row:         "7 GP 5 SP    qty:1   " + status + " " + "Gold Necklace (Merchant)",
+					DetailTitle: "Gold Necklace",
 					DetailLines: detailLines,
 					Actions:     actions,
 				},

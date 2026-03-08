@@ -133,7 +133,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.moveSelectionTo(1 << 30) {
 			return handleResult{Redraw: true}
 		}
-	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff:
+	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
 		}

@@ -655,6 +655,214 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	}
 }
 
+func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 600, "Guild factor", "2026-03-08", "Initial pass"); err != nil {
+		t.Fatalf("first appraisal: %v", err)
+	}
+	latest, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
+	if err != nil {
+		t.Fatalf("second appraisal: %v", err)
+	}
+
+	data, err := buildTUIShellData(ctx, databasePath, assets)
+	if err != nil {
+		t.Fatalf("build shell data: %v", err)
+	}
+
+	found := false
+	for _, row := range data.Loot.Items {
+		if row.Key != item.ID {
+			continue
+		}
+		found = true
+		if len(row.Actions) != 1 {
+			t.Fatalf("loot row actions = %#v, want single recognize action", row.Actions)
+		}
+		action := row.Actions[0]
+		if action.Trigger != render.ActionRecognize {
+			t.Fatalf("loot action trigger = %q, want %q", action.Trigger, render.ActionRecognize)
+		}
+		if action.ID != tuiCommandLootRecognize {
+			t.Fatalf("loot action id = %q, want %q", action.ID, tuiCommandLootRecognize)
+		}
+		detail := strings.Join(row.DetailLines, "\n")
+		for _, token := range []string{
+			"Latest appraisal: 7 GP 5 SP",
+			"Appraised on: 2026-03-09",
+			"Appraiser: Master jeweler",
+			"Appraisals tracked: 2",
+			"Holder: Bard",
+			"Item notes: Wrapped in velvet",
+			"Accounting state: appraised but off-ledger",
+		} {
+			if !strings.Contains(detail, token) {
+				t.Fatalf("loot detail missing %q:\n%s", token, detail)
+			}
+		}
+		confirm := strings.Join(action.ConfirmLines, "\n")
+		for _, token := range []string{
+			"Recognition date: 2026-03-10",
+			"This uses the latest of 2 appraisals.",
+			latest.ID,
+		} {
+			if !strings.Contains(confirm, token) {
+				t.Fatalf("loot confirm lines missing %q:\n%s", token, confirm)
+			}
+		}
+		break
+	}
+	if !found {
+		t.Fatalf("expected loot row for %q", item.ID)
+	}
+}
+
+func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	noAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Unknown Relic", "Ruins", 1, "", "")
+	if err != nil {
+		t.Fatalf("create no-appraisal item: %v", err)
+	}
+
+	zeroAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Worthless Trinket", "Roadside", 1, "", "")
+	if err != nil {
+		t.Fatalf("create zero-appraisal item: %v", err)
+	}
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, zeroAppraisal.ID, 0, "", "2026-03-08", "Unknown value"); err != nil {
+		t.Fatalf("zero appraisal: %v", err)
+	}
+
+	data, err := buildTUIShellData(ctx, databasePath, assets)
+	if err != nil {
+		t.Fatalf("build shell data: %v", err)
+	}
+
+	foundNoAppraisal := false
+	foundZero := false
+	for _, row := range data.Loot.Items {
+		switch row.Key {
+		case noAppraisal.ID:
+			foundNoAppraisal = true
+			if len(row.Actions) != 0 {
+				t.Fatalf("no-appraisal row should not expose actions: %#v", row)
+			}
+			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: Unknown / none") {
+				t.Fatalf("no-appraisal detail = %#v", row.DetailLines)
+			}
+		case zeroAppraisal.ID:
+			foundZero = true
+			if len(row.Actions) != 0 {
+				t.Fatalf("zero-appraisal row should not expose actions: %#v", row)
+			}
+			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: 0 CP") {
+				t.Fatalf("zero-appraisal detail = %#v", row.DetailLines)
+			}
+		}
+	}
+
+	if !foundNoAppraisal || !foundZero {
+		t.Fatalf("expected both non-actionable loot rows")
+	}
+}
+
+func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 600, "Guild factor", "2026-03-08", ""); err != nil {
+		t.Fatalf("first appraisal: %v", err)
+	}
+	latest, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "")
+	if err != nil {
+		t.Fatalf("second appraisal: %v", err)
+	}
+
+	data, status, err := handleTUICommand(ctx, render.Command{
+		ID:      tuiCommandLootRecognize,
+		Section: render.SectionLoot,
+		ItemKey: item.ID,
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("recognize loot through tui command: %v", err)
+	}
+	if status.Level != render.StatusSuccess {
+		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
+	}
+	if !strings.Contains(status.Text, "Recognized loot item \"Gold Necklace\" as entry #1.") {
+		t.Fatalf("status text = %q, want recognition summary", status.Text)
+	}
+
+	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list browse entries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entry count = %d, want 1", len(entries))
+	}
+	if entries[0].EntryDate != "2026-03-10" {
+		t.Fatalf("recognition entry date = %q, want 2026-03-10", entries[0].EntryDate)
+	}
+	if entries[0].Description != "Recognize loot appraisal: "+latest.ID {
+		t.Fatalf("recognition description = %q, want default appraisal description", entries[0].Description)
+	}
+
+	found := false
+	for _, row := range data.Loot.Items {
+		if row.Key != item.ID {
+			continue
+		}
+		found = true
+		if len(row.Actions) != 0 {
+			t.Fatalf("recognized loot should not expose actions after refresh: %#v", row)
+		}
+		detail := strings.Join(row.DetailLines, "\n")
+		for _, token := range []string{"Status: recognized", "Accounting state: on-ledger recognized inventory", "Latest appraisal: 7 GP 5 SP"} {
+			if !strings.Contains(detail, token) {
+				t.Fatalf("recognized loot detail missing %q:\n%s", token, detail)
+			}
+		}
+		break
+	}
+	if !found {
+		t.Fatal("expected recognized loot row after refresh")
+	}
+}
+
 func joinItemRows(items []render.ListItemData) string {
 	rows := make([]string, 0, len(items))
 	for _, item := range items {

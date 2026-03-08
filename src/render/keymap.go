@@ -31,6 +31,7 @@ const (
 	ActionReverse       Action = "reverse"
 	ActionCollect       Action = "collect"
 	ActionWriteOff      Action = "write_off"
+	ActionRecognize     Action = "recognize"
 	ActionConfirm       Action = "confirm"
 )
 
@@ -151,6 +152,10 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionWriteOff,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'w'},
+			},
+			{
+				Action: ActionRecognize,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'n'},
 			},
 			{
 				Action: ActionConfirm,

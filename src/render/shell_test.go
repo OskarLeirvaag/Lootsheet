@@ -273,6 +273,50 @@ func TestShellQuestActionsShowCombinedFooterAndMatchTriggers(t *testing.T) {
 	}
 }
 
+func TestShellLootRecognizeUsesOnlyRecognizeAction(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			Items: []ListItemData{
+				{
+					Key:         "loot-1",
+					Row:         "7 GP 5 SP    qty:1   held        Gold Necklace (Merchant)",
+					DetailTitle: "Gold Necklace",
+					DetailLines: []string{"Latest appraisal: 7 GP 5 SP", "Accounting state: appraised but off-ledger"},
+					Actions: []ItemActionData{{
+						Trigger:      ActionRecognize,
+						ID:           "loot.recognize_latest",
+						Label:        "n recognize",
+						ConfirmTitle: "Recognize \"Gold Necklace\"?",
+						ConfirmLines: []string{"Latest appraisal: 7 GP 5 SP"},
+					}},
+				},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionShowLoot)
+
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "n recognize") {
+		t.Fatalf("loot footer help = %q, want n recognize", help)
+	}
+
+	if result := shell.HandleAction(ActionCollect); result.Redraw || shell.confirm != nil {
+		t.Fatalf("collect action should not open loot recognize modal: %#v", result)
+	}
+
+	result := shell.HandleAction(ActionRecognize)
+	if !result.Redraw {
+		t.Fatal("expected recognize action to trigger redraw")
+	}
+	if shell.confirm == nil {
+		t.Fatal("expected confirm modal to open for loot recognition")
+	}
+	if shell.confirm.Action.ID != "loot.recognize_latest" {
+		t.Fatalf("confirm action id = %q, want loot.recognize_latest", shell.confirm.Action.ID)
+	}
+}
+
 func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),

@@ -89,7 +89,7 @@ Usage:
   lootsheet tui
 
 Opens the full-screen LootSheet TUI using tcell.
-The current slice is interactive but intentionally narrow: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, and the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form. Loot remains read-only in this slice.
+The current slice is interactive but intentionally narrow: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form, and the Loot screen supports recognizing the selected latest appraisal on today's date when that appraisal is at least 1 CP. Sale remains a later TUI slice.
 
 Keys:
   Left/Right, Tab/Shift+Tab  move between top-level sections
@@ -100,6 +100,7 @@ Keys:
   r                          reverse the selected posted journal entry on the Journal screen
   c                          collect the full outstanding balance for the selected quest on the Quest screen
   w                          write off the full outstanding balance for the selected quest on the Quest screen
+  n                          recognize the selected latest loot appraisal on the Loot screen
   Enter                      confirm the open modal
   Esc                        cancel the open modal, or quit when no modal is open
   q                          cancel the open modal, or quit when no modal is open
