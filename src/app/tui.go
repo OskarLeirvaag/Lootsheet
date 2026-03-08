@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/spf13/cobra"
 )
@@ -15,6 +16,15 @@ func (a *Application) newTUICommand() *cobra.Command {
 	}
 
 	return a.newLeafCommand(cmd, func(ctx context.Context) error {
-		return render.Run(ctx, &render.Options{})
+		assets, err := config.LoadInitAssets()
+		if err != nil {
+			return err
+		}
+
+		return render.Run(ctx, &render.Options{
+			DashboardLoader: func(ctx context.Context) (render.DashboardData, error) {
+				return buildTUIDashboardData(ctx, a.config.Paths.DatabasePath, assets)
+			},
+		})
 	})
 }

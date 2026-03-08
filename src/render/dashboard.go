@@ -1,10 +1,12 @@
 package render
 
-// Dashboard renders the first read-only placeholder shell.
-type Dashboard struct{}
+// Dashboard renders the first read-only shell.
+type Dashboard struct {
+	Data DashboardData
+}
 
 // Render draws the current dashboard frame.
-func (Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
+func (d *Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	if buffer == nil {
 		return
 	}
@@ -19,16 +21,14 @@ func (Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 		return
 	}
 
+	data := resolveDashboardData(&d.Data)
 	outer := bounds.Inset(1)
 	main, footer := outer.SplitHorizontal(maxInt(0, outer.H-1), 0)
 	header, body := main.SplitHorizontal(4, 1)
 
 	DrawPanel(buffer, header, theme, Panel{
 		Title: "LootSheet Dashboard",
-		Lines: []string{
-			"Accounting shell slice 1: alternate screen, resize-safe layout, boxed panels, and footer help.",
-			"Read-only placeholder view. Domain adapters and navigation land in the next slices.",
-		},
+		Lines: data.HeaderLines,
 	})
 
 	left, right := body.SplitVertical(body.W*2/5, 1)
@@ -38,45 +38,27 @@ func (Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 
 	DrawPanel(buffer, accounts, theme, Panel{
 		Title: "Accounts",
-		Lines: []string{
-			"Chart of accounts screen comes next.",
-			"Codes stay immutable; names remain editable.",
-			"Deletion protection stays in the domain layer.",
-		},
+		Lines: data.AccountsLines,
 	})
 
 	DrawPanel(buffer, journal, theme, Panel{
 		Title: "Journal",
-		Lines: []string{
-			"Posted entries remain immutable.",
-			"Corrections continue to happen by reversal or adjustment.",
-			"Interactive browsing lands after the dashboard shell.",
-		},
+		Lines: data.JournalLines,
 	})
 
 	DrawPanel(buffer, ledger, theme, Panel{
 		Title: "Ledger Snapshot",
-		Lines: []string{
-			"Read-only data adapters are intentionally deferred.",
-			"This slice proves the screen lifecycle before wiring reports.",
-			"No raw SQL belongs in src/render.",
-		},
+		Lines: data.LedgerLines,
 	})
 
 	DrawPanel(buffer, quests, theme, Panel{
 		Title: "Quest Register",
-		Lines: []string{
-			"Promised rewards stay off-ledger until earned.",
-			"Dashboard drill-down is planned after report adapters.",
-		},
+		Lines: data.QuestLines,
 	})
 
 	DrawPanel(buffer, loot, theme, Panel{
 		Title: "Loot Register",
-		Lines: []string{
-			"Unrealized appraisals stay off-ledger until recognized.",
-			"Sales and losses will remain visible once wired into views.",
-		},
+		Lines: data.LootLines,
 	})
 
 	drawFooter(buffer, footer, theme, keymap.HelpText())
