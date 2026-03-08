@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 func newLootTestApp(t *testing.T) (*Application, string) {
@@ -177,7 +177,7 @@ func TestRunLootCreateMissingName(t *testing.T) {
 func getFirstLootItemID(t *testing.T, databasePath string) string {
 	t.Helper()
 
-	db, err := repo.OpenDBForTest(databasePath)
+	db, err := ledger.OpenDBForTest(databasePath)
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}
@@ -194,7 +194,7 @@ func getFirstLootItemID(t *testing.T, databasePath string) string {
 func getFirstLootAppraisalID(t *testing.T, databasePath string) string {
 	t.Helper()
 
-	db, err := repo.OpenDBForTest(databasePath)
+	db, err := ledger.OpenDBForTest(databasePath)
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}

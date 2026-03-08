@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
@@ -41,7 +41,7 @@ func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	if _, err := repo.EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+	if _, err := ledger.EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
 		t.Fatalf("initialize database: %v", err)
 	}
 
@@ -52,10 +52,10 @@ func TestRunTrialBalanceShowsBalancedOutput(t *testing.T) {
 	application, databasePath, stdout := setupReportTestApp(t)
 	ctx := context.Background()
 
-	_, err := repo.PostJournalEntry(ctx, databasePath, service.JournalPostInput{
+	_, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Buy supplies",
-		Lines: []service.JournalLineInput{
+		Lines: []ledger.JournalLineInput{
 			{AccountCode: "5000", DebitAmount: 50, Memo: "Rations"},
 			{AccountCode: "1000", CreditAmount: 50},
 		},
@@ -64,10 +64,10 @@ func TestRunTrialBalanceShowsBalancedOutput(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	_, err = repo.PostJournalEntry(ctx, databasePath, service.JournalPostInput{
+	_, err = journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-02",
 		Description: "Quest reward",
-		Lines: []service.JournalLineInput{
+		Lines: []ledger.JournalLineInput{
 			{AccountCode: "1000", DebitAmount: 200},
 			{AccountCode: "4000", CreditAmount: 200},
 		},
@@ -76,9 +76,11 @@ func TestRunTrialBalanceShowsBalancedOutput(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	if err := application.runTrialBalance(ctx); err != nil {
+	hctx := application.handlerContext()
+	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
 		t.Fatalf("run trial balance: %v", err)
 	}
+	_ = hctx // used implicitly via runReport
 
 	output := stdout.String()
 
@@ -115,7 +117,7 @@ func TestRunTrialBalanceEmptyLedger(t *testing.T) {
 	application, _, stdout := setupReportTestApp(t)
 	ctx := context.Background()
 
-	if err := application.runTrialBalance(ctx); err != nil {
+	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
 		t.Fatalf("run trial balance: %v", err)
 	}
 
@@ -134,10 +136,10 @@ func TestRunTrialBalanceAfterReversal(t *testing.T) {
 	application, databasePath, stdout := setupReportTestApp(t)
 	ctx := context.Background()
 
-	posted, err := repo.PostJournalEntry(ctx, databasePath, service.JournalPostInput{
+	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Buy supplies",
-		Lines: []service.JournalLineInput{
+		Lines: []ledger.JournalLineInput{
 			{AccountCode: "5000", DebitAmount: 100},
 			{AccountCode: "1000", CreditAmount: 100},
 		},
@@ -146,12 +148,12 @@ func TestRunTrialBalanceAfterReversal(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	_, err = repo.ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-02", "")
+	_, err = journal.ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-02", "")
 	if err != nil {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	if err := application.runTrialBalance(ctx); err != nil {
+	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
 		t.Fatalf("run trial balance: %v", err)
 	}
 
