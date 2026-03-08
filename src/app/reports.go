@@ -17,6 +17,10 @@ func (a *Application) runReport(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "trial-balance":
 		return a.runTrialBalance(ctx)
+	case "quest-receivables":
+		return a.runQuestReceivables(ctx)
+	case "loot-summary":
+		return a.runLootSummary(ctx)
 	default:
 		return fmt.Errorf("unknown report subcommand %q\n\n%s", args[0], usageText)
 	}

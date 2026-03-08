@@ -473,3 +473,173 @@ func TestCompleteQuestRejectsNonexistentQuest(t *testing.T) {
 		t.Fatalf("error = %q, want does not exist", err)
 	}
 }
+
+func TestWriteOffCompletedQuest(t *testing.T) {
+	databasePath := initTestDB(t)
+
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Slay the Dragon",
+		Patron:             "King Aldric",
+		PromisedBaseReward: 1000,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+		QuestID: quest.ID,
+		Date:    "2026-03-20",
+	})
+	if err != nil {
+		t.Fatalf("write off quest: %v", err)
+	}
+
+	if entry.EntryNumber < 1 {
+		t.Fatalf("entry number = %d, want >= 1", entry.EntryNumber)
+	}
+
+	if entry.DebitTotal != 1000 || entry.CreditTotal != 1000 {
+		t.Fatalf("entry totals = %d/%d, want 1000/1000", entry.DebitTotal, entry.CreditTotal)
+	}
+
+	if entry.Description != "Quest write-off: Slay the Dragon" {
+		t.Fatalf("entry description = %q, want default write-off description", entry.Description)
+	}
+
+	quests, err := ListQuests(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list quests: %v", err)
+	}
+
+	if quests[0].Status != service.QuestStatusDefaulted {
+		t.Fatalf("quest status = %q, want defaulted", quests[0].Status)
+	}
+
+	if quests[0].ClosedOn != "2026-03-20" {
+		t.Fatalf("quest closed_on = %q, want 2026-03-20", quests[0].ClosedOn)
+	}
+}
+
+func TestWriteOffPartiallyPaidQuest(t *testing.T) {
+	databasePath := initTestDB(t)
+
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Escort the Caravan",
+		Patron:             "Merchant Guild",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+		QuestID: quest.ID,
+		Amount:  200,
+		Date:    "2026-03-12",
+	})
+	if err != nil {
+		t.Fatalf("collect partial payment: %v", err)
+	}
+
+	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+		QuestID:     quest.ID,
+		Date:        "2026-03-25",
+		Description: "Merchant Guild defaulted on remainder",
+	})
+	if err != nil {
+		t.Fatalf("write off quest: %v", err)
+	}
+
+	if entry.DebitTotal != 300 || entry.CreditTotal != 300 {
+		t.Fatalf("entry totals = %d/%d, want 300/300", entry.DebitTotal, entry.CreditTotal)
+	}
+
+	if entry.Description != "Merchant Guild defaulted on remainder" {
+		t.Fatalf("entry description = %q, want custom description", entry.Description)
+	}
+
+	quests, err := ListQuests(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list quests: %v", err)
+	}
+
+	if quests[0].Status != service.QuestStatusDefaulted {
+		t.Fatalf("quest status = %q, want defaulted", quests[0].Status)
+	}
+}
+
+func TestWriteOffQuestNotCompleted(t *testing.T) {
+	databasePath := initTestDB(t)
+
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Offered Only Quest",
+		PromisedBaseReward: 100,
+		Status:             "offered",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	_, err = WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+		QuestID: quest.ID,
+		Date:    "2026-03-20",
+	})
+	if err == nil {
+		t.Fatal("expected error writing off an offered quest")
+	}
+
+	if !strings.Contains(err.Error(), "cannot be written off") {
+		t.Fatalf("error = %q, want cannot be written off", err)
+	}
+}
+
+func TestWriteOffQuestFullyPaid(t *testing.T) {
+	databasePath := initTestDB(t)
+
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Fully Paid Quest",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+		QuestID: quest.ID,
+		Amount:  500,
+		Date:    "2026-03-12",
+	})
+	if err != nil {
+		t.Fatalf("collect full payment: %v", err)
+	}
+
+	_, err = WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+		QuestID: quest.ID,
+		Date:    "2026-03-25",
+	})
+	if err == nil {
+		t.Fatal("expected error writing off a fully paid quest")
+	}
+
+	if !strings.Contains(err.Error(), "cannot be written off") {
+		t.Fatalf("error = %q, want cannot be written off", err)
+	}
+}

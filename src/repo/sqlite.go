@@ -834,6 +834,73 @@ func setAccountActive(ctx context.Context, databasePath string, code string, act
 	return nil
 }
 
+// ErrAccountHasPostings is returned when an attempt is made to delete an
+// account that has journal line postings referencing it.
+var ErrAccountHasPostings = errors.New("account has journal postings and cannot be deleted")
+
+// ErrAccountNotFound is returned when an account lookup by code finds no match.
+var ErrAccountNotFound = errors.New("account not found")
+
+// DeleteAccount deletes an account identified by code, but only if no
+// journal_lines reference it. Returns ErrAccountHasPostings if the account
+// has any postings, and ErrAccountNotFound if the code does not exist.
+func DeleteAccount(ctx context.Context, databasePath string, code string) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return fmt.Errorf("account code is required")
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// Look up the account by code.
+	var accountID string
+	if err := db.QueryRowContext(ctx,
+		"SELECT id FROM accounts WHERE code = ?", code,
+	).Scan(&accountID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("account code %q does not exist: %w", code, ErrAccountNotFound)
+		}
+		return fmt.Errorf("query account by code: %w", err)
+	}
+
+	// Check if any journal lines reference this account.
+	var postingCount int
+	if err := db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM journal_lines WHERE account_id = ?", accountID,
+	).Scan(&postingCount); err != nil {
+		return fmt.Errorf("count account postings: %w", err)
+	}
+
+	if postingCount > 0 {
+		return ErrAccountHasPostings
+	}
+
+	// No postings — safe to delete.
+	result, err := db.ExecContext(ctx, "DELETE FROM accounts WHERE id = ?", accountID)
+	if err != nil {
+		return fmt.Errorf("delete account: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check delete result: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("account code %q was not deleted", code)
+	}
+
+	return nil
+}
+
 // ErrEntryNotReversible is returned when a reversal is attempted on an entry
 // that is not in 'posted' status (e.g., it is a draft or already reversed).
 var ErrEntryNotReversible = fmt.Errorf("only posted journal entries can be reversed")
