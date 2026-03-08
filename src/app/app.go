@@ -262,8 +262,12 @@ func (a *Application) runReport(ctx context.Context, args []string) error {
 		return report.HandleTrialBalance(ctx, hctx)
 	case "quest-receivables":
 		return report.HandleQuestReceivables(ctx, hctx)
+	case "promised-quests":
+		return report.HandlePromisedQuests(ctx, hctx)
 	case "loot-summary":
 		return report.HandleLootSummary(ctx, hctx)
+	case "writeoff-candidates":
+		return report.HandleWriteOffCandidates(ctx, hctx, args[1:])
 	default:
 		return fmt.Errorf("unknown report subcommand %q\n\n%s", args[0], usageText)
 	}
@@ -302,6 +306,8 @@ Usage:
   lootsheet account ledger --code CODE
   lootsheet report trial-balance
   lootsheet report quest-receivables
+  lootsheet report promised-quests
   lootsheet report loot-summary
+  lootsheet report writeoff-candidates [--as-of YYYY-MM-DD] [--min-age-days N]
   lootsheet help
 `

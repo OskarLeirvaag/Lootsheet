@@ -68,9 +68,9 @@
 - [x] Trial balance
 - [x] General ledger report
 - [x] Open quest receivables report
-- [ ] Promised-but-unearned quest report
+- [x] Promised-but-unearned quest report
 - [x] Unrealized loot summary
-- [ ] Write-off candidates
+- [x] Write-off candidates
 
 ## Quality
 
