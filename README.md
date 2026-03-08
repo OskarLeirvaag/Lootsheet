@@ -14,9 +14,11 @@ Implemented so far:
 - `main.go -> src/app -> src/config` application bootstrap
 - local config loading with environment variable overrides
 - core enum definitions for accounts, journal entries, quests, and loot
-- embedded setup files for SQLite schema and default account seeds
-- CLI commands for `init` and `account list`
+- embedded setup files for ordered init migrations and default account seeds
+- CLI commands for `db status`, `init`, `account list`, and `journal post`
 - first-time SQLite initialization that uses setup assets once and then keeps SQLite as the source of truth
+- applied init migrations recorded inside SQLite for later inspection
+- journal posting with balance validation before persistence
 - structured application logging with OTel-backed instrumentation and text levels `DBG`, `INFO`, `WARN`, `ERR`
 
 The first implementation target is:
@@ -184,10 +186,11 @@ Environment overrides:
 
 LootSheet stores init-time setup assets in:
 
-- [schema.sql](/home/raknoel/Projects/Private/Lootsheet/src/config/setup/schema.sql)
+- [001_init.sql](/home/raknoel/Projects/Private/Lootsheet/src/config/setup/migrations/001_init.sql)
 - [seed_accounts.json](/home/raknoel/Projects/Private/Lootsheet/src/config/setup/seed_accounts.json)
 
 Those files are used only by `lootsheet init` when bootstrapping a fresh SQLite database.
+The applied init migrations are also recorded in SQLite in `schema_migrations`.
 
 After initialization:
 
@@ -199,8 +202,10 @@ After initialization:
 
 Current commands:
 
+- `lootsheet db status`
 - `lootsheet init`
 - `lootsheet account list`
+- `lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]`
 
 ## Accounting Examples
 

@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLoadInitAssets(t *testing.T) {
 	assets, err := LoadInitAssets()
@@ -8,8 +11,24 @@ func TestLoadInitAssets(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	if assets.SchemaSQL == "" {
-		t.Fatal("schema SQL must not be empty")
+	if len(assets.Migrations) == 0 {
+		t.Fatal("init migrations must not be empty")
+	}
+
+	if assets.Migrations[0].Version != "1" {
+		t.Fatalf("first migration version = %q, want 1", assets.Migrations[0].Version)
+	}
+
+	if assets.Migrations[0].SQL == "" {
+		t.Fatal("first migration SQL must not be empty")
+	}
+
+	if !strings.Contains(assets.Migrations[0].SQL, "CREATE TABLE schema_migrations") {
+		t.Fatal("first migration must create schema_migrations")
+	}
+
+	if assets.SchemaVersion != "1" {
+		t.Fatalf("schema version = %q, want 1", assets.SchemaVersion)
 	}
 
 	if len(assets.Accounts) != 16 {

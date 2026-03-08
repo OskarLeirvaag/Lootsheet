@@ -1,5 +1,15 @@
+.PHONY: build fmt test vet lint check
+
+APP := lootsheet
+
+build:
+	go build -o $(APP) .
+
 fmt:
 	go fmt ./...
+
+test:
+	go test ./...
 
 vet:
 	go vet ./...
@@ -7,4 +17,4 @@ vet:
 lint:
 	golangci-lint run
 
-check: fmt vet lint
+check: fmt test vet lint

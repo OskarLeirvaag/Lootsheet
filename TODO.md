@@ -14,7 +14,7 @@
   - [x] loot status
 - [x] Write the first SQLite schema.
 - [x] Seed a default chart of accounts for a D&D party.
-- [ ] Implement journal balancing validation.
+- [x] Implement journal balancing validation.
 - [ ] Implement the rule that posted entries cannot be edited or deleted.
 - [ ] Expand structured logging configuration beyond the default OTel-backed text logger if needed.
 
@@ -22,10 +22,11 @@
 
 - [x] Build CLI commands for:
   - [x] database init
+  - [x] database status
   - [x] list accounts
   - [ ] create account
   - [ ] rename account
-  - [ ] post journal entry
+  - [x] post journal entry
   - [ ] reverse journal entry
   - [ ] create quest
   - [ ] mark quest completed
@@ -72,16 +73,31 @@
 
 ## Quality
 
-- [ ] Add a `Makefile` or equivalent development entrypoints.
+- [x] Add a `Makefile` or equivalent development entrypoints.
 - [ ] Add `golangci-lint` configuration.
 - [ ] Run `go fmt ./...` as a standard check.
 - [ ] Run `go vet ./...` as a standard check.
 - [ ] Run `golangci-lint run` as a standard check.
-- [ ] Add unit tests for journal balancing.
+- [x] Add unit tests for journal balancing.
 - [ ] Add tests for reversal and correction flows.
 - [ ] Add tests for quest completion and collection flows.
 - [ ] Add tests for loot appraisal recognition and sale flows.
 - [ ] Add fixtures with a sample campaign ledger.
+- [ ] Add `testapp.sh` end-to-end smoke coverage for installed-binary style runs in a temporary workspace.
+
+## Packaging and Longevity
+
+- [ ] Define supported release targets for Linux amd64/arm64 and macOS amd64/arm64.
+- [ ] Decide the first release installation format:
+  - [ ] direct binary
+  - [ ] archive bundle
+  - [ ] optional Homebrew later
+- [ ] Add full upgrade migration execution beyond init-time migration tracking.
+- [ ] Add startup detection for uninitialized, current, upgradeable, foreign, and damaged databases.
+- [ ] Add backup creation before risky migration or repair flows.
+- [ ] Define stable long-term paths for config, database, backups, and optional exports.
+- [ ] Document upgrade and recovery workflow for existing local databases.
+- [ ] Evaluate Windows support later after CLI/TUI and packaging are stable on Linux and macOS.
 
 ## Later
 

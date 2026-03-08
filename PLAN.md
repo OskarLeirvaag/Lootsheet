@@ -48,11 +48,13 @@ Deliverables:
 - `lootsheet journal`
 - `lootsheet quest`
 - `lootsheet loot`
+- `testapp.sh` smoke script that creates a temporary test workspace, initializes a test database, runs a representative CLI scenario, and verifies expected behavior and logs so an agent can execute it end to end
 
 Exit criteria:
 - a user can initialize a local database
 - a user can post balanced journal entries from the CLI
 - a user can inspect accounts and registers from the CLI
+- an agent can run `testapp.sh` locally to validate the expected CLI flow and log output against a temporary database
 
 ## Phase 3: TUI Shell
 
@@ -120,6 +122,51 @@ Deliverables:
 
 Exit criteria:
 - the app is comfortable for weekly campaign use
+
+## Phase 7: Packaging and Longevity
+
+Goal:
+- make LootSheet installable on real Linux and macOS systems and keep local data safe across upgrades over long-term use
+
+Deliverables:
+- release build targets for Linux and macOS first:
+  - linux amd64
+  - linux arm64
+  - darwin amd64
+  - darwin arm64
+- Windows build target later if the SQLite, terminal, and packaging story remains clean enough
+- installation documentation for:
+  - direct binary install into a user-visible path
+  - archive-based release installation
+  - Homebrew formula or tap later if worth the maintenance
+- versioned SQLite migrations with explicit schema version checks
+- startup behavior that clearly distinguishes:
+  - first-time init
+  - normal open of an existing database
+  - upgrade requiring migration
+  - damaged or foreign database detection
+- backup and restore workflow suitable for local-first long-term use
+- `testapp.sh` coverage extended to validate installed-binary behavior against a temporary workspace
+- release checklist covering build, smoke test, migration safety, and packaging verification
+
+Exit criteria:
+- a user can install LootSheet on Linux or macOS without editing source files
+- a user can upgrade without manually moving config or database files
+- schema upgrades preserve existing data or fail with a clear recovery path
+- the app stores config, database, backups, and logs in predictable per-user locations
+- an agent can validate a release candidate with the smoke script against a temporary install/test workspace
+
+## Runtime Model
+
+The intended long-term runtime behavior should be:
+
+- one local binary, no daemon, no background service
+- one primary SQLite database per user-selected workspace or default per-user data directory
+- config stored separately from accounting data
+- backups created before risky migration or repair flows
+- forward-only migrations with explicit schema version tracking
+- human-readable logging to stderr by default, with future optional log-file support if needed
+- graceful handling of app restarts, terminal closure, and interrupted commands without corrupting posted data
 
 ## Non-Goals for v1
 

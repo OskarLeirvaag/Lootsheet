@@ -68,10 +68,14 @@ func (a *Application) Run(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "help", "-h", "--help":
 		return a.printUsage()
+	case "db":
+		return a.runDatabase(ctx, args[1:])
 	case "init":
 		return a.runInit(ctx)
 	case "account":
 		return a.runAccount(ctx, args[1:])
+	case "journal":
+		return a.runJournal(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", args[0], usageText)
 	}
@@ -177,7 +181,9 @@ func (a *Application) printUsage() error {
 const usageText = `LootSheet CLI
 
 Usage:
+  lootsheet db status
   lootsheet init
   lootsheet account list
+  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
   lootsheet help
 `
