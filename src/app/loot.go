@@ -4,12 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/service"
 	"io"
 	"log/slog"
-	"strconv"
-	"strings"
-
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
 )
 
 func (a *Application) runLoot(ctx context.Context, args []string) error {
@@ -132,7 +130,7 @@ func (a *Application) runLootAppraise(ctx context.Context, args []string) error 
 		return fmt.Errorf("--value is required\n\n%s", lootAppraiseUsageText)
 	}
 
-	value, err := strconv.ParseInt(strings.TrimSpace(valueStr), 10, 64)
+	value, err := service.ParseAmount(valueStr)
 	if err != nil {
 		return fmt.Errorf("invalid value %q: %w\n\n%s", valueStr, err, lootAppraiseUsageText)
 	}
@@ -160,10 +158,10 @@ func (a *Application) runLootAppraise(ctx context.Context, args []string) error 
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Appraised loot item %s\nAppraisal ID: %s\nValue: %d\nDate: %s\n",
+		"Appraised loot item %s\nAppraisal ID: %s\nValue: %s\nDate: %s\n",
 		id,
 		result.ID,
-		result.AppraisedValue,
+		service.FormatAmount(result.AppraisedValue),
 		result.AppraisedAt,
 	); err != nil {
 		return fmt.Errorf("write loot appraise output: %w", err)
@@ -212,12 +210,12 @@ func (a *Application) runLootRecognize(ctx context.Context, args []string) error
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Recognized loot appraisal as journal entry #%d\nDate: %s\nDescription: %s\nDebits: %d\nCredits: %d\n",
+		"Recognized loot appraisal as journal entry #%d\nDate: %s\nDescription: %s\nDebits: %s\nCredits: %s\n",
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		result.DebitTotal,
-		result.CreditTotal,
+		service.FormatAmount(result.DebitTotal),
+		service.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write loot recognize output: %w", err)
 	}
@@ -247,7 +245,7 @@ func (a *Application) runLootSell(ctx context.Context, args []string) error {
 		return fmt.Errorf("--amount is required\n\n%s", lootSellUsageText)
 	}
 
-	amount, err := strconv.ParseInt(strings.TrimSpace(amountStr), 10, 64)
+	amount, err := service.ParseAmount(amountStr)
 	if err != nil {
 		return fmt.Errorf("invalid amount %q: %w\n\n%s", amountStr, err, lootSellUsageText)
 	}
@@ -276,13 +274,13 @@ func (a *Application) runLootSell(ctx context.Context, args []string) error {
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Sold loot item as journal entry #%d\nDate: %s\nDescription: %s\nAmount: %d\nDebits: %d\nCredits: %d\n",
+		"Sold loot item as journal entry #%d\nDate: %s\nDescription: %s\nAmount: %s\nDebits: %s\nCredits: %s\n",
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		amount,
-		result.DebitTotal,
-		result.CreditTotal,
+		service.FormatAmount(amount),
+		service.FormatAmount(result.DebitTotal),
+		service.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write loot sell output: %w", err)
 	}

@@ -4,12 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/service"
 	"io"
 	"log/slog"
-	"strconv"
-	"strings"
-
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
 )
 
 func (a *Application) runQuest(ctx context.Context, args []string) error {
@@ -35,21 +33,31 @@ func (a *Application) runQuest(ctx context.Context, args []string) error {
 
 func (a *Application) runQuestCreate(ctx context.Context, args []string) error {
 	var title, patron, description, bonus, status, acceptedOn string
-	var reward, advance int64
+	var rewardStr, advanceStr string
 
 	flagSet := flag.NewFlagSet("quest create", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 	flagSet.StringVar(&title, "title", "", "quest title (required)")
 	flagSet.StringVar(&patron, "patron", "", "quest patron")
 	flagSet.StringVar(&description, "description", "", "quest description")
-	flagSet.Int64Var(&reward, "reward", 0, "promised base reward")
-	flagSet.Int64Var(&advance, "advance", 0, "partial advance received")
+	flagSet.StringVar(&rewardStr, "reward", "0", "promised base reward")
+	flagSet.StringVar(&advanceStr, "advance", "0", "partial advance received")
 	flagSet.StringVar(&bonus, "bonus", "", "bonus conditions")
 	flagSet.StringVar(&status, "status", "offered", "initial status (offered or accepted)")
 	flagSet.StringVar(&acceptedOn, "accepted-on", "", "accepted date (required if status=accepted)")
 
 	if err := flagSet.Parse(args); err != nil {
 		return fmt.Errorf("%s\n\n%s", err, questCreateUsageText)
+	}
+
+	reward, err := service.ParseAmount(rewardStr)
+	if err != nil {
+		return fmt.Errorf("invalid reward %q: %w\n\n%s", rewardStr, err, questCreateUsageText)
+	}
+
+	advance, err := service.ParseAmount(advanceStr)
+	if err != nil {
+		return fmt.Errorf("invalid advance %q: %w\n\n%s", advanceStr, err, questCreateUsageText)
 	}
 
 	a.log.logger.InfoContext(ctx, "creating quest",
@@ -77,11 +85,11 @@ func (a *Application) runQuestCreate(ctx context.Context, args []string) error {
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Created quest %s\nTitle: %s\nStatus: %s\nReward: %d\n",
+		"Created quest %s\nTitle: %s\nStatus: %s\nReward: %s\n",
 		result.ID,
 		result.Title,
 		string(result.Status),
-		result.PromisedBaseReward,
+		service.FormatAmount(result.PromisedBaseReward),
 	); err != nil {
 		return fmt.Errorf("write quest output: %w", err)
 	}
@@ -98,16 +106,16 @@ func (a *Application) runQuestList(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := fmt.Fprintln(a.stdout, "STATUS           REWARD  TITLE"); err != nil {
+	if _, err := fmt.Fprintln(a.stdout, "STATUS           REWARD                  TITLE"); err != nil {
 		return fmt.Errorf("write quests header: %w", err)
 	}
 
 	for _, quest := range quests {
 		if _, err := fmt.Fprintf(
 			a.stdout,
-			"%-16s %6d  %s\n",
+			"%-16s %-22s  %s\n",
 			string(quest.Status),
-			quest.PromisedBaseReward,
+			service.FormatAmount(quest.PromisedBaseReward),
 			quest.Title,
 		); err != nil {
 			return fmt.Errorf("write quest row: %w", err)
@@ -220,7 +228,7 @@ func (a *Application) runQuestCollect(ctx context.Context, args []string) error 
 		return fmt.Errorf("--amount is required\n\n%s", questCollectUsageText)
 	}
 
-	amount, err := strconv.ParseInt(strings.TrimSpace(amountStr), 10, 64)
+	amount, err := service.ParseAmount(amountStr)
 	if err != nil {
 		return fmt.Errorf("invalid amount %q: %w\n\n%s", amountStr, err, questCollectUsageText)
 	}
@@ -254,13 +262,13 @@ func (a *Application) runQuestCollect(ctx context.Context, args []string) error 
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Collected quest payment as journal entry #%d\nDate: %s\nDescription: %s\nAmount: %d\nDebits: %d\nCredits: %d\n",
+		"Collected quest payment as journal entry #%d\nDate: %s\nDescription: %s\nAmount: %s\nDebits: %s\nCredits: %s\n",
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		amount,
-		result.DebitTotal,
-		result.CreditTotal,
+		service.FormatAmount(amount),
+		service.FormatAmount(result.DebitTotal),
+		service.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write collect output: %w", err)
 	}

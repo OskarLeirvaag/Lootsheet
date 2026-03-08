@@ -75,7 +75,7 @@ func TestRunAccountLedgerShowsTransactions(t *testing.T) {
 		t.Fatalf("ledger output missing entry 2: %q", output)
 	}
 
-	if !strings.Contains(output, "Balance: 75") {
+	if !strings.Contains(output, "Balance: 7 SP 5 CP") {
 		t.Fatalf("ledger output missing final balance: %q", output)
 	}
 }
