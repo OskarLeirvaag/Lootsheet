@@ -17,7 +17,7 @@
 - [x] Implement journal balancing validation.
 - [x] Replace the external `sqlite3` command dependency with direct SQLite access from the app binary.
 - [x] Implement the rule that posted entries cannot be edited or deleted.
-- [ ] Expand structured logging configuration beyond the default OTel-backed text logger if needed.
+- [ ] Expand structured logging configuration beyond the default slog text logger if needed.
 
 ## Next
 

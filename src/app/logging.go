@@ -7,16 +7,11 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-
-	"go.opentelemetry.io/contrib/bridges/otelslog"
-	logglobal "go.opentelemetry.io/otel/log/global"
-	sdklog "go.opentelemetry.io/otel/sdk/log"
 )
 
 const (
-	defaultLogLevel   = "INFO"
-	defaultLoggerName = "github.com/OskarLeirvaag/Lootsheet"
-	logLevelEnvVar    = "LOOTSHEET_LOG_LEVEL"
+	defaultLogLevel = "INFO"
+	logLevelEnvVar  = "LOOTSHEET_LOG_LEVEL"
 )
 
 type appLogger struct {
@@ -35,23 +30,20 @@ func newAppLogger(output io.Writer) (*appLogger, error) {
 	}
 
 	level := parseLogLevel(levelText)
-	provider := sdklog.NewLoggerProvider()
-	logglobal.SetLoggerProvider(provider)
 
-	consoleHandler := slog.NewTextHandler(output, &slog.HandlerOptions{
+	handler := slog.NewTextHandler(output, &slog.HandlerOptions{
 		Level:       level,
 		ReplaceAttr: replaceLogAttr,
 	})
-	otelHandler := otelslog.NewHandler(defaultLoggerName, otelslog.WithLoggerProvider(provider))
 
-	logger := slog.New(newMultiHandler(consoleHandler, otelHandler)).With(
+	logger := slog.New(handler).With(
 		slog.String("app", "lootsheet"),
 	)
 
 	return &appLogger{
 		logger: logger,
-		shutdown: func(ctx context.Context) error {
-			return provider.Shutdown(ctx)
+		shutdown: func(_ context.Context) error {
+			return nil
 		},
 	}, nil
 }
@@ -105,63 +97,4 @@ func formatLevel(value slog.Value) string {
 	default:
 		return value.String()
 	}
-}
-
-type multiHandler struct {
-	handlers []slog.Handler
-}
-
-func newMultiHandler(handlers ...slog.Handler) slog.Handler {
-	filtered := make([]slog.Handler, 0, len(handlers))
-	for _, handler := range handlers {
-		if handler != nil {
-			filtered = append(filtered, handler)
-		}
-	}
-
-	return &multiHandler{handlers: filtered}
-}
-
-func (h *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	for _, handler := range h.handlers {
-		if handler.Enabled(ctx, level) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (h *multiHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:gocritic // slog.Handler interface requires value receiver for Record
-	var firstErr error
-
-	for _, handler := range h.handlers {
-		if !handler.Enabled(ctx, record.Level) {
-			continue
-		}
-
-		if err := handler.Handle(ctx, record.Clone()); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-
-	return firstErr
-}
-
-func (h *multiHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	handlers := make([]slog.Handler, 0, len(h.handlers))
-	for _, handler := range h.handlers {
-		handlers = append(handlers, handler.WithAttrs(attrs))
-	}
-
-	return &multiHandler{handlers: handlers}
-}
-
-func (h *multiHandler) WithGroup(name string) slog.Handler {
-	handlers := make([]slog.Handler, 0, len(h.handlers))
-	for _, handler := range h.handlers {
-		handlers = append(handlers, handler.WithGroup(name))
-	}
-
-	return &multiHandler{handlers: handlers}
 }
