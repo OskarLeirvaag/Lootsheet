@@ -133,8 +133,8 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.moveSelectionTo(1 << 30) {
 			return handleResult{Redraw: true}
 		}
-	case ActionPrimary:
-		if s.openPrimaryAction() {
+	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff:
+		if s.openAction(action) {
 			return handleResult{Redraw: true}
 		}
 	}
@@ -261,20 +261,28 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 		help = joinHelp(help, keymap.HelpTextFor(ActionMoveDown))
 	}
 
-	if label := s.currentPrimaryActionLabel(); label != "" {
-		help = joinHelp(help, label)
+	if labels := s.currentActionLabels(); labels != "" {
+		help = joinHelp(help, labels)
 	}
 
 	return help
 }
 
-func (s *Shell) currentPrimaryActionLabel() string {
+func (s *Shell) currentActionLabels() string {
 	item := s.currentSelectedItem(s.Section)
-	if item == nil || item.PrimaryAction == nil {
+	if item == nil || len(item.Actions) == 0 {
 		return ""
 	}
 
-	return item.PrimaryAction.Label
+	labels := make([]string, 0, len(item.Actions))
+	for _, action := range item.Actions {
+		if strings.TrimSpace(action.Label) == "" {
+			continue
+		}
+		labels = append(labels, action.Label)
+	}
+
+	return strings.Join(labels, "  ")
 }
 
 func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, section Section, data *ListScreenData) {
@@ -499,18 +507,26 @@ func (s *Shell) moveSelectionTo(index int) bool {
 	return true
 }
 
-func (s *Shell) openPrimaryAction() bool {
+func (s *Shell) openAction(trigger Action) bool {
 	item := s.currentSelectedItem(s.Section)
-	if item == nil || item.PrimaryAction == nil {
+	if item == nil || len(item.Actions) == 0 {
 		return false
 	}
 
-	s.confirm = &confirmState{
-		Section: s.Section,
-		ItemKey: item.Key,
-		Action:  *item.PrimaryAction,
+	for _, action := range item.Actions {
+		if action.Trigger != trigger {
+			continue
+		}
+
+		s.confirm = &confirmState{
+			Section: s.Section,
+			ItemKey: item.Key,
+			Action:  action,
+		}
+		return true
 	}
-	return true
+
+	return false
 }
 
 func (s *Shell) currentSelectedItem(section Section) *ListItemData {
@@ -622,10 +638,10 @@ func listItemIndexByKey(items []ListItemData, key string) int {
 func renderCompactShell(buffer *Buffer, bounds Rect, theme *Theme, keymap KeyMap, shell *Shell) {
 	panel := bounds.Inset(1)
 	section := SectionDashboard
-	actionLabel := ""
+	actionLabels := ""
 	if shell != nil {
 		section = shell.Section
-		actionLabel = shell.currentPrimaryActionLabel()
+		actionLabels = shell.currentActionLabels()
 	}
 
 	lines := []string{
@@ -634,8 +650,8 @@ func renderCompactShell(buffer *Buffer, bounds Rect, theme *Theme, keymap KeyMap
 		"Resize and the boxed layout will redraw cleanly.",
 		keymap.HelpTextFor(ActionNextSection, ActionShowDashboard, ActionQuit, ActionRedraw),
 	}
-	if actionLabel != "" {
-		lines = append(lines, actionLabel)
+	if actionLabels != "" {
+		lines = append(lines, actionLabels)
 	}
 
 	DrawPanel(buffer, panel, theme, Panel{

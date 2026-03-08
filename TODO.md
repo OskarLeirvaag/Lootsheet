@@ -62,8 +62,8 @@
 - [x] Add keyboard navigation and contextual help.
 - [x] Add shared list selection and detail panes.
 - [x] Add the first interactive TUI workflow with account activate/deactivate confirmation.
-- [ ] Add journal reversal and drill-down workflows in the TUI.
-- [ ] Add quest collection/write-off workflows in the TUI.
+- [x] Add journal reversal and drill-down workflows in the TUI.
+- [x] Add quest collection/write-off workflows in the TUI.
 - [ ] Add loot recognition and sale workflows in the TUI.
 - [ ] Add optional mouse support.
 

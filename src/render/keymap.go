@@ -27,7 +27,10 @@ const (
 	ActionPageDown      Action = "page_down"
 	ActionMoveTop       Action = "move_top"
 	ActionMoveBottom    Action = "move_bottom"
-	ActionPrimary       Action = "primary"
+	ActionToggle        Action = "toggle"
+	ActionReverse       Action = "reverse"
+	ActionCollect       Action = "collect"
+	ActionWriteOff      Action = "write_off"
 	ActionConfirm       Action = "confirm"
 )
 
@@ -134,8 +137,20 @@ func DefaultKeyMap() KeyMap {
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
 			},
 			{
-				Action: ActionPrimary,
+				Action: ActionToggle,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 't'},
+			},
+			{
+				Action: ActionReverse,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'r'},
+			},
+			{
+				Action: ActionCollect,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'c'},
+			},
+			{
+				Action: ActionWriteOff,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'w'},
 			},
 			{
 				Action: ActionConfirm,

@@ -121,7 +121,7 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 	}
 }
 
-func TestShellPrimaryActionOpensConfirmAndEmitsCommand(t *testing.T) {
+func TestShellActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),
 		Accounts: ListScreenData{
@@ -131,12 +131,13 @@ func TestShellPrimaryActionOpensConfirmAndEmitsCommand(t *testing.T) {
 					Row:         "1000 asset active Party Cash",
 					DetailTitle: "Account 1000",
 					DetailLines: []string{"Name: Party Cash"},
-					PrimaryAction: &ItemActionData{
+					Actions: []ItemActionData{{
+						Trigger:      ActionToggle,
 						ID:           "account.deactivate",
 						Label:        "t deactivate",
 						ConfirmTitle: "Deactivate account 1000?",
 						ConfirmLines: []string{"Party Cash"},
-					},
+					}},
 				},
 			},
 		},
@@ -144,7 +145,7 @@ func TestShellPrimaryActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowAccounts)
 
-	result := shell.HandleAction(ActionPrimary)
+	result := shell.HandleAction(ActionToggle)
 	if !result.Redraw {
 		t.Fatal("expected primary action to trigger redraw")
 	}
@@ -160,7 +161,7 @@ func TestShellPrimaryActionOpensConfirmAndEmitsCommand(t *testing.T) {
 		t.Fatal("expected confirm modal to close on quit")
 	}
 
-	shell.HandleAction(ActionPrimary)
+	shell.HandleAction(ActionToggle)
 	result = shell.HandleAction(ActionConfirm)
 	if result.Command == nil {
 		t.Fatal("expected confirm action to emit command")
@@ -170,6 +171,105 @@ func TestShellPrimaryActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	}
 	if result.Command.ItemKey != "1000" {
 		t.Fatalf("command item key = %q, want 1000", result.Command.ItemKey)
+	}
+}
+
+func TestShellJournalReverseUsesOnlyReverseAction(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Journal: ListScreenData{
+			Items: []ListItemData{
+				{
+					Key:         "entry-1",
+					Row:         "#1    2026-03-08 posted   Restock arrows",
+					DetailTitle: "Entry #1",
+					DetailLines: []string{"Date: 2026-03-08", "Lines:", "5100 Adventuring Supplies DR 25 CP"},
+					Actions: []ItemActionData{{
+						Trigger:      ActionReverse,
+						ID:           "journal.reverse",
+						Label:        "r reverse",
+						ConfirmTitle: "Reverse entry #1?",
+						ConfirmLines: []string{"Restock arrows"},
+					}},
+				},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionShowJournal)
+
+	if result := shell.HandleAction(ActionToggle); result.Redraw || shell.confirm != nil {
+		t.Fatalf("toggle action should not open journal reverse modal: %#v", result)
+	}
+
+	result := shell.HandleAction(ActionReverse)
+	if !result.Redraw {
+		t.Fatal("expected reverse action to trigger redraw")
+	}
+	if shell.confirm == nil {
+		t.Fatal("expected confirm modal to open for journal reverse")
+	}
+
+	result = shell.HandleAction(ActionConfirm)
+	if result.Command == nil {
+		t.Fatal("expected journal confirm to emit command")
+	}
+	if result.Command.ID != "journal.reverse" {
+		t.Fatalf("command id = %q, want journal.reverse", result.Command.ID)
+	}
+	if result.Command.ItemKey != "entry-1" {
+		t.Fatalf("command item key = %q, want entry-1", result.Command.ItemKey)
+	}
+}
+
+func TestShellQuestActionsShowCombinedFooterAndMatchTriggers(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Quests: ListScreenData{
+			Items: []ListItemData{
+				{
+					Key:         "quest-1",
+					Row:         "25 GP collectible 25 GP due Goblin Bounty (Mayor Rowan)",
+					DetailTitle: "Goblin Bounty",
+					DetailLines: []string{"Outstanding: 25 GP", "Collected so far: 0 CP"},
+					Actions: []ItemActionData{
+						{
+							Trigger:      ActionCollect,
+							ID:           "quest.collect_full",
+							Label:        "c collect",
+							ConfirmTitle: "Collect full payment?",
+							ConfirmLines: []string{"Outstanding: 25 GP"},
+						},
+						{
+							Trigger:      ActionWriteOff,
+							ID:           "quest.writeoff_full",
+							Label:        "w write off",
+							ConfirmTitle: "Write off quest?",
+							ConfirmLines: []string{"Outstanding: 25 GP"},
+						},
+					},
+				},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionShowQuests)
+
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "c collect") || !strings.Contains(help, "w write off") {
+		t.Fatalf("quest footer help = %q, want collect and write off labels", help)
+	}
+
+	if result := shell.HandleAction(ActionToggle); result.Redraw || shell.confirm != nil {
+		t.Fatalf("toggle action should not open quest modal: %#v", result)
+	}
+
+	if result := shell.HandleAction(ActionCollect); !result.Redraw || shell.confirm == nil || shell.confirm.Action.ID != "quest.collect_full" {
+		t.Fatalf("collect action did not open collect modal: %#v %#v", result, shell.confirm)
+	}
+	shell.HandleAction(ActionQuit)
+
+	if result := shell.HandleAction(ActionWriteOff); !result.Redraw || shell.confirm == nil || shell.confirm.Action.ID != "quest.writeoff_full" {
+		t.Fatalf("write-off action did not open write-off modal: %#v %#v", result, shell.confirm)
 	}
 }
 

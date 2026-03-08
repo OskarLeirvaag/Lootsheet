@@ -137,7 +137,7 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 	screen := &scriptedScreen{
 		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
 		onInit: func(sim tcell.SimulationScreen) {
-			sim.SetSize(96, 28)
+			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRune, '2', tcell.ModNone)
@@ -236,10 +236,125 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 	}
 }
 
+func TestRunDispatchesJournalReverseAndKeepsOriginalSelection(t *testing.T) {
+	screen := &scriptedScreen{
+		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
+		onInit: func(sim tcell.SimulationScreen) {
+			sim.SetSize(120, 40)
+		},
+		afterFirstShow: func(sim tcell.SimulationScreen) {
+			sim.InjectKey(tcell.KeyRune, '3', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'r', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+		},
+	}
+
+	initial := testJournalShellData(false)
+	updated := testJournalShellData(true)
+	var got Command
+
+	if err := Run(context.Background(), &Options{
+		ScreenFactory: func() (Screen, error) {
+			return screen, nil
+		},
+		ShellLoader: func(context.Context) (ShellData, error) {
+			return initial, nil
+		},
+		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+			got = command
+			return updated, StatusMessage{
+				Level: StatusSuccess,
+				Text:  "Entry #1 reversed as entry #2.",
+			}, nil
+		},
+	}); err != nil {
+		t.Fatalf("run render app: %v", err)
+	}
+
+	if got.ID != "journal.reverse" {
+		t.Fatalf("command id = %q, want journal.reverse", got.ID)
+	}
+	if got.Section != SectionJournal {
+		t.Fatalf("command section = %v, want journal", got.Section)
+	}
+	if got.ItemKey != "entry-1" {
+		t.Fatalf("command item key = %q, want entry-1", got.ItemKey)
+	}
+
+	for _, token := range []string{
+		"Entry #1 reversed as entry #2.",
+		"#1    2026-03-08 reversed Restock arrows",
+		"Status: reversed",
+	} {
+		if !strings.Contains(screen.lastFrame, token) {
+			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
+		}
+	}
+}
+
+func TestRunDispatchesQuestCollectAndRefreshesSelection(t *testing.T) {
+	screen := &scriptedScreen{
+		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
+		onInit: func(sim tcell.SimulationScreen) {
+			sim.SetSize(120, 40)
+		},
+		afterFirstShow: func(sim tcell.SimulationScreen) {
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'c', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+		},
+	}
+
+	initial := testQuestShellData(false)
+	updated := testQuestShellData(true)
+	var got Command
+
+	if err := Run(context.Background(), &Options{
+		ScreenFactory: func() (Screen, error) {
+			return screen, nil
+		},
+		ShellLoader: func(context.Context) (ShellData, error) {
+			return initial, nil
+		},
+		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+			got = command
+			return updated, StatusMessage{
+				Level: StatusSuccess,
+				Text:  "Collected 25 GP for quest \"Goblin Bounty\" as entry #7.",
+			}, nil
+		},
+	}); err != nil {
+		t.Fatalf("run render app: %v", err)
+	}
+
+	if got.ID != "quest.collect_full" {
+		t.Fatalf("command id = %q, want quest.collect_full", got.ID)
+	}
+	if got.Section != SectionQuests {
+		t.Fatalf("command section = %v, want quests", got.Section)
+	}
+	if got.ItemKey != "quest-1" {
+		t.Fatalf("command item key = %q, want quest-1", got.ItemKey)
+	}
+
+	for _, token := range []string{
+		"Collected 25 GP for quest \"Goblin Bounty\" as entry #7.",
+		"Status: paid",
+		"Outstanding: 0 CP",
+	} {
+		if !strings.Contains(screen.lastFrame, token) {
+			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
+		}
+	}
+}
+
 func testAccountsShellData(active bool) ShellData {
 	status := "inactive"
 	summary := []string{"Accounts: 1 total", "Active: 0  Inactive: 1"}
 	action := &ItemActionData{
+		Trigger:      ActionToggle,
 		ID:           "account.activate",
 		Label:        "t activate",
 		ConfirmTitle: "Activate account 1000?",
@@ -249,6 +364,7 @@ func testAccountsShellData(active bool) ShellData {
 		status = "active"
 		summary = []string{"Accounts: 1 total", "Active: 1  Inactive: 0"}
 		action = &ItemActionData{
+			Trigger:      ActionToggle,
 			ID:           "account.deactivate",
 			Label:        "t deactivate",
 			ConfirmTitle: "Deactivate account 1000?",
@@ -270,11 +386,129 @@ func testAccountsShellData(active bool) ShellData {
 						"Name: Party Cash",
 						"Status: " + status,
 					},
-					PrimaryAction: action,
+					Actions: []ItemActionData{*action},
 				},
 			},
 		},
 	}
+}
+
+func testJournalShellData(reversed bool) ShellData {
+	status := "posted"
+	detailLines := []string{
+		"Date: 2026-03-08",
+		"Status: posted",
+		"Description: Restock arrows",
+		"",
+		"Lines:",
+		"5100 Adventuring Supplies DR 25 CP (Quiver refill)",
+		"1000 Party Cash CR 25 CP",
+	}
+	action := &ItemActionData{
+		Trigger:      ActionReverse,
+		ID:           "journal.reverse",
+		Label:        "r reverse",
+		ConfirmTitle: "Reverse entry #1?",
+		ConfirmLines: []string{"Restock arrows"},
+	}
+	if reversed {
+		status = "reversed"
+		detailLines = []string{
+			"Date: 2026-03-08",
+			"Status: reversed",
+			"Description: Restock arrows",
+			"Reversed by: entry #2",
+			"",
+			"Lines:",
+			"5100 Adventuring Supplies DR 25 CP (Quiver refill)",
+			"1000 Party Cash CR 25 CP",
+		}
+		action = nil
+	}
+
+	return ShellData{
+		Dashboard: DefaultDashboardData(),
+		Journal: ListScreenData{
+			HeaderLines:  []string{"Posted journal history from smoke.db.", "Select an entry to inspect it."},
+			SummaryLines: []string{"Entries: 2 total", "Posted: 1", "Reversal entries: 1"},
+			Items: []ListItemData{
+				{
+					Key:         "entry-1",
+					Row:         "#1    2026-03-08 " + status + " Restock arrows",
+					DetailTitle: "Entry #1",
+					DetailLines: detailLines,
+					Actions:     itemActions(action),
+				},
+			},
+		},
+	}
+}
+
+func testQuestShellData(collected bool) ShellData {
+	status := "collectible"
+	outstanding := "25 GP due"
+	detailLines := []string{
+		"Patron: Mayor Rowan",
+		"Status: collectible",
+		"Promised reward: 25 GP",
+		"Outstanding: 25 GP",
+		"Collected so far: 0 CP",
+		"Accounting state: collectible but unpaid",
+	}
+	actions := []ItemActionData{
+		{
+			Trigger:      ActionCollect,
+			ID:           "quest.collect_full",
+			Label:        "c collect",
+			ConfirmTitle: "Collect full payment for \"Goblin Bounty\"?",
+			ConfirmLines: []string{"Outstanding: 25 GP"},
+		},
+		{
+			Trigger:      ActionWriteOff,
+			ID:           "quest.writeoff_full",
+			Label:        "w write off",
+			ConfirmTitle: "Write off \"Goblin Bounty\"?",
+			ConfirmLines: []string{"Outstanding: 25 GP"},
+		},
+	}
+	if collected {
+		status = "paid"
+		outstanding = "-"
+		detailLines = []string{
+			"Patron: Mayor Rowan",
+			"Status: paid",
+			"Promised reward: 25 GP",
+			"Outstanding: 0 CP",
+			"Collected so far: 25 GP",
+			"Accounting state: fully collected",
+		}
+		actions = nil
+	}
+
+	return ShellData{
+		Dashboard: DefaultDashboardData(),
+		Quests: ListScreenData{
+			HeaderLines:  []string{"Quest register from smoke.db.", "Select a quest to inspect it."},
+			SummaryLines: []string{"Promised quests: 0", "Promised value: 0 CP", "Receivables: 1", "Outstanding: 25 GP"},
+			Items: []ListItemData{
+				{
+					Key:         "quest-1",
+					Row:         "25 GP        " + status + "    " + outstanding + " Goblin Bounty (Mayor Rowan)",
+					DetailTitle: "Goblin Bounty",
+					DetailLines: detailLines,
+					Actions:     actions,
+				},
+			},
+		},
+	}
+}
+
+func itemActions(action *ItemActionData) []ItemActionData {
+	if action == nil {
+		return nil
+	}
+
+	return []ItemActionData{*action}
 }
 
 func simulationPlainText(screen tcell.SimulationScreen) string {

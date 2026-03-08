@@ -89,7 +89,7 @@ Usage:
   lootsheet tui
 
 Opens the full-screen LootSheet TUI using tcell.
-The current slice is interactive but intentionally narrow: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, and the Accounts screen supports activate/deactivate through a confirmation modal. Journal, Quest, and Loot remain read-only in this slice.
+The current slice is interactive but intentionally narrow: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, and the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form. Loot remains read-only in this slice.
 
 Keys:
   Left/Right, Tab/Shift+Tab  move between top-level sections
@@ -97,6 +97,9 @@ Keys:
   Up/Down, j/k               move the selected row on list screens
   PgUp/PgDn, Home/End        jump through longer list screens
   t                          toggle the selected account active/inactive on the Accounts screen
+  r                          reverse the selected posted journal entry on the Journal screen
+  c                          collect the full outstanding balance for the selected quest on the Quest screen
+  w                          write off the full outstanding balance for the selected quest on the Quest screen
   Enter                      confirm the open modal
   Esc                        cancel the open modal, or quit when no modal is open
   q                          cancel the open modal, or quit when no modal is open

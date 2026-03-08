@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
@@ -19,7 +20,20 @@ import (
 const (
 	tuiCommandAccountActivate   = "account.activate"
 	tuiCommandAccountDeactivate = "account.deactivate"
+	tuiCommandJournalReverse    = "journal.reverse"
+	tuiCommandQuestCollectFull  = "quest.collect_full"
+	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
 )
+
+var tuiNow = time.Now
+
+type tuiQuestRow struct {
+	Record      quest.QuestRecord
+	TotalPaid   int64
+	Outstanding int64
+	Collectible bool
+	OffLedger   bool
+}
 
 func buildTUIShellData(ctx context.Context, databasePath string, assets config.InitAssets) (render.ShellData, error) {
 	status, err := ledger.GetDatabaseStatusWithAssets(ctx, databasePath, assets)
@@ -58,7 +72,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Journal: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Posted journal history from %s.", databaseName),
-				"Select an entry to inspect it. Corrections still happen by reversal or adjustment.",
+				"Select an entry to inspect it. `r` reverses the selected posted entry on its original date.",
 			},
 			EmptyLines: []string{
 				"No journal entries yet.",
@@ -68,11 +82,11 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Quests: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Quest register from %s.", databaseName),
-				"Select a quest to inspect it. Promised rewards stay off-ledger until earned.",
+				"Select a quest to inspect it. `c` collects the full balance and `w` writes off the full balance using today's date.",
 			},
 			EmptyLines: []string{
 				"No quests tracked yet.",
-				"Quest workflows stay read-only in this slice.",
+				"Quest actions appear when a quest has an outstanding collectible balance.",
 			},
 		},
 		Loot: render.ListScreenData{
@@ -110,7 +124,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		data.Journal.SummaryLines = summarizeJournal(journalSummary)
 	}
 
-	journalEntries, err := journal.ListEntries(ctx, databasePath)
+	journalEntries, err := journal.ListBrowseEntries(ctx, databasePath)
 	if err != nil {
 		if len(data.Journal.SummaryLines) == 0 {
 			data.Journal = unavailableSectionData("Journal unavailable.", err.Error())
@@ -132,12 +146,15 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	promisedQuests, err := report.GetPromisedQuests(ctx, databasePath)
+	var receivables []report.QuestReceivableRow
+	questSummaryAvailable := false
 	if err != nil {
 		data.Dashboard.QuestLines = unavailablePanelLines(err)
 		data.Quests = unavailableSectionData("Quest register unavailable.", err.Error())
 		panelErrors = append(panelErrors, "quests")
 	} else {
-		receivables, receivableErr := report.GetQuestReceivables(ctx, databasePath)
+		var receivableErr error
+		receivables, receivableErr = report.GetQuestReceivables(ctx, databasePath)
 		if receivableErr != nil {
 			data.Dashboard.QuestLines = unavailablePanelLines(receivableErr)
 			data.Quests = unavailableSectionData("Quest register unavailable.", receivableErr.Error())
@@ -145,19 +162,22 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		} else {
 			data.Dashboard.QuestLines = summarizeQuests(promisedQuests, receivables)
 			data.Quests.SummaryLines = summarizeQuests(promisedQuests, receivables)
+			questSummaryAvailable = true
 		}
 	}
 
-	quests, err := quest.ListQuests(ctx, databasePath)
-	if err != nil {
-		if len(data.Quests.SummaryLines) == 0 {
-			data.Quests = unavailableSectionData("Quest register unavailable.", err.Error())
+	if questSummaryAvailable {
+		questRows, questErr := loadTUIQuestRows(ctx, databasePath)
+		if questErr != nil {
+			if len(data.Quests.SummaryLines) == 0 {
+				data.Quests = unavailableSectionData("Quest register unavailable.", questErr.Error())
+			}
+			data.Quests.Items = nil
+			data.Quests.EmptyLines = unavailablePanelLines(questErr)
+			panelErrors = append(panelErrors, "quests")
+		} else {
+			data.Quests.Items = buildQuestItems(questRows, tuiToday())
 		}
-		data.Quests.Items = nil
-		data.Quests.EmptyLines = unavailablePanelLines(err)
-		panelErrors = append(panelErrors, "quests")
-	} else {
-		data.Quests.Items = buildQuestItems(quests)
 	}
 
 	lootRows, err := report.GetLootSummary(ctx, databasePath)
@@ -180,6 +200,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 
 func handleTUICommand(ctx context.Context, command render.Command, databasePath string, assets config.InitAssets) (render.ShellData, render.StatusMessage, error) {
 	var message render.StatusMessage
+	today := tuiToday()
 
 	switch command.ID {
 	case tuiCommandAccountActivate:
@@ -197,6 +218,81 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Account %s deactivated.", command.ItemKey),
+		}
+	case tuiCommandJournalReverse:
+		entries, err := journal.ListBrowseEntries(ctx, databasePath)
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		entry, ok := findBrowseEntry(entries, command.ItemKey)
+		if !ok {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("journal entry %q does not exist", command.ItemKey)
+		}
+
+		result, err := journal.ReverseJournalEntry(ctx, databasePath, command.ItemKey, entry.EntryDate, "")
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Entry #%d reversed as entry #%d.", entry.EntryNumber, result.EntryNumber),
+		}
+	case tuiCommandQuestCollectFull:
+		quests, err := loadTUIQuestRows(ctx, databasePath)
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		questRow, ok := findTUIQuestRow(quests, command.ItemKey)
+		if !ok {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q does not exist", command.ItemKey)
+		}
+		if !questRow.Collectible || questRow.Outstanding <= 0 {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q cannot be collected right now", command.ItemKey)
+		}
+
+		result, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+			QuestID:     command.ItemKey,
+			Amount:      questRow.Outstanding,
+			Date:        today,
+			Description: "",
+		})
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Collected %s for quest %q as entry #%d.", tools.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
+		}
+	case tuiCommandQuestWriteOffFull:
+		quests, err := loadTUIQuestRows(ctx, databasePath)
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		questRow, ok := findTUIQuestRow(quests, command.ItemKey)
+		if !ok {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q does not exist", command.ItemKey)
+		}
+		if !questRow.Collectible || questRow.Outstanding <= 0 {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q cannot be written off right now", command.ItemKey)
+		}
+
+		result, err := quest.WriteOffQuest(ctx, databasePath, quest.WriteOffQuestInput{
+			QuestID:     command.ItemKey,
+			Date:        today,
+			Description: "",
+		})
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", tools.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
 	default:
 		return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("unsupported TUI command %q", command.ID)
@@ -362,6 +458,7 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 	for _, record := range accounts {
 		status := "inactive"
 		action := &render.ItemActionData{
+			Trigger:      render.ActionToggle,
 			ID:           tuiCommandAccountActivate,
 			Label:        "t activate",
 			ConfirmTitle: fmt.Sprintf("Activate account %s?", record.Code),
@@ -373,6 +470,7 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 		if record.Active {
 			status = "active"
 			action = &render.ItemActionData{
+				Trigger:      render.ActionToggle,
 				ID:           tuiCommandAccountDeactivate,
 				Label:        "t deactivate",
 				ConfirmTitle: fmt.Sprintf("Deactivate account %s?", record.Code),
@@ -394,16 +492,17 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 				"Code: " + record.Code + " (immutable)",
 				"Used accounts may be marked inactive. Accounts with postings cannot be deleted.",
 			},
-			PrimaryAction: action,
+			Actions: []render.ItemActionData{*action},
 		})
 	}
 
 	return items
 }
 
-func buildJournalItems(entries []journal.EntryRecord) []render.ListItemData {
+func buildJournalItems(entries []journal.BrowseEntryRecord) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(entries))
-	for _, entry := range entries {
+	for index := range entries {
+		entry := &entries[index]
 		rowStatus := string(entry.Status)
 		detailLines := []string{
 			"Date: " + entry.EntryDate,
@@ -412,10 +511,37 @@ func buildJournalItems(entries []journal.EntryRecord) []render.ListItemData {
 		}
 		if entry.ReversesEntryID != "" {
 			rowStatus = "reversal"
-			detailLines = append(detailLines, "Kind: reversal entry")
+			detailLines = append(detailLines, fmt.Sprintf("Reverses: entry #%d", entry.ReversesEntryNumber))
+		}
+		if entry.ReversedByEntryID != "" {
+			detailLines = append(detailLines, fmt.Sprintf("Reversed by: entry #%d", entry.ReversedByEntryNumber))
 		}
 		if entry.Status == ledger.JournalEntryStatusReversed {
 			detailLines = append(detailLines, "This entry has been reversed and remains in the audit trail.")
+		}
+		detailLines = append(detailLines, "", "Lines:")
+		if len(entry.Lines) == 0 {
+			detailLines = append(detailLines, "No journal lines loaded.")
+		}
+		for _, line := range entry.Lines {
+			detailLines = append(detailLines, formatJournalDetailLine(line))
+		}
+
+		var actions []render.ItemActionData
+		if entry.Status == ledger.JournalEntryStatusPosted {
+			actions = []render.ItemActionData{{
+				Trigger:      render.ActionReverse,
+				ID:           tuiCommandJournalReverse,
+				Label:        "r reverse",
+				ConfirmTitle: fmt.Sprintf("Reverse entry #%d?", entry.EntryNumber),
+				ConfirmLines: []string{
+					entry.Description,
+					"Original date: " + entry.EntryDate,
+					"Reversal date: " + entry.EntryDate,
+					"A new posted reversing entry will be created.",
+					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Reversal of entry #%d", entry.EntryNumber)),
+				},
+			}}
 		}
 
 		items = append(items, render.ListItemData{
@@ -423,16 +549,18 @@ func buildJournalItems(entries []journal.EntryRecord) []render.ListItemData {
 			Row:         fmt.Sprintf("#%-4d %-10s %-8s %s", entry.EntryNumber, entry.EntryDate, rowStatus, entry.Description),
 			DetailTitle: fmt.Sprintf("Entry #%d", entry.EntryNumber),
 			DetailLines: detailLines,
+			Actions:     actions,
 		})
 	}
 
 	return items
 }
 
-func buildQuestItems(quests []quest.QuestRecord) []render.ListItemData {
+func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(quests))
 	for index := range quests {
-		record := &quests[index]
+		row := &quests[index]
+		record := &row.Record
 		patron := record.Patron
 		if strings.TrimSpace(patron) == "" {
 			patron = "No patron"
@@ -442,6 +570,9 @@ func buildQuestItems(quests []quest.QuestRecord) []render.ListItemData {
 			"Patron: " + patron,
 			"Status: " + string(record.Status),
 			"Promised reward: " + tools.FormatAmount(record.PromisedBaseReward),
+			"Outstanding: " + tools.FormatAmount(row.Outstanding),
+			"Collected so far: " + tools.FormatAmount(row.TotalPaid),
+			"Accounting state: " + questAccountingState(row),
 		}
 		if record.PartialAdvance > 0 {
 			detailLines = append(detailLines, "Partial advance: "+tools.FormatAmount(record.PartialAdvance))
@@ -455,12 +586,49 @@ func buildQuestItems(quests []quest.QuestRecord) []render.ListItemData {
 		if record.ClosedOn != "" {
 			detailLines = append(detailLines, "Closed on: "+record.ClosedOn)
 		}
+		if strings.TrimSpace(record.BonusConditions) != "" {
+			detailLines = append(detailLines, "Bonus conditions: "+record.BonusConditions)
+		}
+		if strings.TrimSpace(record.Notes) != "" {
+			detailLines = append(detailLines, "Notes: "+record.Notes)
+		}
+
+		var actions []render.ItemActionData
+		if row.Collectible {
+			actions = []render.ItemActionData{
+				{
+					Trigger:      render.ActionCollect,
+					ID:           tuiCommandQuestCollectFull,
+					Label:        "c collect",
+					ConfirmTitle: fmt.Sprintf("Collect full payment for %q?", record.Title),
+					ConfirmLines: []string{
+						"Outstanding: " + tools.FormatAmount(row.Outstanding),
+						"Collection date: " + today,
+						"This collects the full remaining receivable.",
+						fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Quest payment: %s", record.Title)),
+					},
+				},
+				{
+					Trigger:      render.ActionWriteOff,
+					ID:           tuiCommandQuestWriteOffFull,
+					Label:        "w write off",
+					ConfirmTitle: fmt.Sprintf("Write off %q?", record.Title),
+					ConfirmLines: []string{
+						"Outstanding: " + tools.FormatAmount(row.Outstanding),
+						"Write-off date: " + today,
+						"This records the remaining balance as a failed patron loss.",
+						fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Quest write-off: %s", record.Title)),
+					},
+				},
+			}
+		}
 
 		items = append(items, render.ListItemData{
 			Key:         record.ID,
-			Row:         fmt.Sprintf("%-12s %-14s %s (%s)", tools.FormatAmount(record.PromisedBaseReward), string(record.Status), record.Title, patron),
+			Row:         fmt.Sprintf("%-12s %-14s %-12s %s (%s)", tools.FormatAmount(record.PromisedBaseReward), string(record.Status), questOutstandingLabel(row.Outstanding), record.Title, patron),
 			DetailTitle: record.Title,
 			DetailLines: detailLines,
+			Actions:     actions,
 		})
 	}
 
@@ -503,11 +671,130 @@ func buildLootItems(rows []report.LootSummaryRow) []render.ListItemData {
 	return items
 }
 
+func questAccountingState(row *tuiQuestRow) string {
+	if row == nil {
+		return ""
+	}
+
+	switch row.Record.Status {
+	case ledger.QuestStatusOffered, ledger.QuestStatusAccepted:
+		return "off-ledger promise"
+	case ledger.QuestStatusCompleted, ledger.QuestStatusCollectible:
+		return "collectible but unpaid"
+	case ledger.QuestStatusPartiallyPaid:
+		return "partially collected receivable"
+	case ledger.QuestStatusPaid:
+		return "fully collected"
+	case ledger.QuestStatusDefaulted:
+		return "written off"
+	case ledger.QuestStatusVoided:
+		return "closed without collection"
+	default:
+		return string(row.Record.Status)
+	}
+}
+
+func questOutstandingLabel(value int64) string {
+	if value <= 0 {
+		return "-"
+	}
+
+	return tools.FormatAmount(value) + " due"
+}
+
 func appraisedValueLabel(value int64) string {
 	if value <= 0 {
 		return "-"
 	}
 	return tools.FormatAmount(value)
+}
+
+func loadTUIQuestRows(ctx context.Context, databasePath string) ([]tuiQuestRow, error) {
+	quests, err := quest.ListQuests(ctx, databasePath)
+	if err != nil {
+		return nil, err
+	}
+
+	receivables, err := report.GetQuestReceivables(ctx, databasePath)
+	if err != nil {
+		return nil, err
+	}
+
+	receivablesByQuestID := make(map[string]report.QuestReceivableRow, len(receivables))
+	for _, row := range receivables {
+		receivablesByQuestID[row.QuestID] = row
+	}
+
+	rows := make([]tuiQuestRow, 0, len(quests))
+	for index := range quests {
+		record := quests[index]
+		receivable, ok := receivablesByQuestID[record.ID]
+		row := tuiQuestRow{
+			Record:    record,
+			OffLedger: record.Status == ledger.QuestStatusOffered || record.Status == ledger.QuestStatusAccepted,
+		}
+		if ok {
+			row.TotalPaid = receivable.TotalPaid
+			row.Outstanding = receivable.Outstanding
+		} else if record.Status == ledger.QuestStatusPaid {
+			row.TotalPaid = record.PromisedBaseReward
+		}
+
+		row.Collectible = row.Outstanding > 0 && questCollectibleStatus(record.Status)
+		rows = append(rows, row)
+	}
+
+	return rows, nil
+}
+
+func questCollectibleStatus(status ledger.QuestStatus) bool {
+	switch status {
+	case ledger.QuestStatusCompleted, ledger.QuestStatusCollectible, ledger.QuestStatusPartiallyPaid:
+		return true
+	default:
+		return false
+	}
+}
+
+func tuiToday() string {
+	return tuiNow().Format("2006-01-02")
+}
+
+func formatJournalDetailLine(line journal.BrowseEntryLine) string {
+	side := "CR"
+	amount := line.CreditAmount
+	if line.DebitAmount > 0 {
+		side = "DR"
+		amount = line.DebitAmount
+	}
+
+	text := fmt.Sprintf("%s %s %s %s", line.AccountCode, line.AccountName, side, tools.FormatAmount(amount))
+	if strings.TrimSpace(line.Memo) == "" {
+		return text
+	}
+
+	return text + " (" + line.Memo + ")"
+}
+
+func findBrowseEntry(entries []journal.BrowseEntryRecord, entryID string) (journal.BrowseEntryRecord, bool) {
+	for index := range entries {
+		entry := entries[index]
+		if entry.ID == entryID {
+			return entry, true
+		}
+	}
+
+	return journal.BrowseEntryRecord{}, false
+}
+
+func findTUIQuestRow(rows []tuiQuestRow, questID string) (tuiQuestRow, bool) {
+	for index := range rows {
+		if rows[index].Record.ID == questID {
+			return rows[index], true
+		}
+	}
+
+	return tuiQuestRow{}, false
 }
 
 func blankStatusDetail(detail string) string {
