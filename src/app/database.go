@@ -46,10 +46,11 @@ func (a *Application) runDatabaseStatus(ctx context.Context) error {
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Database: %s\nExists: %s\nState: %s\nSchema version: %s\nTarget schema version: %s\nApplied migrations: %d\nPending migrations: %d\n",
+		"Database: %s\nExists: %s\nState: %s\nDetail: %s\nSchema version: %s\nTarget schema version: %s\nApplied migrations: %d\nPending migrations: %d\n",
 		a.config.Paths.DatabasePath,
 		existsLabel,
 		status.State,
+		blankIfEmpty(status.Detail),
 		blankIfEmpty(status.SchemaVersion),
 		blankIfEmpty(status.TargetSchemaVersion),
 		len(status.AppliedMigrations),
@@ -88,6 +89,7 @@ func (a *Application) runDatabaseStatus(ctx context.Context) error {
 		slog.Bool("exists", status.Exists),
 		slog.Bool("initialized", status.Initialized),
 		slog.String("state", string(status.State)),
+		slog.String("detail", status.Detail),
 		slog.String("schema_version", status.SchemaVersion),
 		slog.String("target_schema_version", status.TargetSchemaVersion),
 		slog.Int("applied_migrations", len(status.AppliedMigrations)),

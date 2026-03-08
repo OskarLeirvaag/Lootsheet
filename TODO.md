@@ -84,7 +84,7 @@
 - [x] Add tests for quest completion and collection flows.
 - [x] Add tests for loot appraisal recognition and sale flows.
 - [ ] Add fixtures with a sample campaign ledger.
-- [ ] Add `testapp.sh` end-to-end smoke coverage for installed-binary style runs in a temporary workspace.
+- [x] Add `testapp.sh` end-to-end smoke coverage for installed-binary style runs in a temporary workspace.
 
 ## Packaging and Longevity
 
@@ -99,7 +99,7 @@
   - [ ] backup directory
   - [ ] optional export directory conventions
 - [x] Add full upgrade migration execution beyond init-time migration tracking.
-- [ ] Add startup detection for uninitialized, current, upgradeable, foreign, and damaged databases.
+- [x] Add startup detection for uninitialized, current, upgradeable, foreign, and damaged databases.
 - [ ] Add backup creation before risky migration or repair flows.
 - [ ] Define stable long-term paths for config, database, backups, and optional exports.
 - [ ] Document upgrade and recovery workflow for existing local databases.

@@ -231,6 +231,7 @@ type DatabaseStatus struct {
 	Exists              bool
 	Initialized         bool
 	State               DatabaseLifecycleState
+	Detail              string
 	UserTableCount      int
 	SchemaVersion       string
 	TargetSchemaVersion string
@@ -271,6 +272,10 @@ const (
 	DatabaseStateCurrent DatabaseLifecycleState = "current"
 	// DatabaseStateUpgradeable indicates pending migrations are available.
 	DatabaseStateUpgradeable DatabaseLifecycleState = "upgradeable"
-	// DatabaseStateUnknown indicates the schema version is not recognized by this build.
-	DatabaseStateUnknown DatabaseLifecycleState = "unknown"
+	// DatabaseStateForeign indicates the file is a valid database, but not a
+	// LootSheet database this build can safely manage.
+	DatabaseStateForeign DatabaseLifecycleState = "foreign"
+	// DatabaseStateDamaged indicates the file exists but SQLite could not read it
+	// safely as a healthy database.
+	DatabaseStateDamaged DatabaseLifecycleState = "damaged"
 )

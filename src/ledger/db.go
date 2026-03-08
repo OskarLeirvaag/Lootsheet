@@ -39,6 +39,8 @@ func OpenDB(databasePath string) (*sql.DB, error) {
 
 type databaseState struct {
 	Exists             bool
+	LifecycleState     DatabaseLifecycleState
+	Detail             string
 	UserTableCount     int
 	SchemaVersion      string
 	AppliedMigrations  []AppliedMigration
@@ -50,20 +52,30 @@ type databaseState struct {
 // version, and applied migrations. It handles both legacy (settings-table) and
 // current (schema_migrations-table) metadata formats.
 func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseState, error) {
+	state := databaseState{LifecycleState: DatabaseStateUninitialized}
+
 	info, err := os.Stat(databasePath)
 	if errors.Is(err, os.ErrNotExist) {
-		return databaseState{}, nil
+		return state, nil
 	}
 	if err != nil {
-		return databaseState{}, fmt.Errorf("inspect database path: %w", err)
+		return state, fmt.Errorf("inspect database path: %w", err)
 	}
+	state.Exists = true
 	if info.IsDir() {
-		return databaseState{}, fmt.Errorf("database path %q is a directory", databasePath)
+		state.LifecycleState = DatabaseStateDamaged
+		state.Detail = fmt.Sprintf("path %q is a directory, not a SQLite database file", databasePath)
+		return state, nil
 	}
 
 	db, err := OpenDB(databasePath)
 	if err != nil {
-		return databaseState{}, err
+		if detail, ok := classifyDamagedDatabaseError(err); ok {
+			state.LifecycleState = DatabaseStateDamaged
+			state.Detail = detail
+			return state, nil
+		}
+		return state, err
 	}
 	defer db.Close()
 
@@ -71,26 +83,54 @@ func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 	if err := db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
 	).Scan(&userTableCount); err != nil {
-		return databaseState{}, fmt.Errorf("count user tables: %w", err)
+		if detail, ok := classifyDamagedDatabaseError(err); ok {
+			state.LifecycleState = DatabaseStateDamaged
+			state.Detail = detail
+			return state, nil
+		}
+		return state, fmt.Errorf("count user tables: %w", err)
+	}
+	state.UserTableCount = userTableCount
+
+	quickCheck, err := quickCheckSQLiteDatabase(ctx, db)
+	if err != nil {
+		if detail, ok := classifyDamagedDatabaseError(err); ok {
+			state.LifecycleState = DatabaseStateDamaged
+			state.Detail = detail
+			return state, nil
+		}
+		return state, fmt.Errorf("run sqlite quick_check: %w", err)
+	}
+	if quickCheck != "ok" {
+		state.LifecycleState = DatabaseStateDamaged
+		state.Detail = fmt.Sprintf("sqlite quick_check reported %q", quickCheck)
+		return state, nil
 	}
 
 	appliedMigrations, err := LoadAppliedMigrations(ctx, db)
 	if err == nil {
-		schemaVersion := ""
+		state.AppliedMigrations = appliedMigrations
 		if len(appliedMigrations) > 0 {
-			schemaVersion = appliedMigrations[len(appliedMigrations)-1].Version
+			state.SchemaVersion = appliedMigrations[len(appliedMigrations)-1].Version
+			return state, nil
 		}
 
-		return databaseState{
-			Exists:            true,
-			UserTableCount:    userTableCount,
-			SchemaVersion:     schemaVersion,
-			AppliedMigrations: appliedMigrations,
-		}, nil
+		if userTableCount == 0 {
+			return state, nil
+		}
+
+		state.LifecycleState = DatabaseStateForeign
+		state.Detail = "database has LootSheet migration tables but no applied schema version"
+		return state, nil
 	}
 
-	if !strings.Contains(err.Error(), "no such table: schema_migrations") {
-		return databaseState{}, err
+	if !isMissingTableError(err, "schema_migrations") {
+		if detail, ok := classifyDamagedDatabaseError(err); ok {
+			state.LifecycleState = DatabaseStateDamaged
+			state.Detail = detail
+			return state, nil
+		}
+		return state, fmt.Errorf("load applied migrations: %w", err)
 	}
 
 	var schemaVersion string
@@ -98,18 +138,36 @@ func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 		"SELECT value FROM settings WHERE key = 'schema_version'",
 	).Scan(&schemaVersion)
 	if queryErr != nil {
-		if strings.Contains(queryErr.Error(), "no such table: settings") {
-			return databaseState{Exists: true, UserTableCount: userTableCount}, nil
+		if isMissingTableError(queryErr, "settings") {
+			if userTableCount == 0 {
+				return state, nil
+			}
+
+			state.LifecycleState = DatabaseStateForeign
+			state.Detail = "database has user tables but is missing LootSheet migration metadata"
+			return state, nil
 		}
-		return databaseState{}, queryErr
+		if detail, ok := classifyDamagedDatabaseError(queryErr); ok {
+			state.LifecycleState = DatabaseStateDamaged
+			state.Detail = detail
+			return state, nil
+		}
+		return state, fmt.Errorf("query schema version: %w", queryErr)
 	}
 
-	return databaseState{
-		Exists:             true,
-		UserTableCount:     userTableCount,
-		SchemaVersion:      schemaVersion,
-		UsesLegacyMetadata: true,
-	}, nil
+	state.SchemaVersion = strings.TrimSpace(schemaVersion)
+	if state.SchemaVersion == "" {
+		if userTableCount == 0 {
+			return state, nil
+		}
+
+		state.LifecycleState = DatabaseStateForeign
+		state.Detail = "database settings are present but schema_version is empty"
+		return state, nil
+	}
+
+	state.UsesLegacyMetadata = true
+	return state, nil
 }
 
 // EnsureInitializedDatabase checks that the database at the given path
@@ -118,6 +176,14 @@ func EnsureInitializedDatabase(ctx context.Context, databasePath string) error {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return err
+	}
+
+	switch state.LifecycleState {
+	case DatabaseStateDamaged:
+		return fmt.Errorf("database %q is damaged: %s", databasePath, blankDatabaseDetail(state.Detail))
+	case DatabaseStateForeign:
+		return fmt.Errorf("database %q is foreign: %s", databasePath, blankDatabaseDetail(state.Detail))
+	case DatabaseStateUninitialized, DatabaseStateCurrent, DatabaseStateUpgradeable:
 	}
 
 	if state.SchemaVersion == "" {
@@ -151,4 +217,42 @@ func LoadAppliedMigrations(ctx context.Context, db *sql.DB) ([]AppliedMigration,
 	}
 
 	return migrations, nil
+}
+
+func quickCheckSQLiteDatabase(ctx context.Context, db *sql.DB) (string, error) {
+	var result string
+	if err := db.QueryRowContext(ctx, "PRAGMA quick_check").Scan(&result); err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(result), nil
+}
+
+func classifyDamagedDatabaseError(err error) (string, bool) {
+	message := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(message, "file is not a database"):
+		return "file is not a valid SQLite database", true
+	case strings.Contains(message, "database disk image is malformed"):
+		return "database disk image is malformed", true
+	case strings.Contains(message, "database corrupt"):
+		return "database is corrupt", true
+	case strings.Contains(message, "malformed"):
+		return "database appears malformed", true
+	}
+
+	return "", false
+}
+
+func isMissingTableError(err error, table string) bool {
+	return strings.Contains(strings.ToLower(err.Error()), "no such table: "+strings.ToLower(table))
+}
+
+func blankDatabaseDetail(detail string) string {
+	if strings.TrimSpace(detail) == "" {
+		return "no further detail available"
+	}
+
+	return detail
 }

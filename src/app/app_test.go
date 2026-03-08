@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -95,6 +96,10 @@ func TestRunDatabaseStatusBeforeInit(t *testing.T) {
 
 	if !strings.Contains(output, "State: uninitialized") {
 		t.Fatalf("db status missing uninitialized state: %q", output)
+	}
+
+	if !strings.Contains(output, "Detail: -") {
+		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
 	if !strings.Contains(output, "Target schema version: 2") {
@@ -507,6 +512,10 @@ func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 		t.Fatalf("db status missing current state: %q", output)
 	}
 
+	if !strings.Contains(output, "Detail: -") {
+		t.Fatalf("db status missing blank detail: %q", output)
+	}
+
 	if !strings.Contains(output, "Schema version: 2") {
 		t.Fatalf("db status missing schema version: %q", output)
 	}
@@ -553,6 +562,10 @@ func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
 		t.Fatalf("db status missing upgradeable state: %q", output)
 	}
 
+	if !strings.Contains(output, "Detail: -") {
+		t.Fatalf("db status missing blank detail: %q", output)
+	}
+
 	if !strings.Contains(output, "Schema version: 1") {
 		t.Fatalf("db status missing schema version 1: %q", output)
 	}
@@ -567,6 +580,70 @@ func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
 
 	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
 		t.Fatalf("db status missing pending migration row: %q", output)
+	}
+}
+
+func TestRunDatabaseStatusShowsForeignDatabase(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatalf("create data dir: %v", err)
+	}
+
+	ledger.RunSQLiteScriptForTest(t, databasePath, `CREATE TABLE outsiders (id TEXT PRIMARY KEY);`)
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{"db", "status"}, &stdout); err != nil {
+		t.Fatalf("run db status: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "State: foreign") {
+		t.Fatalf("db status missing foreign state: %q", output)
+	}
+
+	if !strings.Contains(output, "missing LootSheet migration metadata") {
+		t.Fatalf("db status missing foreign detail: %q", output)
+	}
+}
+
+func TestRunDatabaseStatusShowsDamagedDatabase(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatalf("create data dir: %v", err)
+	}
+
+	if err := os.WriteFile(databasePath, []byte("not a sqlite database"), 0o600); err != nil {
+		t.Fatalf("write damaged db file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{"db", "status"}, &stdout); err != nil {
+		t.Fatalf("run db status: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "State: damaged") {
+		t.Fatalf("db status missing damaged state: %q", output)
+	}
+
+	if !strings.Contains(output, "file is not a valid SQLite database") {
+		t.Fatalf("db status missing damaged detail: %q", output)
 	}
 }
 

@@ -20,10 +20,14 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 	}
 
 	switch {
+	case state.LifecycleState == DatabaseStateDamaged:
+		return InitResult{}, fmt.Errorf("database %q is damaged: %s", databasePath, blankDatabaseDetail(state.Detail))
+	case state.LifecycleState == DatabaseStateForeign:
+		return InitResult{}, fmt.Errorf("database %q is foreign: %s", databasePath, blankDatabaseDetail(state.Detail))
 	case state.SchemaVersion != "":
 		return InitResult{}, nil
 	case state.UserTableCount > 0:
-		return InitResult{}, fmt.Errorf("database %q already has tables but is missing LootSheet init metadata", databasePath)
+		return InitResult{}, fmt.Errorf("database %q is foreign: database already has tables but is missing LootSheet init metadata", databasePath)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
@@ -106,9 +110,16 @@ func GetDatabaseStatus(ctx context.Context, databasePath string) (DatabaseStatus
 		return DatabaseStatus{}, err
 	}
 
+	stateLabel := state.LifecycleState
+	if state.SchemaVersion != "" && stateLabel == DatabaseStateUninitialized {
+		stateLabel = DatabaseStateCurrent
+	}
+
 	return DatabaseStatus{
 		Exists:            state.Exists,
 		Initialized:       state.SchemaVersion != "",
+		State:             stateLabel,
+		Detail:            state.Detail,
 		UserTableCount:    state.UserTableCount,
 		SchemaVersion:     state.SchemaVersion,
 		AppliedMigrations: state.AppliedMigrations,
