@@ -4,10 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 	"io"
 	"log/slog"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
 func (a *Application) runLoot(ctx context.Context, args []string) error {
@@ -91,13 +92,13 @@ func (a *Application) runLootList(ctx context.Context) error {
 		return fmt.Errorf("write loot header: %w", err)
 	}
 
-	for _, item := range items {
+	for i := range items {
 		if _, err := fmt.Fprintf(
 			a.stdout,
 			"%-12s %3d  %s\n",
-			string(item.Status),
-			item.Quantity,
-			item.Name,
+			string(items[i].Status),
+			items[i].Quantity,
+			items[i].Name,
 		); err != nil {
 			return fmt.Errorf("write loot row: %w", err)
 		}

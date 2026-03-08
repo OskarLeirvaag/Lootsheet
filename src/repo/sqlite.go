@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // register sqlite driver for database/sql
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/service"
@@ -99,7 +99,7 @@ func openDB(databasePath string) (*sql.DB, error) {
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA busy_timeout = 5000",
 	} {
-		if _, err := db.Exec(pragma); err != nil {
+		if _, err := db.ExecContext(context.Background(), pragma); err != nil {
 			db.Close()
 			return nil, fmt.Errorf("set database pragma: %w", err)
 		}
@@ -451,7 +451,7 @@ func resolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []serv
 		args[i] = code
 	}
 
-	query := "SELECT code, id, active FROM accounts WHERE code IN (" + strings.Join(placeholders, ", ") + ")"
+	query := "SELECT code, id, active FROM accounts WHERE code IN (" + strings.Join(placeholders, ", ") + ")" //nolint:gosec // placeholders are "?" literals, not user input
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query account codes: %w", err)

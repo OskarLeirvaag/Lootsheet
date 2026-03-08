@@ -43,7 +43,7 @@ func TestLoadMergesConfigFilePaths(t *testing.T) {
 	}
 
 	configJSON := []byte(`{"paths":{"data_dir":"../party-data","database_path":"books/ledger.db"}}`)
-	if err := os.WriteFile(configPath, configJSON, 0o644); err != nil {
+	if err := os.WriteFile(configPath, configJSON, 0o600); err != nil {
 		t.Fatalf("write config file: %v", err)
 	}
 
