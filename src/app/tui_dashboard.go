@@ -22,6 +22,9 @@ const (
 	tuiCommandAccountActivate   = "account.activate"
 	tuiCommandAccountDeactivate = "account.deactivate"
 	tuiCommandJournalReverse    = "journal.reverse"
+	tuiCommandCreateExpense     = "entry.expense.create"
+	tuiCommandCreateIncome      = "entry.income.create"
+	tuiCommandCreateCustom      = "entry.custom.create"
 	tuiCommandQuestCollectFull  = "quest.collect_full"
 	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
 	tuiCommandLootRecognize     = "loot.recognize_latest"
@@ -59,7 +62,12 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
 				fmt.Sprintf("Read-only snapshot from %s.", databaseName),
-				"Use arrows, Tab, or 1-5 to move between boxed screens.",
+				"Use arrows, Tab, or 1-5 to move between boxed screens. Use e/i/a for guided entry creation.",
+			},
+			QuickEntryLines: []string{
+				"e  I have an expense",
+				"i  I have income",
+				"a  Add custom entry",
 			},
 		},
 		Accounts: render.ListScreenData{
@@ -115,6 +123,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		data.Dashboard.AccountsLines = summarizeAccounts(accounts)
 		data.Accounts.SummaryLines = summarizeAccounts(accounts)
 		data.Accounts.Items = buildAccountItems(accounts)
+		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
 
 	journalSummary, err := journal.GetSummary(ctx, databasePath)
@@ -216,14 +225,16 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	return data, nil
 }
 
-func handleTUICommand(ctx context.Context, command render.Command, databasePath string, assets config.InitAssets) (render.ShellData, render.StatusMessage, error) {
+func handleTUICommand(ctx context.Context, command render.Command, databasePath string, assets config.InitAssets) (render.CommandResult, error) {
 	var message render.StatusMessage
+	var navigateTo render.Section
+	var selectItemKey string
 	today := tuiToday()
 
 	switch command.ID {
 	case tuiCommandAccountActivate:
 		if err := account.ActivateAccount(ctx, databasePath, command.ItemKey); err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
@@ -231,7 +242,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 	case tuiCommandAccountDeactivate:
 		if err := account.DeactivateAccount(ctx, databasePath, command.ItemKey); err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
@@ -240,35 +251,108 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandJournalReverse:
 		entries, err := journal.ListBrowseEntries(ctx, databasePath)
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		entry, ok := findBrowseEntry(entries, command.ItemKey)
 		if !ok {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("journal entry %q does not exist", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("journal entry %q does not exist", command.ItemKey)
 		}
 
 		result, err := journal.ReverseJournalEntry(ctx, databasePath, command.ItemKey, entry.EntryDate, "")
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Entry #%d reversed as entry #%d.", entry.EntryNumber, result.EntryNumber),
 		}
+	case tuiCommandCreateExpense:
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return render.CommandResult{}, render.InputError{Message: "Amount is required."}
+		}
+		amount, err := tools.ParseAmount(amountText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+
+		result, err := journal.PostExpenseEntry(ctx, databasePath, &journal.ExpenseEntryInput{
+			Date:               defaultDate(strings.TrimSpace(command.Fields["date"]), today),
+			Description:        strings.TrimSpace(command.Fields["description"]),
+			ExpenseAccountCode: strings.TrimSpace(command.Fields["account_code"]),
+			FundingAccountCode: strings.TrimSpace(command.Fields["offset_account_code"]),
+			Amount:             amount,
+			Memo:               strings.TrimSpace(command.Fields["memo"]),
+		})
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Recorded expense as journal entry #%d.", result.EntryNumber),
+		}
+		navigateTo = render.SectionJournal
+		selectItemKey = result.ID
+	case tuiCommandCreateIncome:
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return render.CommandResult{}, render.InputError{Message: "Amount is required."}
+		}
+		amount, err := tools.ParseAmount(amountText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+
+		result, err := journal.PostIncomeEntry(ctx, databasePath, &journal.IncomeEntryInput{
+			Date:               defaultDate(strings.TrimSpace(command.Fields["date"]), today),
+			Description:        strings.TrimSpace(command.Fields["description"]),
+			IncomeAccountCode:  strings.TrimSpace(command.Fields["account_code"]),
+			DepositAccountCode: strings.TrimSpace(command.Fields["offset_account_code"]),
+			Amount:             amount,
+			Memo:               strings.TrimSpace(command.Fields["memo"]),
+		})
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Recorded income as journal entry #%d.", result.EntryNumber),
+		}
+		navigateTo = render.SectionJournal
+		selectItemKey = result.ID
+	case tuiCommandCreateCustom:
+		input, err := buildTUIJournalPostInput(command, today)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+
+		result, err := journal.PostJournalEntry(ctx, databasePath, input)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Recorded custom entry as journal entry #%d.", result.EntryNumber),
+		}
+		navigateTo = render.SectionJournal
+		selectItemKey = result.ID
 	case tuiCommandQuestCollectFull:
 		quests, err := loadTUIQuestRows(ctx, databasePath)
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		questRow, ok := findTUIQuestRow(quests, command.ItemKey)
 		if !ok {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q does not exist", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("quest %q does not exist", command.ItemKey)
 		}
 		if !questRow.Collectible || questRow.Outstanding <= 0 {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q cannot be collected right now", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("quest %q cannot be collected right now", command.ItemKey)
 		}
 
 		result, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
@@ -278,7 +362,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Description: "",
 		})
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		message = render.StatusMessage{
@@ -288,15 +372,15 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandQuestWriteOffFull:
 		quests, err := loadTUIQuestRows(ctx, databasePath)
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		questRow, ok := findTUIQuestRow(quests, command.ItemKey)
 		if !ok {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q does not exist", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("quest %q does not exist", command.ItemKey)
 		}
 		if !questRow.Collectible || questRow.Outstanding <= 0 {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("quest %q cannot be written off right now", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("quest %q cannot be written off right now", command.ItemKey)
 		}
 
 		result, err := quest.WriteOffQuest(ctx, databasePath, quest.WriteOffQuestInput{
@@ -305,7 +389,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Description: "",
 		})
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		message = render.StatusMessage{
@@ -315,20 +399,20 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandLootRecognize:
 		items, err := loot.ListBrowseItems(ctx, databasePath)
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		item, ok := findBrowseLootItem(items, command.ItemKey)
 		if !ok {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
 		}
 		if !lootRecognizable(&item) {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q cannot be recognized right now", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("loot item %q cannot be recognized right now", command.ItemKey)
 		}
 
 		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, item.LatestAppraisal.ID, today, "")
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		message = render.StatusMessage{
@@ -338,33 +422,33 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandLootSell:
 		items, err := loot.ListBrowseItems(ctx, databasePath)
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		item, ok := findBrowseLootItem(items, command.ItemKey)
 		if !ok {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
 		}
 		if !lootSellable(&item) {
-			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q cannot be sold right now", command.ItemKey)
+			return render.CommandResult{}, fmt.Errorf("loot item %q cannot be sold right now", command.ItemKey)
 		}
 
-		amountText := strings.TrimSpace(command.Args["amount"])
+		amountText := strings.TrimSpace(command.Fields["amount"])
 		if amountText == "" {
-			return render.ShellData{}, render.StatusMessage{}, render.InputError{Message: "Sale amount is required."}
+			return render.CommandResult{}, render.InputError{Message: "Sale amount is required."}
 		}
 
 		amount, err := tools.ParseAmount(amountText)
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
 		}
 		if amount <= 0 {
-			return render.ShellData{}, render.StatusMessage{}, render.InputError{Message: "Sale amount must be positive."}
+			return render.CommandResult{}, render.InputError{Message: "Sale amount must be positive."}
 		}
 
 		result, err := loot.SellLootItem(ctx, databasePath, command.ItemKey, amount, today, "")
 		if err != nil {
-			return render.ShellData{}, render.StatusMessage{}, err
+			return render.CommandResult{}, err
 		}
 
 		message = render.StatusMessage{
@@ -372,15 +456,20 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Sold loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	default:
-		return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("unsupported TUI command %q", command.ID)
+		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
 
 	data, err := buildTUIShellData(ctx, databasePath, assets)
 	if err != nil {
-		return render.ShellData{}, render.StatusMessage{}, err
+		return render.CommandResult{}, err
 	}
 
-	return data, message, nil
+	return render.CommandResult{
+		Data:          data,
+		Status:        message,
+		NavigateTo:    navigateTo,
+		SelectItemKey: selectItemKey,
+	}, nil
 }
 
 func buildTUIDashboardData(ctx context.Context, databasePath string, assets config.InitAssets) (render.DashboardData, error) {
@@ -404,12 +493,13 @@ func unavailableShellData(status *ledger.DatabaseStatus, detail string) render.S
 
 	return render.ShellData{
 		Dashboard: render.DashboardData{
-			HeaderLines:   []string{stateLine, detail},
-			AccountsLines: []string{"No account data loaded.", stateLine},
-			JournalLines:  []string{"No journal data loaded.", stateLine},
-			LedgerLines:   []string{"No ledger totals loaded.", stateLine},
-			QuestLines:    []string{"No quest register data loaded.", stateLine},
-			LootLines:     []string{"No loot register data loaded.", stateLine},
+			HeaderLines:     []string{stateLine, detail},
+			AccountsLines:   []string{"No account data loaded.", stateLine},
+			JournalLines:    []string{"No journal data loaded.", stateLine},
+			QuickEntryLines: []string{"Quick entry unavailable.", stateLine},
+			LedgerLines:     []string{"No ledger totals loaded.", stateLine},
+			QuestLines:      []string{"No quest register data loaded.", stateLine},
+			LootLines:       []string{"No loot register data loaded.", stateLine},
 		},
 		Accounts: unavailableSectionData(stateLine, detail),
 		Journal:  unavailableSectionData(stateLine, detail),
@@ -456,6 +546,105 @@ func summarizeAccounts(accounts []ledger.AccountRecord) []string {
 		fmt.Sprintf("A/L/E: %d / %d / %d", counts[ledger.AccountTypeAsset], counts[ledger.AccountTypeLiability], counts[ledger.AccountTypeEquity]),
 		fmt.Sprintf("I/X: %d / %d", counts[ledger.AccountTypeIncome], counts[ledger.AccountTypeExpense]),
 	}
+}
+
+func buildEntryCatalog(accounts []ledger.AccountRecord, today string) render.EntryCatalog {
+	catalog := render.EntryCatalog{
+		DefaultDate: today,
+	}
+
+	for index := range accounts {
+		record := accounts[index]
+		if !record.Active {
+			continue
+		}
+
+		option := render.AccountOption{
+			Code: record.Code,
+			Name: record.Name,
+			Type: string(record.Type),
+		}
+		catalog.AllAccounts = append(catalog.AllAccounts, option)
+		switch record.Type {
+		case ledger.AccountTypeExpense:
+			catalog.ExpenseAccounts = append(catalog.ExpenseAccounts, option)
+		case ledger.AccountTypeIncome:
+			catalog.IncomeAccounts = append(catalog.IncomeAccounts, option)
+		case ledger.AccountTypeAsset:
+			catalog.DepositAccounts = append(catalog.DepositAccounts, option)
+			catalog.FundingAccounts = append(catalog.FundingAccounts, option)
+		case ledger.AccountTypeLiability:
+			catalog.FundingAccounts = append(catalog.FundingAccounts, option)
+		case ledger.AccountTypeEquity:
+		default:
+		}
+	}
+
+	return catalog
+}
+
+func buildTUIJournalPostInput(command render.Command, today string) (ledger.JournalPostInput, error) {
+	entryDate := strings.TrimSpace(command.Fields["date"])
+	if entryDate == "" {
+		entryDate = today
+	}
+	description := strings.TrimSpace(command.Fields["description"])
+	if description == "" {
+		return ledger.JournalPostInput{}, fmt.Errorf("description is required")
+	}
+	if len(command.Lines) < 2 {
+		return ledger.JournalPostInput{}, fmt.Errorf("custom entry must contain at least 2 lines")
+	}
+
+	lines := make([]ledger.JournalLineInput, 0, len(command.Lines))
+	for index := range command.Lines {
+		line := command.Lines[index]
+		accountCode := strings.TrimSpace(line.AccountCode)
+		if accountCode == "" {
+			return ledger.JournalPostInput{}, fmt.Errorf("line %d account code is required", index+1)
+		}
+		amountText := strings.TrimSpace(line.Amount)
+		if amountText == "" {
+			return ledger.JournalPostInput{}, fmt.Errorf("line %d amount is required", index+1)
+		}
+
+		amount, err := tools.ParseAmount(amountText)
+		if err != nil {
+			return ledger.JournalPostInput{}, fmt.Errorf("line %d amount %q is invalid", index+1, amountText)
+		}
+		if amount <= 0 {
+			return ledger.JournalPostInput{}, fmt.Errorf("line %d amount must be positive", index+1)
+		}
+
+		journalLine := ledger.JournalLineInput{
+			AccountCode: accountCode,
+			Memo:        strings.TrimSpace(line.Memo),
+		}
+		switch strings.TrimSpace(line.Side) {
+		case "debit":
+			journalLine.DebitAmount = amount
+		case "credit":
+			journalLine.CreditAmount = amount
+		default:
+			return ledger.JournalPostInput{}, fmt.Errorf("line %d side must be debit or credit", index+1)
+		}
+
+		lines = append(lines, journalLine)
+	}
+
+	return ledger.JournalPostInput{
+		EntryDate:   entryDate,
+		Description: description,
+		Lines:       lines,
+	}, nil
+}
+
+func defaultDate(value string, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value != "" {
+		return value
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func summarizeJournal(summary journal.Summary) []string {

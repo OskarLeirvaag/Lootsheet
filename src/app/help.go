@@ -14,6 +14,7 @@ Command groups:
   init       initialize a fresh LootSheet database
   tui        open the full-screen TUI shell
   account    create, rename, activate, deactivate, delete, and inspect accounts
+  entry      create guided expense, income, and custom journal entries
   journal    post and reverse balanced journal entries
   quest      track promised, earned, collected, and written-off quest rewards
   loot       track loot appraisal, recognition, and sale workflows
@@ -23,6 +24,7 @@ Examples:
   lootsheet init
   lootsheet tui
   lootsheet account list
+  lootsheet entry expense --account 5100 --amount 2SP5CP --description "Restock arrows"
   lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
   lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
   lootsheet report trial-balance
@@ -31,6 +33,7 @@ Help examples:
   lootsheet help
   lootsheet account help
   lootsheet account list help
+  lootsheet entry expense --help
   lootsheet journal post --help
 `
 
@@ -89,23 +92,91 @@ Usage:
   lootsheet tui
 
 Opens the full-screen LootSheet TUI using tcell.
-The current slice is interactive but intentionally narrow: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form, and the Loot screen supports recognizing the selected latest appraisal and selling recognized loot on today's date. Loot sale currently prompts for amount only and leaves date and description on their defaults.
+The current slice is interactive: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the dashboard exposes guided expense, income, and custom journal-entry launchers, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form, and the Loot screen supports recognizing the selected latest appraisal and selling recognized loot on today's date.
 
 Keys:
   Left/Right, Tab/Shift+Tab  move between top-level sections
   1-5                        jump directly to dashboard/accounts/journal/quests/loot
   Up/Down, j/k               move the selected row on list screens
   PgUp/PgDn, Home/End        jump through longer list screens
+  e                          open guided expense entry creation
+  i                          open guided income entry creation
+  a                          open guided custom entry creation
   t                          toggle the selected account active/inactive on the Accounts screen
   r                          reverse the selected posted journal entry on the Journal screen
   c                          collect the full outstanding balance for the selected quest on the Quest screen
   w                          write off the full outstanding balance for the selected quest on the Quest screen
   n                          recognize the selected latest loot appraisal on the Loot screen
   s                          sell the selected recognized loot item on the Loot screen
-  Enter                      confirm the open modal, or submit the amount prompt
+  Enter                      confirm the open modal
+  Ctrl+S                     submit the guided entry composer
   Esc                        cancel the open modal, or quit when no modal is open
   q                          cancel the open modal, or quit when no modal is open
   Ctrl+L                     reload data and force a full redraw
+`
+
+const entryHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet entry expense --account CODE --amount AMOUNT --description TEXT [--paid-from CODE] [--date YYYY-MM-DD] [--memo TEXT]
+  lootsheet entry income --account CODE --amount AMOUNT --description TEXT [--deposit-to CODE] [--date YYYY-MM-DD] [--memo TEXT]
+  lootsheet entry custom --description TEXT [--date YYYY-MM-DD] --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+
+Subcommands:
+  expense  record a guided two-line expense entry
+  income   record a guided two-line income entry
+  custom   record a guided multi-line journal entry
+`
+
+const entryExpenseHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet entry expense --account CODE --amount AMOUNT --description TEXT [--paid-from CODE] [--date YYYY-MM-DD] [--memo TEXT]
+
+Defaults:
+  --paid-from  1000
+  --date       today
+
+Rules:
+  --account must be an active expense account
+  --paid-from must be an active asset or liability account
+
+Examples:
+  lootsheet entry expense --account 5100 --amount 2SP5CP --description "Restock arrows"
+  lootsheet entry expense --account 5300 --paid-from 2100 --amount 8GP --description "Inn charged to tab"
+`
+
+const entryIncomeHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet entry income --account CODE --amount AMOUNT --description TEXT [--deposit-to CODE] [--date YYYY-MM-DD] [--memo TEXT]
+
+Defaults:
+  --deposit-to  1000
+  --date        today
+
+Rules:
+  --account must be an active income account
+  --deposit-to must be an active asset account
+
+Examples:
+  lootsheet entry income --account 4000 --amount 25GP --description "Goblin bounty"
+  lootsheet entry income --account 4100 --deposit-to 1100 --amount 5GP --description "Bonus receivable"
+`
+
+const entryCustomHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet entry custom --description TEXT [--date YYYY-MM-DD] --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+
+Defaults:
+  --date  today
+
+Amounts accept D&D 5e denominations: PP, GP, EP, SP, CP (case insensitive).
+
+Examples:
+  lootsheet entry custom --description "Gear transfer" --debit 1300:5GP --credit 1000:5GP
+  lootsheet entry custom --description "Split payout" --debit 1000:10GP --credit 4000:8GP --credit 4100:2GP
 `
 
 const accountHelpText = `LootSheet CLI

@@ -159,12 +159,15 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return initial, nil
 		},
-		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+		CommandHandler: func(_ context.Context, command Command) (CommandResult, error) {
 			called = true
 			got = command
-			return updated, StatusMessage{
-				Level: StatusSuccess,
-				Text:  "Account 1000 deactivated.",
+			return CommandResult{
+				Data: updated,
+				Status: StatusMessage{
+					Level: StatusSuccess,
+					Text:  "Account 1000 deactivated.",
+				},
 			}, nil
 		},
 	}); err != nil {
@@ -222,12 +225,12 @@ func TestRunKeepsLootSaleInputModalOpenOnInputError(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return testLootSellShellData(), nil
 		},
-		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
-			if command.Args["amount"] != "bad" {
-				t.Fatalf("command amount = %q, want bad", command.Args["amount"])
+		CommandHandler: func(_ context.Context, command Command) (CommandResult, error) {
+			if command.Fields["amount"] != "bad" {
+				t.Fatalf("command amount = %q, want bad", command.Fields["amount"])
 			}
 			cancel()
-			return ShellData{}, StatusMessage{}, InputError{Message: `Invalid amount "bad".`}
+			return CommandResult{}, InputError{Message: `Invalid amount "bad".`}
 		},
 	}); err != nil {
 		t.Fatalf("run render app: %v", err)
@@ -264,8 +267,8 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return testAccountsShellData(true), nil
 		},
-		CommandHandler: func(context.Context, Command) (ShellData, StatusMessage, error) {
-			return ShellData{}, StatusMessage{}, errors.New("account 1000 cannot be deactivated right now")
+		CommandHandler: func(context.Context, Command) (CommandResult, error) {
+			return CommandResult{}, errors.New("account 1000 cannot be deactivated right now")
 		},
 	}); err != nil {
 		t.Fatalf("run render app: %v", err)
@@ -308,11 +311,14 @@ func TestRunDispatchesJournalReverseAndKeepsOriginalSelection(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return initial, nil
 		},
-		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+		CommandHandler: func(_ context.Context, command Command) (CommandResult, error) {
 			got = command
-			return updated, StatusMessage{
-				Level: StatusSuccess,
-				Text:  "Entry #1 reversed as entry #2.",
+			return CommandResult{
+				Data: updated,
+				Status: StatusMessage{
+					Level: StatusSuccess,
+					Text:  "Entry #1 reversed as entry #2.",
+				},
 			}, nil
 		},
 	}); err != nil {
@@ -369,11 +375,14 @@ func TestRunDispatchesLootSellAndRefreshesSelectionFallback(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return initial, nil
 		},
-		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+		CommandHandler: func(_ context.Context, command Command) (CommandResult, error) {
 			got = command
-			return updated, StatusMessage{
-				Level: StatusSuccess,
-				Text:  `Sold loot item "Gold Necklace" as entry #10.`,
+			return CommandResult{
+				Data: updated,
+				Status: StatusMessage{
+					Level: StatusSuccess,
+					Text:  `Sold loot item "Gold Necklace" as entry #10.`,
+				},
 			}, nil
 		},
 	}); err != nil {
@@ -389,8 +398,8 @@ func TestRunDispatchesLootSellAndRefreshesSelectionFallback(t *testing.T) {
 	if got.ItemKey != "loot-1" {
 		t.Fatalf("command item key = %q, want loot-1", got.ItemKey)
 	}
-	if got.Args["amount"] != "8 gp" {
-		t.Fatalf("command amount = %q, want 8 gp", got.Args["amount"])
+	if got.Fields["amount"] != "8 gp" {
+		t.Fatalf("command amount = %q, want 8 gp", got.Fields["amount"])
 	}
 
 	for _, token := range []string{
@@ -431,11 +440,14 @@ func TestRunDispatchesQuestCollectAndRefreshesSelection(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return initial, nil
 		},
-		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+		CommandHandler: func(_ context.Context, command Command) (CommandResult, error) {
 			got = command
-			return updated, StatusMessage{
-				Level: StatusSuccess,
-				Text:  "Collected 25 GP for quest \"Goblin Bounty\" as entry #7.",
+			return CommandResult{
+				Data: updated,
+				Status: StatusMessage{
+					Level: StatusSuccess,
+					Text:  "Collected 25 GP for quest \"Goblin Bounty\" as entry #7.",
+				},
 			}, nil
 		},
 	}); err != nil {
@@ -488,11 +500,14 @@ func TestRunDispatchesLootRecognizeAndRefreshesSelection(t *testing.T) {
 		ShellLoader: func(context.Context) (ShellData, error) {
 			return initial, nil
 		},
-		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+		CommandHandler: func(_ context.Context, command Command) (CommandResult, error) {
 			got = command
-			return updated, StatusMessage{
-				Level: StatusSuccess,
-				Text:  "Recognized loot item \"Gold Necklace\" as entry #9.",
+			return CommandResult{
+				Data: updated,
+				Status: StatusMessage{
+					Level: StatusSuccess,
+					Text:  "Recognized loot item \"Gold Necklace\" as entry #9.",
+				},
 			}, nil
 		},
 	}); err != nil {

@@ -65,10 +65,12 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 		return
 	}
 
-	left, right := body.SplitVertical(body.W*2/5, 1)
-	accounts, journal := left.SplitHorizontal(left.H/2, 1)
-	ledger, lowerRight := right.SplitHorizontal(right.H/2, 1)
-	quests, loot := lowerRight.SplitHorizontal(lowerRight.H/2, 1)
+	leftWidth := clampInt(body.W/3, 20, maxInt(20, body.W-42))
+	left, remainder := body.SplitVertical(leftWidth, 1)
+	middle, right := remainder.SplitVertical(remainder.W/2, 1)
+	accounts, ledger := left.SplitHorizontal(left.H/2, 1)
+	journal, quests := middle.SplitHorizontal(middle.H/2, 1)
+	quickEntry, loot := right.SplitHorizontal(right.H/2, 1)
 
 	DrawPanel(buffer, accounts, theme, Panel{
 		Title: "Accounts",
@@ -78,6 +80,11 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	DrawPanel(buffer, journal, theme, Panel{
 		Title: "Journal",
 		Lines: resolved.JournalLines,
+	})
+
+	DrawPanel(buffer, quickEntry, theme, Panel{
+		Title: "Quick Entry",
+		Lines: resolved.QuickEntryLines,
 	})
 
 	DrawPanel(buffer, ledger, theme, Panel{

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
@@ -285,6 +286,153 @@ func TestRunJournalReverseWithCustomDescription(t *testing.T) {
 
 	if !strings.Contains(reverseStdout.String(), "Correcting duplicate purchase") {
 		t.Fatalf("reverse output missing custom description: %q", reverseStdout.String())
+	}
+}
+
+func TestRunEntryExpenseUsesDefaultDateAndFundingAccount(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{
+		"entry", "expense",
+		"--account", "5100",
+		"--amount", "25",
+		"--description", "Restock arrows",
+		"--memo", "Quiver refill",
+	}, &stdout); err != nil {
+		t.Fatalf("run entry expense: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Recorded expense as journal entry #1") {
+		t.Fatalf("expense output missing entry number: %q", output)
+	}
+	if !strings.Contains(output, "Amount: 2 SP 5 CP") {
+		t.Fatalf("expense output missing amount: %q", output)
+	}
+
+	databasePath := filepath.Join(dataDir, "ledger.db")
+	entryRow := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, `
+		SELECT entry_date || '|' || description
+		FROM journal_entries
+		ORDER BY entry_number
+	`))
+	if entryRow != "2026-03-10|Restock arrows" {
+		t.Fatalf("expense entry row = %q, want default dated entry", entryRow)
+	}
+	lineRows := ledger.RunSQLiteQueryForTest(t, databasePath, `
+		SELECT a.code || '|' || debit_amount || '|' || credit_amount || '|' || COALESCE(jl.memo, '')
+		FROM journal_lines jl
+		JOIN accounts a ON a.id = jl.account_id
+		ORDER BY line_number
+	`)
+	if !strings.Contains(lineRows, "5100|25|0|Quiver refill") || !strings.Contains(lineRows, "1000|0|25|") {
+		t.Fatalf("expense lines = %q, want expense debit and cash credit", lineRows)
+	}
+}
+
+func TestRunEntryIncomeUsesDefaultDateAndDepositAccount(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{
+		"entry", "income",
+		"--account", "4000",
+		"--amount", "1gp",
+		"--description", "Goblin bounty",
+		"--memo", "Mayor payout",
+	}, &stdout); err != nil {
+		t.Fatalf("run entry income: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Recorded income as journal entry #1") {
+		t.Fatalf("income output missing entry number: %q", output)
+	}
+
+	databasePath := filepath.Join(dataDir, "ledger.db")
+	lineRows := ledger.RunSQLiteQueryForTest(t, databasePath, `
+		SELECT a.code || '|' || debit_amount || '|' || credit_amount || '|' || COALESCE(jl.memo, '')
+		FROM journal_lines jl
+		JOIN accounts a ON a.id = jl.account_id
+		ORDER BY line_number
+	`)
+	if !strings.Contains(lineRows, "1000|100|0|") || !strings.Contains(lineRows, "4000|0|100|Mayor payout") {
+		t.Fatalf("income lines = %q, want cash debit and income credit", lineRows)
+	}
+}
+
+func TestRunEntryCustomUsesDefaultDate(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{
+		"entry", "custom",
+		"--description", "Gear transfer",
+		"--debit", "1300:500",
+		"--credit", "1000:500",
+	}, &stdout); err != nil {
+		t.Fatalf("run entry custom: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Recorded custom entry as journal entry #1") {
+		t.Fatalf("custom output missing entry number: %q", output)
+	}
+
+	databasePath := filepath.Join(dataDir, "ledger.db")
+	entryRow := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, `
+		SELECT entry_date || '|' || description
+		FROM journal_entries
+		ORDER BY entry_number
+	`))
+	if entryRow != "2026-03-10|Gear transfer" {
+		t.Fatalf("custom entry row = %q, want default dated custom entry", entryRow)
 	}
 }
 

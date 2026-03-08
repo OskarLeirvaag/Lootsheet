@@ -20,8 +20,26 @@ func TestRunHelpShowsTopLevelTopics(t *testing.T) {
 	if !strings.Contains(output, "tui        open the full-screen TUI shell") {
 		t.Fatalf("top-level help missing tui command: %q", output)
 	}
+	if !strings.Contains(output, "entry      create guided expense, income, and custom journal entries") {
+		t.Fatalf("top-level help missing entry command group: %q", output)
+	}
 	if !strings.Contains(output, "lootsheet account help") {
 		t.Fatalf("top-level help missing nested help example: %q", output)
+	}
+}
+
+func TestRunEntryHelpShowsGuidedCommands(t *testing.T) {
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{"entry", "help"}, &stdout); err != nil {
+		t.Fatalf("run entry help: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "lootsheet entry expense") {
+		t.Fatalf("entry help missing expense usage: %q", output)
+	}
+	if !strings.Contains(output, "record a guided multi-line journal entry") {
+		t.Fatalf("entry help missing custom summary: %q", output)
 	}
 }
 
@@ -128,7 +146,10 @@ func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
 	if !strings.Contains(output, "sell the selected recognized loot item") {
 		t.Fatalf("tui help missing loot sell guidance: %q", output)
 	}
-	if !strings.Contains(output, "Enter                      confirm the open modal, or submit the amount prompt") {
-		t.Fatalf("tui help missing confirm/input guidance: %q", output)
+	if !strings.Contains(output, "Enter                      confirm the open modal") {
+		t.Fatalf("tui help missing confirm guidance: %q", output)
+	}
+	if !strings.Contains(output, "Ctrl+S                     submit the guided entry composer") {
+		t.Fatalf("tui help missing compose submit guidance: %q", output)
 	}
 }

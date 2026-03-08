@@ -43,6 +43,7 @@ func (a *Application) newRootCommand() *cobra.Command {
 		a.newInitCommand(),
 		a.newTUICommand(),
 		a.newAccountCommand(),
+		a.newEntryCommand(),
 		a.newJournalCommand(),
 		a.newQuestCommand(),
 		a.newLootCommand(),
@@ -118,6 +119,25 @@ func (a *Application) newJournalCommand() *cobra.Command {
 	cmd.AddCommand(
 		a.newJournalPostCommand(),
 		a.newJournalReverseCommand(),
+	)
+
+	return cmd
+}
+
+func (a *Application) newEntryCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "entry",
+		Short: "Create guided expense, income, and custom journal entries",
+		Long:  entryHelpText,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return a.writeCommandHelp(cmd)
+		},
+	}
+
+	cmd.AddCommand(
+		a.newEntryExpenseCommand(),
+		a.newEntryIncomeCommand(),
+		a.newEntryCustomCommand(),
 	)
 
 	return cmd

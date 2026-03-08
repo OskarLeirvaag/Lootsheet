@@ -1,0 +1,46 @@
+.TH LOOTSHEET-ENTRY-EXPENSE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-entry-expense \\- Record a guided expense entry
+.SH SYNOPSIS
+lootsheet entry expense [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet entry expense --account CODE --amount AMOUNT --description TEXT [--paid-from CODE] [--date YYYY-MM-DD] [--memo TEXT]
+
+Defaults:
+  --paid-from  1000
+  --date       today
+
+Rules:
+  --account must be an active expense account
+  --paid-from must be an active asset or liability account
+
+Examples:
+  lootsheet entry expense --account 5100 --amount 2SP5CP --description "Restock arrows"
+  lootsheet entry expense --account 5300 --paid-from 2100 --amount 8GP --description "Inn charged to tab"
+.SH OPTIONS
+.TP
+--account=string
+expense account code (required) (default: )
+.TP
+--amount=string
+expense amount (required) (default: )
+.TP
+--date=string
+entry date in YYYY-MM-DD (defaults to today) (default: )
+.TP
+--description=string
+journal entry description (required) (default: )
+.TP
+-h, --help
+help for expense
+.TP
+--memo=string
+optional line memo (default: )
+.TP
+--paid-from=string
+funding account code (default: 1000)
+.SH SEE ALSO
+lootsheet-entry(1)

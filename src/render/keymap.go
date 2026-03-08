@@ -33,6 +33,10 @@ const (
 	ActionWriteOff      Action = "write_off"
 	ActionRecognize     Action = "recognize"
 	ActionSell          Action = "sell"
+	ActionNewExpense    Action = "new_expense"
+	ActionNewIncome     Action = "new_income"
+	ActionNewCustom     Action = "new_custom"
+	ActionSubmitCompose Action = "submit_compose"
 	ActionConfirm       Action = "confirm"
 )
 
@@ -139,6 +143,19 @@ func DefaultKeyMap() KeyMap {
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
 			},
 			{
+				Action: ActionNewExpense,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'e'},
+			},
+			{
+				Action: ActionNewIncome,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'i'},
+			},
+			{
+				Action: ActionNewCustom,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'a'},
+				Label:  "e/i/a entry",
+			},
+			{
 				Action: ActionToggle,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 't'},
 			},
@@ -161,6 +178,10 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionSell,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 's'},
+			},
+			{
+				Action: ActionSubmitCompose,
+				Stroke: KeyStroke{Key: tcell.KeyCtrlS},
 			},
 			{
 				Action: ActionConfirm,

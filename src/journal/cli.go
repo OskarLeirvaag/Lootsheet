@@ -17,20 +17,7 @@ func RunPost(ctx context.Context, hctx ledger.HandlerContext, input ledger.Journ
 		return err
 	}
 
-	if _, err := fmt.Fprintf(
-		hctx.Stdout,
-		"Posted journal entry #%d\nDate: %s\nDescription: %s\nLines: %d\nDebits: %s\nCredits: %s\n",
-		result.EntryNumber,
-		result.EntryDate,
-		result.Description,
-		result.LineCount,
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
-	); err != nil {
-		return fmt.Errorf("write journal output: %w", err)
-	}
-
-	return nil
+	return writePostedEntryOutput(hctx, "Posted journal entry", &result, "")
 }
 
 // BuildJournalPostInput converts parsed journal post flag values into a post input.
@@ -116,6 +103,36 @@ func RunReverse(ctx context.Context, hctx ledger.HandlerContext, entryID string,
 	return nil
 }
 
+// RunExpense posts a guided expense entry and writes the CLI output.
+func RunExpense(ctx context.Context, hctx ledger.HandlerContext, input *ExpenseEntryInput) error {
+	result, err := PostExpenseEntry(ctx, hctx.DatabasePath, input)
+	if err != nil {
+		return err
+	}
+
+	return writePostedEntryOutput(hctx, "Recorded expense as journal entry", &result, "Amount: "+tools.FormatAmount(input.Amount))
+}
+
+// RunIncome posts a guided income entry and writes the CLI output.
+func RunIncome(ctx context.Context, hctx ledger.HandlerContext, input *IncomeEntryInput) error {
+	result, err := PostIncomeEntry(ctx, hctx.DatabasePath, input)
+	if err != nil {
+		return err
+	}
+
+	return writePostedEntryOutput(hctx, "Recorded income as journal entry", &result, "Amount: "+tools.FormatAmount(input.Amount))
+}
+
+// RunCustom posts a guided custom entry and writes the CLI output.
+func RunCustom(ctx context.Context, hctx ledger.HandlerContext, input ledger.JournalPostInput) error {
+	result, err := PostJournalEntry(ctx, hctx.DatabasePath, input)
+	if err != nil {
+		return err
+	}
+
+	return writePostedEntryOutput(hctx, "Recorded custom entry as journal entry", &result, "")
+}
+
 // RunAccountLedger writes the ledger report for a single account.
 func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code string) error {
 	report, err := GetAccountLedger(ctx, hctx.DatabasePath, code)
@@ -162,6 +179,35 @@ func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code stri
 	// Print final balance line.
 	if _, err := fmt.Fprintf(hctx.Stdout, "Balance: %s\n", tools.FormatAmount(report.Balance)); err != nil {
 		return fmt.Errorf("write ledger balance: %w", err)
+	}
+
+	return nil
+}
+
+func writePostedEntryOutput(hctx ledger.HandlerContext, headline string, result *ledger.PostedJournalEntry, extraLine string) error {
+	if result == nil {
+		return fmt.Errorf("posted journal result is required")
+	}
+	if _, err := fmt.Fprintf(
+		hctx.Stdout,
+		"%s #%d\nDate: %s\nDescription: %s\nLines: %d\nDebits: %s\nCredits: %s\n",
+		headline,
+		result.EntryNumber,
+		result.EntryDate,
+		result.Description,
+		result.LineCount,
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
+	); err != nil {
+		return fmt.Errorf("write journal output: %w", err)
+	}
+
+	if strings.TrimSpace(extraLine) == "" {
+		return nil
+	}
+
+	if _, err := fmt.Fprintf(hctx.Stdout, "%s\n", extraLine); err != nil {
+		return fmt.Errorf("write journal extra output: %w", err)
 	}
 
 	return nil

@@ -18,6 +18,7 @@ Command groups:
   init       initialize a fresh LootSheet database
   tui        open the full-screen TUI shell
   account    create, rename, activate, deactivate, delete, and inspect accounts
+  entry      create guided expense, income, and custom journal entries
   journal    post and reverse balanced journal entries
   quest      track promised, earned, collected, and written-off quest rewards
   loot       track loot appraisal, recognition, and sale workflows
@@ -27,6 +28,7 @@ Examples:
   lootsheet init
   lootsheet tui
   lootsheet account list
+  lootsheet entry expense --account 5100 --amount 2SP5CP --description "Restock arrows"
   lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
   lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
   lootsheet report trial-balance
@@ -35,6 +37,7 @@ Help examples:
   lootsheet help
   lootsheet account help
   lootsheet account list help
+  lootsheet entry expense --help
   lootsheet journal post --help
 .SH OPTIONS
 .TP
@@ -43,6 +46,7 @@ help for lootsheet
 .SH SEE ALSO
 lootsheet-account(1)
 lootsheet-db(1)
+lootsheet-entry(1)
 lootsheet-init(1)
 lootsheet-journal(1)
 lootsheet-loot(1)

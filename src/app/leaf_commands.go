@@ -216,6 +216,125 @@ func (a *Application) newJournalReverseCommand() *cobra.Command {
 	})
 }
 
+func (a *Application) newEntryExpenseCommand() *cobra.Command {
+	var accountCode, paidFromCode, amountStr, date, description, memo string
+
+	cmd := &cobra.Command{
+		Use:   "expense",
+		Short: "Record a guided expense entry",
+		Long:  entryExpenseHelpText,
+	}
+	cmd.Flags().StringVar(&accountCode, "account", "", "expense account code (required)")
+	cmd.Flags().StringVar(&paidFromCode, "paid-from", "1000", "funding account code")
+	cmd.Flags().StringVar(&amountStr, "amount", "", "expense amount (required)")
+	cmd.Flags().StringVar(&date, "date", "", "entry date in YYYY-MM-DD (defaults to today)")
+	cmd.Flags().StringVar(&description, "description", "", "journal entry description (required)")
+	cmd.Flags().StringVar(&memo, "memo", "", "optional line memo")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if strings.TrimSpace(accountCode) == "" {
+			return fmt.Errorf("--account is required")
+		}
+		if strings.TrimSpace(amountStr) == "" {
+			return fmt.Errorf("--amount is required")
+		}
+		if strings.TrimSpace(description) == "" {
+			return fmt.Errorf("--description is required")
+		}
+		amount, err := tools.ParseAmount(amountStr)
+		if err != nil {
+			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
+		}
+		if strings.TrimSpace(date) == "" {
+			date = tuiToday()
+		}
+
+		return journal.RunExpense(ctx, a.handlerContext(), &journal.ExpenseEntryInput{
+			Date:               date,
+			Description:        description,
+			ExpenseAccountCode: accountCode,
+			FundingAccountCode: paidFromCode,
+			Amount:             amount,
+			Memo:               memo,
+		})
+	})
+}
+
+func (a *Application) newEntryIncomeCommand() *cobra.Command {
+	var accountCode, depositToCode, amountStr, date, description, memo string
+
+	cmd := &cobra.Command{
+		Use:   "income",
+		Short: "Record a guided income entry",
+		Long:  entryIncomeHelpText,
+	}
+	cmd.Flags().StringVar(&accountCode, "account", "", "income account code (required)")
+	cmd.Flags().StringVar(&depositToCode, "deposit-to", "1000", "deposit account code")
+	cmd.Flags().StringVar(&amountStr, "amount", "", "income amount (required)")
+	cmd.Flags().StringVar(&date, "date", "", "entry date in YYYY-MM-DD (defaults to today)")
+	cmd.Flags().StringVar(&description, "description", "", "journal entry description (required)")
+	cmd.Flags().StringVar(&memo, "memo", "", "optional line memo")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if strings.TrimSpace(accountCode) == "" {
+			return fmt.Errorf("--account is required")
+		}
+		if strings.TrimSpace(amountStr) == "" {
+			return fmt.Errorf("--amount is required")
+		}
+		if strings.TrimSpace(description) == "" {
+			return fmt.Errorf("--description is required")
+		}
+		amount, err := tools.ParseAmount(amountStr)
+		if err != nil {
+			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
+		}
+		if strings.TrimSpace(date) == "" {
+			date = tuiToday()
+		}
+
+		return journal.RunIncome(ctx, a.handlerContext(), &journal.IncomeEntryInput{
+			Date:               date,
+			Description:        description,
+			IncomeAccountCode:  accountCode,
+			DepositAccountCode: depositToCode,
+			Amount:             amount,
+			Memo:               memo,
+		})
+	})
+}
+
+func (a *Application) newEntryCustomCommand() *cobra.Command {
+	var entryDate, description string
+	var debitSpecs, creditSpecs []string
+
+	cmd := &cobra.Command{
+		Use:   "custom",
+		Short: "Record a guided custom journal entry",
+		Long:  entryCustomHelpText,
+	}
+	cmd.Flags().StringVar(&entryDate, "date", "", "entry date in YYYY-MM-DD (defaults to today)")
+	cmd.Flags().StringVar(&description, "description", "", "journal entry description (required)")
+	cmd.Flags().StringArrayVar(&debitSpecs, "debit", nil, "debit line in CODE:AMOUNT[:MEMO] format")
+	cmd.Flags().StringArrayVar(&creditSpecs, "credit", nil, "credit line in CODE:AMOUNT[:MEMO] format")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if strings.TrimSpace(description) == "" {
+			return fmt.Errorf("--description is required")
+		}
+		if strings.TrimSpace(entryDate) == "" {
+			entryDate = tuiToday()
+		}
+
+		input, err := journal.BuildJournalPostInput(entryDate, description, debitSpecs, creditSpecs)
+		if err != nil {
+			return fmt.Errorf("%s\n\n%s", err, entryCustomHelpText)
+		}
+
+		return journal.RunCustom(ctx, a.handlerContext(), input)
+	})
+}
+
 func (a *Application) newQuestCreateCommand() *cobra.Command {
 	var title, patron, description, rewardStr, advanceStr, bonus, status, acceptedOn string
 
