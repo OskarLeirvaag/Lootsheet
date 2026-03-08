@@ -46,7 +46,7 @@
   - [x] `lootsheet account help`, `lootsheet journal help`, `lootsheet quest help`, `lootsheet loot help`, and `lootsheet report help` should describe each domain workflow clearly.
   - [x] Leaf commands such as `lootsheet account list help` and `lootsheet journal post help` should document flags, required inputs, amount/date formats, and concrete examples.
   - [x] Support consistent `help`, `-h`, and `--help` behavior across top-level, grouped, and leaf commands.
-- [ ] Generate and ship proper `man` pages for the CLI command tree as part of packaging.
+- [x] Generate and ship proper `man` pages for the CLI command tree as part of packaging.
 
 ## TUI
 
@@ -92,7 +92,7 @@
 - [x] Add tests for reversal and correction flows.
 - [x] Add tests for quest completion and collection flows.
 - [x] Add tests for loot appraisal recognition and sale flows.
-- [ ] Add fixtures with a sample campaign ledger.
+- [x] Add fixtures with a sample campaign ledger.
 - [x] Add `testapp.sh` end-to-end smoke coverage for installed-binary style runs in a temporary workspace.
 
 ## Packaging and Longevity
@@ -111,7 +111,7 @@
 - [x] Add startup detection for uninitialized, current, upgradeable, foreign, and damaged databases.
 - [x] Add backup creation before risky migration or repair flows.
 - [x] Define stable long-term paths for config, database, backups, and optional exports.
-- [ ] Document upgrade and recovery workflow for existing local databases.
+- [x] Document upgrade and recovery workflow for existing local databases.
 - [ ] Evaluate Windows support later after CLI/TUI and packaging are stable on Linux and macOS.
 
 ## Later

@@ -1,4 +1,4 @@
-.PHONY: build fmt imports test vet lint vuln deadcode check
+.PHONY: build fmt imports test vet lint vuln deadcode manpages check
 
 APP := lootsheet
 
@@ -25,5 +25,8 @@ vuln:
 
 deadcode:
 	deadcode ./...
+
+manpages:
+	go run ./scripts/generate-manpages.go
 
 check: fmt imports test vet lint vuln

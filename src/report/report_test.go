@@ -485,3 +485,91 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 		t.Fatalf("candidate age days = %d, want 72", candidate.AgeDays)
 	}
 }
+
+func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ledger.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")
+	ctx := context.Background()
+
+	trialBalance, err := GetTrialBalance(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("get trial balance: %v", err)
+	}
+	if !trialBalance.Balanced {
+		t.Fatalf("fixture trial balance should be balanced, got debits=%d credits=%d", trialBalance.TotalDebits, trialBalance.TotalCredits)
+	}
+
+	trialBalanceByCode := map[string]TrialBalanceRow{}
+	for _, row := range trialBalance.Accounts {
+		trialBalanceByCode[row.AccountCode] = row
+	}
+
+	if row := trialBalanceByCode["5125"]; row.AccountName != "Tavern Reparations" || row.TotalDebits != 350 {
+		t.Fatalf("custom account row = %+v, want Tavern Reparations with 350 debit", row)
+	}
+	if row := trialBalanceByCode["5400"]; row.Balance != 200 {
+		t.Fatalf("loss on sale row balance = %d, want 200", row.Balance)
+	}
+
+	promised, err := GetPromisedQuests(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("get promised quests: %v", err)
+	}
+	if len(promised) != 2 {
+		t.Fatalf("promised quest count = %d, want 2", len(promised))
+	}
+	if promised[0].Title != "Escort the Archivist" || promised[0].Status != ledger.QuestStatusAccepted {
+		t.Fatalf("first promised quest = %+v, want accepted Escort the Archivist", promised[0])
+	}
+	if promised[1].Title != "Clear the Old Watchtower" || promised[1].Status != ledger.QuestStatusOffered {
+		t.Fatalf("second promised quest = %+v, want offered Clear the Old Watchtower", promised[1])
+	}
+
+	receivables, err := GetQuestReceivables(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("get quest receivables: %v", err)
+	}
+	if len(receivables) != 1 {
+		t.Fatalf("quest receivable count = %d, want 1", len(receivables))
+	}
+	if receivables[0].Title != "Moonlit Escort" || receivables[0].Outstanding != 500 || receivables[0].TotalPaid != 700 {
+		t.Fatalf("quest receivable row = %+v, want Moonlit Escort with 700 paid and 500 outstanding", receivables[0])
+	}
+
+	writeoffCandidates, err := GetWriteOffCandidates(ctx, databasePath, WriteOffCandidateFilter{
+		AsOfDate:   "2026-03-20",
+		MinAgeDays: 30,
+	})
+	if err != nil {
+		t.Fatalf("get write-off candidates: %v", err)
+	}
+	if len(writeoffCandidates) != 1 {
+		t.Fatalf("write-off candidate count = %d, want 1", len(writeoffCandidates))
+	}
+	if writeoffCandidates[0].Title != "Moonlit Escort" || writeoffCandidates[0].AgeDays != 38 {
+		t.Fatalf("write-off candidate row = %+v, want Moonlit Escort aged 38 days", writeoffCandidates[0])
+	}
+
+	lootSummary, err := GetLootSummary(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("get loot summary: %v", err)
+	}
+	if len(lootSummary) != 2 {
+		t.Fatalf("loot summary count = %d, want 2", len(lootSummary))
+	}
+
+	lootByName := map[string]LootSummaryRow{}
+	for _, row := range lootSummary {
+		lootByName[row.Name] = row
+	}
+
+	if row := lootByName["Wyvern Tooth Necklace"]; row.Status != ledger.LootStatusHeld || row.LatestAppraisalValue != 650 {
+		t.Fatalf("held loot row = %+v, want held Wyvern Tooth Necklace appraised at 650", row)
+	}
+	if row := lootByName["Emerald Idol"]; row.Status != ledger.LootStatusRecognized || row.LatestAppraisalValue != 800 {
+		t.Fatalf("recognized loot row = %+v, want recognized Emerald Idol appraised at 800", row)
+	}
+	if _, exists := lootByName["Cracked Ruby Crown"]; exists {
+		t.Fatal("sold loot item should not appear in loot summary")
+	}
+}

@@ -1,0 +1,30 @@
+.TH LOOTSHEET-REPORT-WRITEOFF-CANDIDATES 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-report-writeoff-candidates \\- Show stale outstanding quest balances
+.SH SYNOPSIS
+lootsheet report writeoff-candidates [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet report writeoff-candidates [--as-of YYYY-MM-DD] [--min-age-days N]
+
+Defaults:
+  --as-of         today
+  --min-age-days  30
+
+Examples:
+  lootsheet report writeoff-candidates
+  lootsheet report writeoff-candidates --as-of 2026-04-01 --min-age-days 45
+.SH OPTIONS
+.TP
+--as-of=string
+report date in YYYY-MM-DD (default: 2026-03-08)
+.TP
+-h, --help
+help for writeoff-candidates
+.TP
+--min-age-days=int
+minimum completed age in days (default: 30)
+.SH SEE ALSO
+lootsheet-report(1)

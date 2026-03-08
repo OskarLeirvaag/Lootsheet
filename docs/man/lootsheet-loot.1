@@ -1,0 +1,32 @@
+.TH LOOTSHEET-LOOT 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-loot \\- Track loot appraisal, recognition, and sale workflows
+.SH SYNOPSIS
+lootsheet loot [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet loot create --name TEXT [--source TEXT] [--quantity N] [--holder TEXT] [--notes TEXT]
+  lootsheet loot list
+  lootsheet loot appraise --id ID --value AMOUNT --date YYYY-MM-DD [--appraiser TEXT] [--notes TEXT]
+  lootsheet loot recognize --appraisal-id ID --date YYYY-MM-DD [--description TEXT]
+  lootsheet loot sell --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+
+Subcommands:
+  create     register found loot off-ledger
+  list       show tracked loot items
+  appraise   record an appraisal without recognizing it on-ledger
+  recognize  bring an appraisal onto the ledger
+  sell       record a sale and any gain or loss
+.SH OPTIONS
+.TP
+-h, --help
+help for loot
+.SH SEE ALSO
+lootsheet(1)
+lootsheet-loot-appraise(1)
+lootsheet-loot-create(1)
+lootsheet-loot-list(1)
+lootsheet-loot-recognize(1)
+lootsheet-loot-sell(1)

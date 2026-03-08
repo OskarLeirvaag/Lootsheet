@@ -263,6 +263,12 @@ Help is hierarchical across the command tree:
 The repository also includes `./testapp.sh`, which builds a temporary binary and
 runs an installed-binary-style smoke scenario against a temporary workspace.
 
+Generated CLI man pages are checked in under [docs/man/](docs/man) and can be refreshed with:
+
+```sh
+make manpages
+```
+
 ## Accounting Examples
 
 ### Sell loot below appraisal
@@ -301,13 +307,38 @@ Cr Quest Receivable          100
 - a browser-first app
 - a full inventory simulator for every torch and rope unless the user wants that level of detail
 
+## Sample Fixture
+
+The repository now includes a reusable sample campaign fixture at [fixtures/sample_campaign.sql](fixtures/sample_campaign.sql).
+
+It is currently used for regression coverage and documentation, and captures:
+
+- a custom account
+- open and accepted quest promises
+- a stale partially paid receivable
+- held, recognized, and sold loot
+- a loss-on-sale example
+
+There is not yet a user-facing import command for that fixture; `import sample dataset` remains a later CLI/TUI backlog item.
+
+## Upgrade And Recovery
+
+The current supported database upgrade and recovery workflow is documented in [docs/upgrade-recovery.md](docs/upgrade-recovery.md).
+
+In short:
+
+- use `lootsheet db status` to confirm whether the database is `uninitialized`, `current`, `upgradeable`, `foreign`, or `damaged`
+- use `lootsheet db migrate` only for `upgradeable` databases
+- rely on the timestamped backup path printed by `db migrate` before any risky schema change
+- do not try to migrate `foreign` or `damaged` databases in place
+
 ## Next Step
 
 The next implementation milestone is the TUI shell around the existing ledger and register workflows.
 
 Near-term supporting work still pending:
 
-- sample campaign fixture data
-- upgrade and recovery documentation
+- release target and installation decisions
+- packaging polish around generated man pages
 
 See [PLAN.md](PLAN.md), [TODO.md](TODO.md), and [DESIGN.md](DESIGN.md) for the working project plan.

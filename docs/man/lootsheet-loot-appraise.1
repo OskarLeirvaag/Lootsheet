@@ -1,0 +1,35 @@
+.TH LOOTSHEET-LOOT-APPRAISE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-loot-appraise \\- Record an off-ledger appraisal
+.SH SYNOPSIS
+lootsheet loot appraise [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet loot appraise --id ID --value AMOUNT --date YYYY-MM-DD [--appraiser TEXT] [--notes TEXT]
+
+Examples:
+  lootsheet loot appraise --id loot-123 --value 75GP --date 2026-03-08 --appraiser "Guild jeweler"
+  lootsheet loot appraise --id loot-123 --value 80GP --date 2026-03-09 --notes "Second opinion"
+.SH OPTIONS
+.TP
+--appraiser=string
+who appraised the item (default: )
+.TP
+--date=string
+appraisal date in YYYY-MM-DD (required) (default: )
+.TP
+-h, --help
+help for appraise
+.TP
+--id=string
+loot item ID (required) (default: )
+.TP
+--notes=string
+appraisal notes (default: )
+.TP
+--value=string
+appraised value (required) (default: )
+.SH SEE ALSO
+lootsheet-loot(1)
