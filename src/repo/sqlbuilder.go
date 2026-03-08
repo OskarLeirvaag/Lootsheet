@@ -41,6 +41,33 @@ func buildInsertStatement(table string, columns []string, values []string) strin
 	)
 }
 
+func buildUpsertStatement(
+	table string,
+	columns []string,
+	values []string,
+	conflictColumns []string,
+	updateAssignments []string,
+) string {
+	if len(columns) != len(values) {
+		panic(fmt.Sprintf("upsert statement for %s has %d columns and %d values", table, len(columns), len(values)))
+	}
+	if len(conflictColumns) == 0 {
+		panic(fmt.Sprintf("upsert statement for %s requires at least one conflict column", table))
+	}
+	if len(updateAssignments) == 0 {
+		panic(fmt.Sprintf("upsert statement for %s requires at least one update assignment", table))
+	}
+
+	return fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (%s) DO UPDATE SET %s;",
+		table,
+		strings.Join(columns, ", "),
+		strings.Join(values, ", "),
+		strings.Join(conflictColumns, ", "),
+		strings.Join(updateAssignments, ", "),
+	)
+}
+
 func sqlString(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }

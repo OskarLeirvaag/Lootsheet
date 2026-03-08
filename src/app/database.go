@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
 )
 
@@ -16,6 +17,8 @@ func (a *Application) runDatabase(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "status":
 		return a.runDatabaseStatus(ctx)
+	case "migrate":
+		return a.runDatabaseMigrate(ctx)
 	default:
 		return fmt.Errorf("unknown db subcommand %q\n\n%s", args[0], usageText)
 	}
@@ -24,15 +27,16 @@ func (a *Application) runDatabase(ctx context.Context, args []string) error {
 func (a *Application) runDatabaseStatus(ctx context.Context) error {
 	a.log.logger.InfoContext(ctx, "reading database status", slog.String("database_path", a.config.Paths.DatabasePath))
 
-	status, err := repo.GetDatabaseStatus(ctx, a.config.Paths.DatabasePath)
+	initAssets, err := config.LoadInitAssets()
 	if err != nil {
-		a.log.logger.ErrorContext(ctx, "failed to read database status", slog.String("error", err.Error()))
+		a.log.logger.ErrorContext(ctx, "failed to load init assets", slog.String("error", err.Error()))
 		return err
 	}
 
-	stateLabel := "uninitialized"
-	if status.Initialized {
-		stateLabel = "initialized"
+	status, err := repo.GetDatabaseStatusWithAssets(ctx, a.config.Paths.DatabasePath, initAssets)
+	if err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to read database status", slog.String("error", err.Error()))
+		return err
 	}
 
 	existsLabel := "no"
@@ -42,14 +46,22 @@ func (a *Application) runDatabaseStatus(ctx context.Context) error {
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Database: %s\nExists: %s\nState: %s\nSchema version: %s\nApplied migrations: %d\n",
+		"Database: %s\nExists: %s\nState: %s\nSchema version: %s\nTarget schema version: %s\nApplied migrations: %d\nPending migrations: %d\n",
 		a.config.Paths.DatabasePath,
 		existsLabel,
-		stateLabel,
+		status.State,
 		blankIfEmpty(status.SchemaVersion),
+		blankIfEmpty(status.TargetSchemaVersion),
 		len(status.AppliedMigrations),
+		len(status.PendingMigrations),
 	); err != nil {
 		return fmt.Errorf("write database status output: %w", err)
+	}
+
+	if len(status.AppliedMigrations) > 0 {
+		if _, err := fmt.Fprintln(a.stdout, "Applied:"); err != nil {
+			return fmt.Errorf("write applied migrations header: %w", err)
+		}
 	}
 
 	for _, migration := range status.AppliedMigrations {
@@ -58,13 +70,82 @@ func (a *Application) runDatabaseStatus(ctx context.Context) error {
 		}
 	}
 
+	if len(status.PendingMigrations) > 0 {
+		if _, err := fmt.Fprintln(a.stdout, "Pending:"); err != nil {
+			return fmt.Errorf("write pending migrations header: %w", err)
+		}
+	}
+
+	for _, migration := range status.PendingMigrations {
+		if _, err := fmt.Fprintf(a.stdout, "%s  %s\n", migration.Version, migration.Name); err != nil {
+			return fmt.Errorf("write pending migration row: %w", err)
+		}
+	}
+
 	a.log.logger.InfoContext(
 		ctx,
 		"read database status",
 		slog.Bool("exists", status.Exists),
 		slog.Bool("initialized", status.Initialized),
+		slog.String("state", string(status.State)),
 		slog.String("schema_version", status.SchemaVersion),
+		slog.String("target_schema_version", status.TargetSchemaVersion),
 		slog.Int("applied_migrations", len(status.AppliedMigrations)),
+		slog.Int("pending_migrations", len(status.PendingMigrations)),
+	)
+
+	return nil
+}
+
+func (a *Application) runDatabaseMigrate(ctx context.Context) error {
+	a.log.logger.InfoContext(ctx, "migrating database", slog.String("database_path", a.config.Paths.DatabasePath))
+
+	initAssets, err := config.LoadInitAssets()
+	if err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to load init assets", slog.String("error", err.Error()))
+		return err
+	}
+
+	result, err := repo.MigrateSQLiteDatabase(ctx, a.config.Paths.DatabasePath, initAssets)
+	if err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to migrate database", slog.String("error", err.Error()))
+		return err
+	}
+
+	stateLabel := "current"
+	switch {
+	case result.Migrated:
+		stateLabel = "migrated"
+	case result.MetadataRepaired:
+		stateLabel = "metadata repaired"
+	}
+
+	if _, err := fmt.Fprintf(
+		a.stdout,
+		"Database: %s\nState: %s\nFrom schema version: %s\nTo schema version: %s\nApplied migrations: %d\n",
+		a.config.Paths.DatabasePath,
+		stateLabel,
+		blankIfEmpty(result.FromSchemaVersion),
+		blankIfEmpty(result.ToSchemaVersion),
+		len(result.AppliedMigrations),
+	); err != nil {
+		return fmt.Errorf("write database migrate output: %w", err)
+	}
+
+	for _, migration := range result.AppliedMigrations {
+		if _, err := fmt.Fprintf(a.stdout, "%s  %s\n", migration.Version, migration.Name); err != nil {
+			return fmt.Errorf("write applied migration row: %w", err)
+		}
+	}
+
+	a.log.logger.InfoContext(
+		ctx,
+		"database migration finished",
+		slog.Bool("migrated", result.Migrated),
+		slog.Bool("metadata_repaired", result.MetadataRepaired),
+		slog.String("from_schema_version", result.FromSchemaVersion),
+		slog.String("to_schema_version", result.ToSchemaVersion),
+		slog.Int("applied_migrations", len(result.AppliedMigrations)),
 	)
 
 	return nil

@@ -29,6 +29,7 @@ Deliverables:
 - SQLite schema and migrations
 - repositories for accounts, journal entries, quests, and loot appraisals
 - seed chart of accounts
+- direct SQLite access from Go rather than shelling out to an external `sqlite3` executable
 
 Exit criteria:
 - application bootstrap flows through `main.go -> src/app`
@@ -139,6 +140,11 @@ Deliverables:
   - direct binary install into a user-visible path
   - archive-based release installation
   - Homebrew formula or tap later if worth the maintenance
+- storage/runtime layout documentation for:
+  - config file
+  - SQLite database
+  - backup directory
+  - optional export locations
 - versioned SQLite migrations with explicit schema version checks
 - startup behavior that clearly distinguishes:
   - first-time init
@@ -164,6 +170,7 @@ The intended long-term runtime behavior should be:
 - one primary SQLite database per user-selected workspace or default per-user data directory
 - config stored separately from accounting data
 - backups created before risky migration or repair flows
+- no required external `sqlite3` binary at runtime
 - forward-only migrations with explicit schema version tracking
 - human-readable logging to stderr by default, with future optional log-file support if needed
 - graceful handling of app restarts, terminal closure, and interrupted commands without corrupting posted data

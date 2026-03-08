@@ -182,6 +182,7 @@ const usageText = `LootSheet CLI
 
 Usage:
   lootsheet db status
+  lootsheet db migrate
   lootsheet init
   lootsheet account list
   lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]

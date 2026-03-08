@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
+	"github.com/OskarLeirvaag/Lootsheet/src/repo"
 )
 
 func TestRunInitCreatesSQLiteDatabase(t *testing.T) {
@@ -96,8 +97,16 @@ func TestRunDatabaseStatusBeforeInit(t *testing.T) {
 		t.Fatalf("db status missing uninitialized state: %q", output)
 	}
 
+	if !strings.Contains(output, "Target schema version: 2") {
+		t.Fatalf("db status missing target schema version: %q", output)
+	}
+
 	if !strings.Contains(output, "Applied migrations: 0") {
 		t.Fatalf("db status missing migration count: %q", output)
+	}
+
+	if !strings.Contains(output, "Pending migrations: 0") {
+		t.Fatalf("db status missing pending migration count: %q", output)
 	}
 }
 
@@ -169,7 +178,7 @@ func TestRunJournalPostRejectsUnbalancedEntry(t *testing.T) {
 	}
 }
 
-func TestRunDatabaseStatusAfterInitShowsAppliedMigration(t *testing.T) {
+func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config", "config.json")
 	dataDir := filepath.Join(tmpDir, "data")
@@ -193,19 +202,122 @@ func TestRunDatabaseStatusAfterInitShowsAppliedMigration(t *testing.T) {
 		t.Fatalf("db status missing Exists=yes: %q", output)
 	}
 
-	if !strings.Contains(output, "State: initialized") {
-		t.Fatalf("db status missing initialized state: %q", output)
+	if !strings.Contains(output, "State: current") {
+		t.Fatalf("db status missing current state: %q", output)
 	}
 
-	if !strings.Contains(output, "Schema version: 1") {
+	if !strings.Contains(output, "Schema version: 2") {
 		t.Fatalf("db status missing schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Applied migrations: 1") {
+	if !strings.Contains(output, "Target schema version: 2") {
+		t.Fatalf("db status missing target schema version: %q", output)
+	}
+
+	if !strings.Contains(output, "Applied migrations: 2") {
 		t.Fatalf("db status missing migration count: %q", output)
 	}
 
-	if !strings.Contains(output, "1  001_init.sql") {
-		t.Fatalf("db status missing migration row: %q", output)
+	if !strings.Contains(output, "Pending migrations: 0") {
+		t.Fatalf("db status missing pending migration count: %q", output)
 	}
+
+	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
+		t.Fatalf("db status missing second migration row: %q", output)
+	}
+}
+
+func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	fullAssets, legacyAssets := loadMigrationAssetsForAppTest(t)
+	if _, err := repo.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+		t.Fatalf("initialize legacy db: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{"db", "status"}, &stdout); err != nil {
+		t.Fatalf("run db status: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "State: upgradeable") {
+		t.Fatalf("db status missing upgradeable state: %q", output)
+	}
+
+	if !strings.Contains(output, "Schema version: 1") {
+		t.Fatalf("db status missing schema version 1: %q", output)
+	}
+
+	if !strings.Contains(output, "Target schema version: "+fullAssets.SchemaVersion) {
+		t.Fatalf("db status missing target schema version: %q", output)
+	}
+
+	if !strings.Contains(output, "Pending migrations: 1") {
+		t.Fatalf("db status missing pending migration count: %q", output)
+	}
+
+	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
+		t.Fatalf("db status missing pending migration row: %q", output)
+	}
+}
+
+func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	_, legacyAssets := loadMigrationAssetsForAppTest(t)
+	if _, err := repo.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+		t.Fatalf("initialize legacy db: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{"db", "migrate"}, &stdout); err != nil {
+		t.Fatalf("run db migrate: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "State: migrated") {
+		t.Fatalf("db migrate missing migrated state: %q", output)
+	}
+
+	if !strings.Contains(output, "From schema version: 1") {
+		t.Fatalf("db migrate missing from schema version: %q", output)
+	}
+
+	if !strings.Contains(output, "To schema version: 2") {
+		t.Fatalf("db migrate missing to schema version: %q", output)
+	}
+
+	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
+		t.Fatalf("db migrate missing applied migration row: %q", output)
+	}
+}
+
+func loadMigrationAssetsForAppTest(t *testing.T) (config.InitAssets, config.InitAssets) {
+	t.Helper()
+
+	fullAssets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	legacyAssets := fullAssets
+	legacyAssets.Migrations = append([]config.InitMigration(nil), fullAssets.Migrations[:1]...)
+	legacyAssets.SchemaVersion = legacyAssets.Migrations[len(legacyAssets.Migrations)-1].Version
+
+	return fullAssets, legacyAssets
 }

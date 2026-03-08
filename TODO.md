@@ -15,6 +15,7 @@
 - [x] Write the first SQLite schema.
 - [x] Seed a default chart of accounts for a D&D party.
 - [x] Implement journal balancing validation.
+- [ ] Replace the external `sqlite3` command dependency with direct SQLite access from the app binary.
 - [ ] Implement the rule that posted entries cannot be edited or deleted.
 - [ ] Expand structured logging configuration beyond the default OTel-backed text logger if needed.
 
@@ -92,7 +93,12 @@
   - [ ] direct binary
   - [ ] archive bundle
   - [ ] optional Homebrew later
-- [ ] Add full upgrade migration execution beyond init-time migration tracking.
+- [ ] Finalize the installed file set and locations:
+  - [ ] config file
+  - [ ] SQLite database
+  - [ ] backup directory
+  - [ ] optional export directory conventions
+- [x] Add full upgrade migration execution beyond init-time migration tracking.
 - [ ] Add startup detection for uninitialized, current, upgradeable, foreign, and damaged databases.
 - [ ] Add backup creation before risky migration or repair flows.
 - [ ] Define stable long-term paths for config, database, backups, and optional exports.
