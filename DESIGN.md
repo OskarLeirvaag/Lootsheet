@@ -1,182 +1,74 @@
 # Design
 
-## Purpose
+This file is the short source of truth for product invariants and domain rules.
 
-LootSheet is a local accounting application for D&D 5e parties. It should feel like actual bookkeeping software while remaining adapted to adventuring realities.
+## Product Shape
 
-The product is intentionally not a web app in v1. It is a local Go application with a CLI/TUI interface and a local SQLite database.
+- local Go application
+- CLI and TUI only
+- SQLite as the system of record
+- no auth, daemon, or required network dependency in v1
 
 ## Design Goals
 
-- Preserve real accounting behavior where it matters.
-- Keep the general ledger strict and auditable.
-- Let uncertain or conditional events live in operational registers first.
-- Make the app useful during or between sessions.
-- Support humor and party-specific quirks through flexible accounts and naming.
+- feel credible as accounting software
+- keep the ledger auditable
+- separate formal ledger records from operational registers
+- support D&D-specific edge cases without weakening the bookkeeping model
 
-## Application Structure
+## Architecture
 
-The current code layout is:
+Repository layout:
 
-- `main.go` for application startup
-- `src/app` for runtime bootstrap and top-level CLI dispatch
-- `src/account` for account CRUD, activation, and deletion protection
-- `src/journal` for posting, reversal, and account-ledger output
-- `src/quest` for quest lifecycle workflows
-- `src/loot` for loot lifecycle workflows
-- `src/report` for read-only reporting flows
-- `src/ledger` for shared types, validation, DB helpers, errors, and migrations
-- `src/config` for config loading, path resolution, and embedded setup assets
-- `src/tools` for shared helpers such as currency parsing and formatting
-- `src/render` reserved for the upcoming TUI shell
+- `main.go`
+- `src/app`
+- `src/account`
+- `src/journal`
+- `src/quest`
+- `src/loot`
+- `src/report`
+- `src/ledger`
+- `src/config`
+- `src/tools`
+- `src/render`
 
-The dependency direction should stay simple and one-way:
+Dependency flow:
 
-- `main.go` depends on `src/app`
-- `src/app` depends on domain packages and top-level configuration
-- domain packages depend on `src/ledger` for shared types and DB helpers
-- `src/ledger` depends on `src/config` assets and storage concerns
-- `src/render` should depend on app-facing interfaces, not raw SQL
-- domain packages should not import one another directly
+- `app -> domain packages -> ledger -> config`
+- `render` depends on app-facing data, not raw SQL
+- no direct imports between `account`, `journal`, `quest`, `loot`, and `report`
 
-This is intentionally straightforward DI rather than framework-driven wiring.
+## Hard Invariants
 
-The CLI command tree and leaf-level flag parsing should be owned by Cobra in `src/app`, while the domain packages remain responsible for command execution, validation, output, and database behavior.
-
-## Install and Runtime Model
-
-LootSheet should be designed as a compiled local application for proper desktop/server-style operating systems rather than as a development-only tool.
-
-Initial supported platforms:
-
-- Linux
-- macOS
-
-Later if the maintenance burden stays reasonable:
-
-- Windows
-
-The operational model should be:
-
-- a single local binary the user installs and runs directly
-- no required background daemon
-- no required network service
-- no auth or login-user model
-- one local SQLite database as the system of record for the party books
-- no runtime dependency on an external `sqlite3` executable
-
-### Filesystem Layout
-
-The application should keep long-term files in stable per-user locations:
-
-- config in the user config directory
-- SQLite database in the user data directory
-- backups in a predictable application-owned backup location under user data or state
-- smoke-test or temp working files only in explicit temporary locations
-- optional exports in user-chosen locations
-
-These locations should remain stable across upgrades unless the user explicitly changes them.
-
-### Upgrade and Migration Model
-
-Long-term use requires a conservative storage policy:
-
-- every database schema change must be versioned
-- startup must detect whether the database is uninitialized, current, upgradeable, foreign, or damaged
-- migrations should be forward-only and explicit
-- risky migrations should create or require a backup first
-- failures should stop with a recovery message rather than partially mutating data silently
-
-The current CLI already distinguishes those database states in `lootsheet db status` and refuses to auto-migrate foreign or damaged databases.
-
-### Logging and Diagnostics
-
-The default operational logging should be human-readable and predictable:
-
-- logs to stderr by default
-- level names normalized to `DBG`, `INFO`, `WARN`, `ERR`
-- structured enough to support machine verification in smoke scripts
-- future support for log-file output only if it is justified by real operational needs
-
-### Distribution
-
-The preferred release path for v1 should be simple:
-
-- publish versioned binaries for Linux and macOS
-- support archive-based installation first
-- add package-manager integrations later only if they reduce real friction
-
-The release artifact should remain self-contained from a storage point of view:
-
-- the `lootsheet` binary should open SQLite directly through an embedded driver
-- installed operation should not require users to separately install `sqlite3`
-- the app may create config, database, backup, and optional export files, but not depend on helper executables for normal operation
-
-The application should remain usable for years even if package-manager integration changes, which means direct binary installs and stable on-disk data layout matter more than fancy installers.
-
-## Core Model
-
-LootSheet has two main layers:
-
-### 1. General Ledger
-
-The ledger contains formal accounting records:
-
-- accounts
-- journal entries
-- journal lines
-
-Rules:
-
+- posted journal entries are immutable
+- corrections happen through reversal, adjustment, or reclassification
 - journal entries must balance
-- posted entries are immutable
-- corrections happen through reversal or adjustment
 - account IDs are immutable
 - account names are editable
 - accounts with postings cannot be deleted
-- accounts with postings may be marked inactive
+- used accounts may be marked inactive
 
-### 2. Operational Registers
+## Ledger vs Registers
 
-Registers track real information that is not always ready for ledger recognition.
+The ledger is the formal accounting record.
+
+Registers track operational state that may later create ledger entries.
 
 Initial registers:
 
 - quest register
 - unrealized loot register
 
-These registers are first-class features, not temporary hacks.
+## Accounting Assumptions
 
-## Why Registers Exist
+- no VAT, invoice, or payroll model in v1
+- small consumables default to expenses
+- loot value is uncertain until sale
+- a recognized appraisal can create visible gain or loss on later sale
 
-Some D&D facts are useful but not yet bookable:
+## Account Types
 
-- a patron promises payment if the party succeeds
-- a gem is appraised at 500 GP but has not been sold
-- a dragon offers a bonus only if the bard does not insult it again
-
-Those belong in operational tracking first. They enter the ledger only when an accounting event actually occurs.
-
-## Accounting Rules
-
-### Journal Entry Immutability
-
-States:
-
-- `draft`
-- `posted`
-- `reversed`
-
-Behavior:
-
-- drafts may be edited
-- posted entries may not be edited
-- reversed entries remain visible
-- every correction leaves an audit trail
-
-### Account Types
-
-Initial supported types:
+Supported account types:
 
 - `asset`
 - `liability`
@@ -184,53 +76,11 @@ Initial supported types:
 - `income`
 - `expense`
 
-Contra accounts can be supported later through configuration or signage rules, but v1 can avoid over-modeling them if needed.
+Custom accounts are a first-class feature.
 
-## Suggested Seed Accounts
+## Quest Rules
 
-Assets:
-
-- `Party Cash`
-- `Quest Receivable`
-- `Loot Inventory`
-- `Gear Inventory`
-
-Liabilities:
-
-- `Unearned Quest Revenue`
-
-Equity:
-
-- `Party Equity`
-
-Income:
-
-- `Quest Income`
-- `Bonus Quest Income`
-- `Unrealized Loot Gain`
-- `Gain on Sale of Loot`
-
-Expenses:
-
-- `Adventuring Supplies`
-- `Arrows & Ammunition`
-- `Wizard Magic Ink`
-- `Inn & Travel`
-- `Loss on Sale of Loot`
-- `Failed Patron Loss`
-
-The seed chart is a starting point only. Users must be able to add custom accounts.
-
-The seed chart should live in init-time setup files rather than long-lived in-memory defaults.
-Those setup files are used to populate a fresh SQLite database, and after that the database is the source of truth.
-
-These accounts are ledger accounts. They are not user/login accounts, and v1 should not introduce an auth model.
-
-## Quest Register
-
-The quest register tracks work that may or may not produce income.
-
-Each quest should capture:
+Each quest tracks:
 
 - title
 - patron
@@ -238,11 +88,10 @@ Each quest should capture:
 - promised base reward
 - optional partial advance
 - optional bonus conditions
-- current status
-- related journal entries
+- status
 - notes
 
-Suggested statuses:
+Lifecycle statuses:
 
 - `offered`
 - `accepted`
@@ -253,390 +102,44 @@ Suggested statuses:
 - `defaulted`
 - `voided`
 
-### Quest Recognition Rules
+Recognition rules:
 
-Promised but unearned reward:
+- promised rewards stay off-ledger until earned
+- earned but unpaid rewards become receivables
+- failed collection becomes a write-off, not silent deletion
 
-- stays off-ledger
+## Loot Rules
 
-Advance received before completion:
+Each loot item tracks:
 
-```text
-Dr Party Cash
-Cr Unearned Quest Revenue
-```
-
-Reward earned on completion:
-
-```text
-Dr Quest Receivable
-Cr Quest Income
-```
-
-If there was an advance:
-
-```text
-Dr Unearned Quest Revenue
-Cr Quest Income
-```
-
-Collection:
-
-```text
-Dr Party Cash
-Cr Quest Receivable
-```
-
-Write-off after recognition:
-
-```text
-Dr Failed Patron Loss
-Cr Quest Receivable
-```
-
-If the quest fails before income is earned, the quest can be closed in the register without any ledger entry.
-
-## Unrealized Loot Register
-
-The unrealized loot register tracks found or appraised items before disposition.
-
-Each loot item should capture:
-
-- item name
+- name
 - source
 - quantity
-- appraised value
-- appraisal notes
-- holder or location
-- current status
-- related journal entries
+- holder
+- notes
+- appraisals
+- status
 
-Suggested statuses:
+Lifecycle idea:
 
-- `held`
-- `recognized`
-- `sold`
-- `assigned`
-- `consumed`
-- `discarded`
+- create loot with no value
+- appraise later in the loot register
+- recognize only when the party chooses to move it on-ledger
+- sale records gain or loss against the recognized basis
 
-### Loot Recognition Rules
+## TUI Direction
 
-Appraisal only:
+- keyboard-first
+- boxed panel layout
+- cell-based rendering
+- section-specific color identity is fine
+- mouse support is optional
 
-- stays off-ledger by default
+## Storage and Operations
 
-Optional recognition of appraised value:
+- per-user config/data locations
+- forward-only migrations
+- explicit database states: uninitialized, current, upgradeable, foreign, damaged
+- backup before risky migration or repair work
 
-```text
-Dr Loot Inventory
-Cr Unrealized Loot Gain
-```
-
-Sale below recognized value:
-
-```text
-Dr Party Cash
-Dr Loss on Sale of Loot
-Cr Loot Inventory
-```
-
-Sale above recognized value:
-
-```text
-Dr Party Cash
-Cr Loot Inventory
-Cr Gain on Sale of Loot
-```
-
-If the party never recognizes the appraisal, then the eventual sale can be recorded directly as realized income or cash movement depending on how strict the workflow should be.
-
-## Consumables and Supplies
-
-By default, low-value consumables should be expensed immediately rather than tracked as assets.
-
-Examples:
-
-- arrows
-- rations
-- lamp oil
-- chalk
-- wizard ink
-
-Typical entry:
-
-```text
-Dr Adventuring Supplies
-Cr Party Cash
-```
-
-This should remain flexible. A user may choose to create inventory accounts for more detailed campaigns.
-
-## Custom Accounts
-
-Custom accounts are required for the product to feel alive.
-
-Requirements:
-
-- users can create accounts
-- users can rename accounts
-- account IDs never change
-- accounts with activity cannot be deleted
-- accounts can be deactivated
-- accounts should support optional parent grouping later
-
-Examples:
-
-- `Wizard Magic Ink`
-- `Dragon Courtship Expenses`
-- `Clerical Resurrection Fund`
-
-## Dashboard Design
-
-The dashboard should combine formal accounting and operational reminders.
-
-Primary widgets:
-
-- party cash summary
-- recent posted entries
-- open quest count
-- collectible quest total
-- unrealized loot appraisal total
-- overdue or stale collectible quests
-- pending write-off candidates
-
-The dashboard should answer:
-
-- how much cash the party has now
-- what is probably collectible
-- what is only promised
-- what loot has value but is unsold
-- what needs correction or write-off
-
-## TUI Design
-
-Initial screens:
-
-- Dashboard
-- Accounts
-- Journal
-- Quests
-- Loot
-- Reports
-
-Navigation should be keyboard-first and obvious. The design target is closer to `btop` than to a form wizard or roguelike.
-
-Potential layout:
-
-- boxed panels with clear borders and titles
-- dense dashboard with multiple simultaneous summaries
-- small help footer
-- modal or panel flows for entry creation and correction
-
-### Rendering Approach
-
-The TUI should be implemented with `tcell`.
-
-Reasons:
-
-- low-level control over terminal cells
-- clean handling of resize, mouse, and keyboard input
-- better fit for a `btop`-style boxed layout than a higher-level widget stack
-- no need for C++ to achieve the desired look
-
-The intended renderer behavior is:
-
-- use the alternate screen
-- maintain a screen model and redraw efficiently
-- support Unicode box-drawing characters
-- support themeable colors
-- degrade gracefully on lower-color terminals
-
-### Visual Direction
-
-The reference style is inspired by `btop`, but LootSheet should still look like accounting software.
-
-That means:
-
-- framed panels with strong section titles
-- compact summaries at the top
-- dense but readable tables in the main work area
-- visual emphasis on balances, exceptions, and collectible items
-- restrained animations if any; clarity is more important than spectacle
-
-### Dashboard Layout
-
-The dashboard should feel information-dense on one screen.
-
-Suggested panel layout:
-
-- top-left: `Party Cash`, key balances, and current period summary
-- top-right: recent journal entries and correction alerts
-- middle-left: open quests and collectible rewards
-- middle-right: unrealized loot and appraisal totals
-- bottom-left: write-off candidates and stale items
-- bottom-right: quick navigation, hotkeys, or selected account summary
-
-### Interaction Model
-
-Suggested input model:
-
-- single-key navigation for major sections
-- arrow keys or `hjkl` for movement within lists
-- enter to inspect or drill down
-- explicit actions for `post`, `reverse`, `collect`, `write off`, and `recognize`
-- mouse support as a convenience, not a requirement
-
-## Storage Design
-
-Current database: SQLite
-
-Current top-level tables:
-
-- `settings`
-- `schema_migrations`
-- `accounts`
-- `journal_entries`
-- `journal_lines`
-- `quests`
-- `loot_items`
-- `loot_appraisals`
-
-Quest reward terms are currently stored directly on `quests` as:
-
-- `promised_base_reward`
-- `partial_advance`
-- `bonus_conditions`
-
-Quest and loot lifecycle actions currently derive ledger links from journal entries rather than separate event tables.
-
-The storage engine is SQLite.
-
-Reasons:
-
-- local-first workflow
-- zero external infrastructure
-- sufficient for single-user campaign bookkeeping
-- easy backup and export behavior
-
-Initialization data should be stored under `src/config` as setup assets:
-
-- schema SQL for creating the first tables
-- default seed data such as the initial chart of accounts
-
-Those setup assets are consumed only during initialization of an empty database. They must not overwrite an existing LootSheet database on later runs.
-
-### Accounts
-
-Fields:
-
-- `id`
-- `code`
-- `name`
-- `type`
-- `active`
-- `created_at`
-- `updated_at`
-
-### Journal Entries
-
-Fields:
-
-- `id`
-- `entry_number`
-- `status`
-- `entry_date`
-- `description`
-- `reverses_entry_id`
-- `created_at`
-- `posted_at`
-
-### Journal Lines
-
-Fields:
-
-- `id`
-- `journal_entry_id`
-- `account_id`
-- `memo`
-- `debit_amount`
-- `credit_amount`
-
-### Quests
-
-Fields:
-
-- `id`
-- `title`
-- `patron`
-- `description`
-- `promised_base_reward`
-- `partial_advance`
-- `bonus_conditions`
-- `status`
-- `notes`
-- `accepted_on`
-- `completed_on`
-- `closed_on`
-- `created_at`
-- `updated_at`
-
-### Loot Items
-
-Fields:
-
-- `id`
-- `name`
-- `source`
-- `status`
-- `quantity`
-- `holder`
-- `notes`
-- `created_at`
-- `updated_at`
-
-### Loot Appraisals
-
-Fields:
-
-- `id`
-- `loot_item_id`
-- `appraised_value`
-- `appraiser`
-- `notes`
-- `appraised_at`
-- `recognized_entry_id`
-- `created_at`
-
-## Reporting
-
-Reports currently implemented:
-
-- trial balance
-- account ledger
-- outstanding quest receivables
-- promised-but-unearned quest report
-- unrealized loot summary
-- write-off candidates
-
-Still reasonable later additions:
-
-- correction history
-- dashboard-oriented rollups once the TUI shell lands
-
-## Non-Goals
-
-Not planned for v1:
-
-- authentication
-- cloud sync
-- browser UI
-- tax logic
-- invoice workflows
-
-## Open Questions
-
-- Should each party member eventually have a personal subledger?
-- Should consumables support optional quantity tracking without becoming full inventory accounting?
-- Should appraisal recognition be encouraged, optional, or disabled by default?
-- How much automation should be provided for common journal templates?
+For release planning and current backlog, see [PLAN.md](PLAN.md) and [TODO.md](TODO.md).
