@@ -126,7 +126,7 @@ LootSheet does not have a user-account or auth model in v1.
 ## Runtime Stack
 
 - Go
-- explicit stdlib CLI parsing for the current command surface
+- Cobra for the CLI command tree and help routing
 - SQLite for local storage
 - `tcell` planned for the full-screen TUI
 
@@ -165,7 +165,7 @@ This does not require C++. The visual style comes from terminal rendering strate
 Development should stay boring and explicit.
 
 - `main.go` starts the application and hands off to `src/app`
-- `src/app` parses top-level commands and delegates into domain packages
+- `src/app` owns the Cobra command tree and delegates into domain packages
 - domain packages own their CLI handlers and data access for their slice
 - `src/ledger` owns shared validation, migrations, and DB lifecycle helpers
 - `src/config` owns config file parsing, path resolution, and embedded setup assets
@@ -250,6 +250,7 @@ Current commands:
 - `lootsheet help`
 
 Use `lootsheet help` for the exact command surface and flag syntax.
+The CLI command tree is now routed through Cobra while the domain slices still own the underlying command handlers and accounting behavior.
 
 Help is hierarchical across the command tree:
 

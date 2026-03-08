@@ -41,6 +41,8 @@ The dependency direction should stay simple and one-way:
 
 This is intentionally straightforward DI rather than framework-driven wiring.
 
+The CLI command tree should be owned by Cobra in `src/app`, while the domain packages remain responsible for their own handler logic, validation, and database behavior.
+
 ## Install and Runtime Model
 
 LootSheet should be designed as a compiled local application for proper desktop/server-style operating systems rather than as a development-only tool.
