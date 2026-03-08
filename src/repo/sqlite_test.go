@@ -1080,7 +1080,7 @@ func runSQLiteQueryForTest(t *testing.T, databasePath string, query string) stri
 	}
 	defer db.Close()
 
-	rows, err := db.Query(query)
+	rows, err := db.QueryContext(context.Background(), query)
 	if err != nil {
 		t.Fatalf("run test query: %v", err)
 	}
@@ -1111,7 +1111,7 @@ func runSQLiteScriptForTest(t *testing.T, databasePath string, sqlScript string)
 	}
 	defer db.Close()
 
-	if _, err := db.Exec(sqlScript); err != nil {
+	if _, err := db.ExecContext(context.Background(), sqlScript); err != nil {
 		t.Fatalf("run test script: %v: %s", err, fmt.Sprintf("%.200s", sqlScript))
 	}
 }

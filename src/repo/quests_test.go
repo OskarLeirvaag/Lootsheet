@@ -30,7 +30,7 @@ func initTestDB(t *testing.T) string {
 func TestCreateQuestOffered(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Clear the Goblin Cave",
 		Patron:             "Mayor Thornton",
 		Description:        "Goblins infesting the east cave",
@@ -62,7 +62,7 @@ func TestCreateQuestOffered(t *testing.T) {
 func TestCreateQuestAccepted(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Escort the Merchant",
 		PromisedBaseReward: 200,
 		Status:             "accepted",
@@ -84,7 +84,7 @@ func TestCreateQuestAccepted(t *testing.T) {
 func TestCreateQuestAcceptedRequiresDate(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	_, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "No Date Quest",
 		Status: "accepted",
 	})
@@ -100,7 +100,7 @@ func TestCreateQuestAcceptedRequiresDate(t *testing.T) {
 func TestCreateQuestRejectsEmptyTitle(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	_, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title: "",
 	})
 	if err == nil {
@@ -115,7 +115,7 @@ func TestCreateQuestRejectsEmptyTitle(t *testing.T) {
 func TestCreateQuestRejectsInvalidStatus(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	_, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "Bad Status Quest",
 		Status: "completed",
 	})
@@ -131,7 +131,7 @@ func TestCreateQuestRejectsInvalidStatus(t *testing.T) {
 func TestListQuests(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	_, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Quest A",
 		PromisedBaseReward: 100,
 		Status:             "offered",
@@ -140,7 +140,7 @@ func TestListQuests(t *testing.T) {
 		t.Fatalf("create quest A: %v", err)
 	}
 
-	_, err = CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	_, err = CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Quest B",
 		PromisedBaseReward: 200,
 		Status:             "accepted",
@@ -168,7 +168,7 @@ func TestListQuests(t *testing.T) {
 func TestAcceptQuest(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "Accept Me",
 		Status: "offered",
 	})
@@ -197,7 +197,7 @@ func TestAcceptQuest(t *testing.T) {
 func TestAcceptQuestRejectsNonOffered(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:      "Already Accepted",
 		Status:     "accepted",
 		AcceptedOn: "2026-03-01",
@@ -219,7 +219,7 @@ func TestAcceptQuestRejectsNonOffered(t *testing.T) {
 func TestCompleteQuest(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:      "Complete Me",
 		Status:     "accepted",
 		AcceptedOn: "2026-03-01",
@@ -249,7 +249,7 @@ func TestCompleteQuest(t *testing.T) {
 func TestCompleteQuestRejectsOffered(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "Still Offered",
 		Status: "offered",
 	})
@@ -270,7 +270,7 @@ func TestCompleteQuestRejectsOffered(t *testing.T) {
 func TestCollectQuestFullPayment(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Paid Quest",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -325,7 +325,7 @@ func TestCollectQuestFullPayment(t *testing.T) {
 func TestCollectQuestPartialPayment(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Partial Quest",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -381,7 +381,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Not Ready",
 		PromisedBaseReward: 100,
 		Status:             "offered",
@@ -407,7 +407,7 @@ func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
 func TestCollectQuestPaymentRejectsAcceptedQuest(t *testing.T) {
 	databasePath := initTestDB(t)
 
-	quest, err := CreateQuest(context.Background(), databasePath, CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Still In Progress",
 		PromisedBaseReward: 100,
 		Status:             "accepted",

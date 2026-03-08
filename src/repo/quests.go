@@ -43,7 +43,7 @@ type CreateQuestInput struct {
 
 // CreateQuest inserts a new quest into the database.
 // Status must be "offered" or "accepted". If "accepted", AcceptedOn is required.
-func CreateQuest(ctx context.Context, databasePath string, input CreateQuestInput) (QuestRecord, error) {
+func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInput) (QuestRecord, error) {
 	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
 		return QuestRecord{}, err
 	}
@@ -335,11 +335,6 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 		fmt.Sprintf("Quest payment: %s%%", quest.Title),
 	).Scan(&totalPaid); err != nil {
 		return PostedJournalEntry{}, fmt.Errorf("query total paid: %w", err)
-	}
-
-	remaining := quest.PromisedBaseReward - totalPaid
-	if remaining < 0 {
-		remaining = 0
 	}
 
 	description := strings.TrimSpace(input.Description)

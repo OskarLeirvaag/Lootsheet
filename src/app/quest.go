@@ -4,10 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 	"io"
 	"log/slog"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
 func (a *Application) runQuest(ctx context.Context, args []string) error {
@@ -66,7 +67,7 @@ func (a *Application) runQuestCreate(ctx context.Context, args []string) error {
 		slog.String("status", status),
 	)
 
-	result, err := repo.CreateQuest(ctx, a.config.Paths.DatabasePath, repo.CreateQuestInput{
+	result, err := repo.CreateQuest(ctx, a.config.Paths.DatabasePath, &repo.CreateQuestInput{
 		Title:              title,
 		Patron:             patron,
 		Description:        description,
@@ -110,13 +111,13 @@ func (a *Application) runQuestList(ctx context.Context) error {
 		return fmt.Errorf("write quests header: %w", err)
 	}
 
-	for _, quest := range quests {
+	for i := range quests {
 		if _, err := fmt.Fprintf(
 			a.stdout,
 			"%-16s %-22s  %s\n",
-			string(quest.Status),
-			tools.FormatAmount(quest.PromisedBaseReward),
-			quest.Title,
+			string(quests[i].Status),
+			tools.FormatAmount(quests[i].PromisedBaseReward),
+			quests[i].Title,
 		); err != nil {
 			return fmt.Errorf("write quest row: %w", err)
 		}

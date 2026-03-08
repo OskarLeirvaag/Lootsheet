@@ -132,7 +132,7 @@ func (h *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return false
 }
 
-func (h *multiHandler) Handle(ctx context.Context, record slog.Record) error {
+func (h *multiHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:gocritic // slog.Handler interface requires value receiver for Record
 	var firstErr error
 
 	for _, handler := range h.handlers {

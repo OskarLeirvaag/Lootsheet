@@ -31,7 +31,7 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 	_, pendingMigrations, err := splitMigrationsAtVersion(assets.Migrations, state.SchemaVersion)
 	if err != nil {
 		status.State = DatabaseStateUnknown
-		return status, nil
+		return status, nil //nolint:nilerr // unknown schema version is a valid state, not a caller error
 	}
 
 	status.PendingMigrations = toPendingMigrations(pendingMigrations)
