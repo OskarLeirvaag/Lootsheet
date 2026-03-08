@@ -3,6 +3,7 @@ package report
 import (
 	"context"
 	"fmt"
+	"text/tabwriter"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/tools"
@@ -23,28 +24,21 @@ func RunTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
 		return fmt.Errorf("write trial balance blank line: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-6s%-21s%-11s  %-20s  %-20s  %-20s\n",
-		"CODE", "ACCOUNT", "TYPE", "DEBITS", "CREDITS", "BALANCE",
-	); err != nil {
-		return fmt.Errorf("write trial balance column header: %w", err)
-	}
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "CODE\tACCOUNT\tTYPE\tDEBITS\tCREDITS\tBALANCE")
 
 	for _, row := range report.Accounts {
-		if _, err := fmt.Fprintf(hctx.Stdout, "%-6s%-21s%-11s  %-20s  %-20s  %-20s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			row.AccountCode,
-			truncate(row.AccountName, 20),
+			row.AccountName,
 			string(row.AccountType),
 			tools.FormatAmount(row.TotalDebits),
 			tools.FormatAmount(row.TotalCredits),
 			tools.FormatAmount(row.Balance),
-		); err != nil {
-			return fmt.Errorf("write trial balance row: %w", err)
-		}
+		)
 	}
 
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-38s  %-20s  %-20s\n", "", "---", "---"); err != nil {
-		return fmt.Errorf("write trial balance separator: %w", err)
-	}
+	fmt.Fprintf(tw, "\t\t\t\t%s\t%s\n", "---", "---")
 
 	balanceLabel := "BALANCED"
 	if !report.Balanced {
@@ -55,10 +49,12 @@ func RunTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
 		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %s)", tools.FormatAmount(diff))
 	}
 
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-27s%-11s  %-20s  %-20s  %s\n",
-		"", "Totals:", tools.FormatAmount(report.TotalDebits), tools.FormatAmount(report.TotalCredits), balanceLabel,
-	); err != nil {
-		return fmt.Errorf("write trial balance totals: %w", err)
+	fmt.Fprintf(tw, "\t\tTotals:\t%s\t%s\t%s\n",
+		tools.FormatAmount(report.TotalDebits), tools.FormatAmount(report.TotalCredits), balanceLabel,
+	)
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write trial balance table: %w", err)
 	}
 
 	return nil
@@ -78,23 +74,22 @@ func RunQuestReceivables(ctx context.Context, hctx ledger.HandlerContext) error 
 		return nil
 	}
 
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-16s %-16s %-16s %s\n",
-		"QUEST", "PATRON", "STATUS", "PROMISED", "PAID", "OUTSTANDING",
-	); err != nil {
-		return fmt.Errorf("write quest receivables header: %w", err)
-	}
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "QUEST\tPATRON\tSTATUS\tPROMISED\tPAID\tOUTSTANDING")
 
 	for _, r := range rows {
-		if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-16s %-16s %-16s %s\n",
-			truncate(r.Title, 24),
-			truncate(r.Patron, 16),
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			r.Title,
+			r.Patron,
 			string(r.Status),
 			tools.FormatAmount(r.PromisedReward),
 			tools.FormatAmount(r.TotalPaid),
 			tools.FormatAmount(r.Outstanding),
-		); err != nil {
-			return fmt.Errorf("write quest receivable row: %w", err)
-		}
+		)
+	}
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write quest receivables table: %w", err)
 	}
 
 	return nil
@@ -120,28 +115,28 @@ func RunPromisedQuests(ctx context.Context, hctx ledger.HandlerContext) error {
 	if _, err := fmt.Fprintln(hctx.Stdout, ""); err != nil {
 		return fmt.Errorf("write promised quests blank line: %w", err)
 	}
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-10s %-16s %-16s %s\n",
-		"QUEST", "PATRON", "STATUS", "PROMISED", "ADVANCE", "BONUS",
-	); err != nil {
-		return fmt.Errorf("write promised quests header: %w", err)
-	}
+
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "QUEST\tPATRON\tSTATUS\tPROMISED\tADVANCE\tBONUS")
 
 	for _, row := range rows {
 		bonusDisplay := "-"
 		if row.BonusConditions != "" {
-			bonusDisplay = truncate(row.BonusConditions, 36)
+			bonusDisplay = row.BonusConditions
 		}
 
-		if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-10s %-16s %-16s %s\n",
-			truncate(row.Title, 24),
-			truncate(row.Patron, 16),
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			row.Title,
+			row.Patron,
 			string(row.Status),
 			tools.FormatAmount(row.PromisedReward),
 			tools.FormatAmount(row.PartialAdvance),
 			bonusDisplay,
-		); err != nil {
-			return fmt.Errorf("write promised quest row: %w", err)
-		}
+		)
+	}
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write promised quests table: %w", err)
 	}
 
 	return nil
@@ -161,11 +156,8 @@ func RunLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
 		return nil
 	}
 
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-12s %5s  %s\n",
-		"NAME", "SOURCE", "STATUS", "QTY", "APPRAISED VALUE",
-	); err != nil {
-		return fmt.Errorf("write loot summary header: %w", err)
-	}
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tSOURCE\tSTATUS\tQTY\tAPPRAISED VALUE")
 
 	for _, r := range rows {
 		appraisedDisplay := "-"
@@ -173,15 +165,17 @@ func RunLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
 			appraisedDisplay = tools.FormatAmount(r.LatestAppraisalValue)
 		}
 
-		if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-12s %5d  %s\n",
-			truncate(r.Name, 24),
-			truncate(r.Source, 16),
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
+			r.Name,
+			r.Source,
 			string(r.Status),
 			r.Quantity,
 			appraisedDisplay,
-		); err != nil {
-			return fmt.Errorf("write loot summary row: %w", err)
-		}
+		)
+	}
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write loot summary table: %w", err)
 	}
 
 	return nil
@@ -207,33 +201,26 @@ func RunWriteOffCandidates(ctx context.Context, hctx ledger.HandlerContext, filt
 	if _, err := fmt.Fprintf(hctx.Stdout, "Write-Off Candidates (as of %s, min age %d days)\n\n", filter.AsOfDate, filter.MinAgeDays); err != nil {
 		return fmt.Errorf("write write-off candidates title: %w", err)
 	}
-	if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-16s %-10s %4s  %-16s %-16s %s\n",
-		"QUEST", "PATRON", "STATUS", "COMPLETED", "AGE", "PROMISED", "PAID", "OUTSTANDING",
-	); err != nil {
-		return fmt.Errorf("write write-off candidates header: %w", err)
-	}
+
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "QUEST\tPATRON\tSTATUS\tCOMPLETED\tAGE\tPROMISED\tPAID\tOUTSTANDING")
 
 	for _, row := range rows {
-		if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-16s %-10s %4d  %-16s %-16s %s\n",
-			truncate(row.Title, 24),
-			truncate(row.Patron, 16),
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+			row.Title,
+			row.Patron,
 			string(row.Status),
 			row.CompletedOn,
 			row.AgeDays,
 			tools.FormatAmount(row.PromisedReward),
 			tools.FormatAmount(row.TotalPaid),
 			tools.FormatAmount(row.Outstanding),
-		); err != nil {
-			return fmt.Errorf("write write-off candidate row: %w", err)
-		}
+		)
+	}
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write write-off candidates table: %w", err)
 	}
 
 	return nil
-}
-
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-1] + "~"
 }
