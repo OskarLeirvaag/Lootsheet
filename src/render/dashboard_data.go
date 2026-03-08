@@ -14,31 +14,31 @@ type DashboardData struct {
 func DefaultDashboardData() DashboardData {
 	return DashboardData{
 		HeaderLines: []string{
-			"Accounting shell slice 1: alternate screen, resize-safe layout, boxed panels, and footer help.",
-			"Read-only placeholder view. Domain adapters and navigation land in the next slices.",
+			"Read-only TUI shell: boxed dashboard, live navigation, and app-facing adapters.",
+			"Use section navigation to move between dashboard, accounts, journal, quests, and loot.",
 		},
 		AccountsLines: []string{
-			"Chart of accounts screen comes next.",
+			"Chart of accounts screen is live in read-only mode.",
 			"Codes stay immutable; names remain editable.",
 			"Deletion protection stays in the domain layer.",
 		},
 		JournalLines: []string{
 			"Posted entries remain immutable.",
 			"Corrections continue to happen by reversal or adjustment.",
-			"Interactive browsing lands after the dashboard shell.",
+			"Read-only browsing is available before editing flows.",
 		},
 		LedgerLines: []string{
-			"Read-only data adapters are intentionally deferred.",
-			"This slice proves the screen lifecycle before wiring reports.",
+			"Dashboard summaries stay read-only in this slice.",
+			"Drill-down screens use app-side adapters instead of raw SQL.",
 			"No raw SQL belongs in src/render.",
 		},
 		QuestLines: []string{
 			"Promised rewards stay off-ledger until earned.",
-			"Dashboard drill-down is planned after report adapters.",
+			"Quest register browsing is read-only in this slice.",
 		},
 		LootLines: []string{
 			"Unrealized appraisals stay off-ledger until recognized.",
-			"Sales and losses will remain visible once wired into views.",
+			"Loot register browsing is read-only in this slice.",
 		},
 	}
 }
@@ -67,14 +67,22 @@ func resolveDashboardData(data *DashboardData) DashboardData {
 		return DefaultDashboardData()
 	}
 
-	if len(data.HeaderLines) == 0 &&
-		len(data.AccountsLines) == 0 &&
-		len(data.JournalLines) == 0 &&
-		len(data.LedgerLines) == 0 &&
-		len(data.QuestLines) == 0 &&
-		len(data.LootLines) == 0 {
+	if dashboardDataEmpty(data) {
 		return DefaultDashboardData()
 	}
 
 	return *data
+}
+
+func dashboardDataEmpty(data *DashboardData) bool {
+	if data == nil {
+		return true
+	}
+
+	return len(data.HeaderLines) == 0 &&
+		len(data.AccountsLines) == 0 &&
+		len(data.JournalLines) == 0 &&
+		len(data.LedgerLines) == 0 &&
+		len(data.QuestLines) == 0 &&
+		len(data.LootLines) == 0
 }

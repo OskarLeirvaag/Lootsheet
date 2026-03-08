@@ -120,3 +120,61 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("loot lines = %q", data.LootLines)
 	}
 }
+
+func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	if _, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []ledger.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	}); err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	if _, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Goblin Bounty",
+		Patron:             "Mayor Rowan",
+		PromisedBaseReward: 2500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-08",
+	}); err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, lootItem.ID, 800, "Guild factor", "2026-03-08", ""); err != nil {
+		t.Fatalf("appraise loot item: %v", err)
+	}
+
+	data, err := buildTUIShellData(ctx, databasePath, assets)
+	if err != nil {
+		t.Fatalf("build shell data: %v", err)
+	}
+
+	if !strings.Contains(strings.Join(data.Accounts.RowLines, "\n"), "1000 asset") {
+		t.Fatalf("account rows = %q", data.Accounts.RowLines)
+	}
+	if !strings.Contains(strings.Join(data.Journal.RowLines, "\n"), "Restock arrows") {
+		t.Fatalf("journal rows = %q", data.Journal.RowLines)
+	}
+	if !strings.Contains(strings.Join(data.Quests.RowLines, "\n"), "Goblin Bounty") {
+		t.Fatalf("quest rows = %q", data.Quests.RowLines)
+	}
+	if !strings.Contains(strings.Join(data.Loot.RowLines, "\n"), "Silver Chalice") {
+		t.Fatalf("loot rows = %q", data.Loot.RowLines)
+	}
+}

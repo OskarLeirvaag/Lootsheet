@@ -1,6 +1,6 @@
 .TH LOOTSHEET-TUI 1 "Mar 2026" "LootSheet" "LootSheet Manual"
 .SH NAME
-lootsheet-tui \\- Open the full-screen terminal dashboard shell
+lootsheet-tui \\- Open the full-screen terminal TUI shell
 .SH SYNOPSIS
 lootsheet tui [flags]
 .SH DESCRIPTION
@@ -9,12 +9,16 @@ LootSheet CLI
 Usage:
   lootsheet tui
 
-Opens the first full-screen LootSheet dashboard shell using tcell.
-This slice is read-only and currently focuses on screen lifecycle, resize-safe boxed panels, theme groundwork, footer help, and live dashboard summaries loaded through app-facing adapters.
+Opens the full-screen LootSheet TUI using tcell.
+The current slice is read-only and includes the dashboard plus boxed Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. It focuses on clean screen lifecycle, resize-safe layout, keyboard navigation, contextual footer help, and live summaries without adding edit flows yet.
 
 Keys:
-  q       quit the dashboard
-  Esc     quit the dashboard
+  Left/Right, Tab/Shift+Tab  move between top-level sections
+  1-5                        jump directly to dashboard/accounts/journal/quests/loot
+  Up/Down, j/k               scroll list screens
+  PgUp/PgDn, Home/End        jump through longer list screens
+  q       quit the TUI
+  Esc     quit the TUI
   Ctrl+L  refresh dashboard data and force a full redraw
 .SH OPTIONS
 .TP

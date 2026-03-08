@@ -6,17 +6,18 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// Options configures the first dashboard shell.
+// Options configures the read-only TUI shell.
 type Options struct {
 	ScreenFactory   ScreenFactory
 	DashboardLoader DashboardLoader
+	ShellLoader     ShellLoader
 	Theme           Theme
 	KeyMap          KeyMap
 }
 
 type cancelInterrupt struct{}
 
-// Run opens the first boxed-dashboard TUI slice and blocks until exit.
+// Run opens the read-only boxed TUI shell and blocks until exit.
 func Run(ctx context.Context, options *Options) error {
 	theme := resolveTheme(nil)
 	keymap := DefaultKeyMap()
@@ -47,8 +48,9 @@ func Run(ctx context.Context, options *Options) error {
 		}
 	}()
 
-	dashboard := &Dashboard{Data: loadDashboardData(ctx, options)}
-	drawFrame(terminal, dashboard, &theme, keymap, false)
+	data := loadShellData(ctx, options)
+	shell := NewShell(&data)
+	drawFrame(terminal, shell, &theme, keymap, false)
 
 	for {
 		event := terminal.PollEvent()
@@ -56,27 +58,36 @@ func Run(ctx context.Context, options *Options) error {
 		case nil:
 			return nil
 		case *tcell.EventKey:
-			switch keymap.Resolve(typed) {
+			action := keymap.Resolve(typed)
+			switch action {
 			case ActionQuit:
 				return nil
 			case ActionRedraw:
-				dashboard.Data = loadDashboardData(ctx, options)
-				drawFrame(terminal, dashboard, &theme, keymap, true)
+				data := loadShellData(ctx, options)
+				shell.Reload(&data)
+				drawFrame(terminal, shell, &theme, keymap, true)
 			case ActionNone:
+			default:
+				if shell.HandleAction(action) {
+					drawFrame(terminal, shell, &theme, keymap, true)
+				}
 			}
 		case *tcell.EventResize:
-			drawFrame(terminal, dashboard, &theme, keymap, true)
+			drawFrame(terminal, shell, &theme, keymap, true)
 		case *tcell.EventInterrupt:
 			if _, ok := typed.Data().(cancelInterrupt); ok {
 				return nil
 			}
-			drawFrame(terminal, dashboard, &theme, keymap, true)
+			drawFrame(terminal, shell, &theme, keymap, true)
 		}
 	}
 }
 
 // DashboardLoader produces the read-only dashboard snapshot shown in the TUI.
 type DashboardLoader func(context.Context) (DashboardData, error)
+
+// ShellLoader produces the full read-only TUI snapshot shown in the TUI.
+type ShellLoader func(context.Context) (ShellData, error)
 
 func loadDashboardData(ctx context.Context, options *Options) DashboardData {
 	if options == nil || options.DashboardLoader == nil {
@@ -91,9 +102,24 @@ func loadDashboardData(ctx context.Context, options *Options) DashboardData {
 	return resolveDashboardData(&data)
 }
 
-func drawFrame(terminal *Terminal, dashboard *Dashboard, theme *Theme, keymap KeyMap, full bool) {
+func loadShellData(ctx context.Context, options *Options) ShellData {
+	if options != nil && options.ShellLoader != nil {
+		data, err := options.ShellLoader(ctx)
+		if err != nil {
+			return ErrorShellData("TUI data unavailable.", err.Error())
+		}
+
+		return resolveShellData(&data)
+	}
+
+	return ShellData{
+		Dashboard: loadDashboardData(ctx, options),
+	}
+}
+
+func drawFrame(terminal *Terminal, shell *Shell, theme *Theme, keymap KeyMap, full bool) {
 	bounds := terminal.Bounds()
 	buffer := NewBuffer(bounds.W, bounds.H, theme.Base)
-	dashboard.Render(buffer, theme, keymap)
+	shell.Render(buffer, theme, keymap)
 	terminal.Present(buffer, full)
 }

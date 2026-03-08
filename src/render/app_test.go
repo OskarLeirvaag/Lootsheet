@@ -100,10 +100,35 @@ func TestRunHandlesResizeAndRedrawBeforeExit(t *testing.T) {
 	}
 
 	plain := screen.lastFrame
-	for _, token := range []string{"LootSheet Dashboard", "q quit", "Ctrl+L redraw"} {
+	for _, token := range []string{"LootSheet TUI", "Section: Dashboard", "q quit", "Ctrl+L refresh"} {
 		if !strings.Contains(plain, token) {
 			t.Fatalf("simulation output missing %q:\n%s", token, plain)
 		}
+	}
+}
+
+func TestRunSwitchesSectionsBeforeExit(t *testing.T) {
+	screen := &scriptedScreen{
+		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
+		onInit: func(sim tcell.SimulationScreen) {
+			sim.SetSize(90, 24)
+		},
+		afterFirstShow: func(sim tcell.SimulationScreen) {
+			sim.InjectKey(tcell.KeyRight, 0, tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+		},
+	}
+
+	if err := Run(context.Background(), &Options{
+		ScreenFactory: func() (Screen, error) {
+			return screen, nil
+		},
+	}); err != nil {
+		t.Fatalf("run render app: %v", err)
+	}
+
+	if !strings.Contains(screen.lastFrame, "Section: Accounts") {
+		t.Fatalf("simulation output missing accounts section:\n%s", screen.lastFrame)
 	}
 }
 

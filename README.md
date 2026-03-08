@@ -6,7 +6,7 @@ The intent is to treat party finances like a small accounting system, but adapte
 
 ## Status
 
-LootSheet now has a working SQLite-backed CLI foundation plus the first TUI shell slice. The dashboard now shows read-only summary data through app-facing adapters while proving terminal lifecycle, boxed layout, theme groundwork, and resize-safe redraws; richer drill-down views, navigation, packaging, backup/recovery flow, and sample-data polish are still in progress.
+LootSheet now has a working SQLite-backed CLI foundation plus a read-only multi-screen TUI slice. The TUI opens into a boxed dashboard, moves between Accounts, Journal, Quest, and Loot screens with keyboard navigation, and redraws cleanly on resize while staying backed by app-facing adapters; interactive edit flows, packaging, backup/recovery flow, and sample-data polish are still in progress.
 
 Implemented so far:
 
@@ -18,7 +18,7 @@ Implemented so far:
 - quest create/list/accept/complete/collect/writeoff lifecycle flows
 - loot create/list/appraise/recognize/sell lifecycle flows
 - reporting for trial balance, account ledger, quest receivables, promised quests, loot summary, and write-off candidates
-- initial `tcell`-backed TUI shell with alternate-screen lifecycle, resize-aware boxed panels, footer help, and a read-only dashboard backed by existing report/domain read models
+- initial `tcell`-backed TUI shell with alternate-screen lifecycle, resize-aware boxed panels, contextual footer help, keyboard navigation, and read-only dashboard/accounts/journal/quest/loot screens backed by existing report/domain read models
 - installed-binary-style smoke coverage in `./testapp.sh`
 - structured application logging via stdlib `slog` with text levels `DBG`, `INFO`, `WARN`, `ERR`
 
@@ -35,7 +35,7 @@ The codebase is organized as vertical slices under `src/`:
 - `src/ledger` for shared domain types, validation, DB helpers, errors, and migrations
 - `src/config` for config loading and embedded setup assets
 - `src/tools` for shared helpers such as D&D currency parsing/formatting
-- `src/render` reserved for the upcoming TUI
+- `src/render` for the `tcell`-backed TUI shell and rendering primitives
 
 Dependency flow is intentionally one-way:
 
@@ -143,7 +143,7 @@ src/quest/             quest register commands and persistence
 src/loot/              loot register commands and persistence
 src/report/            reporting commands and queries
 src/ledger/            shared types, validation, DB helpers, migrations
-src/render/            upcoming tcell-based TUI shell
+src/render/            tcell-based TUI shell and rendering primitives
 src/tools/             currency and utility helpers
 ```
 
@@ -171,7 +171,7 @@ Development should stay boring and explicit.
 - `src/ledger` owns shared validation, migrations, and DB lifecycle helpers
 - `src/config` owns config file parsing, path resolution, and embedded setup assets
 - `src/tools` owns shared helpers such as amount parsing and formatting
-- `src/render` remains the placeholder for the future TUI shell
+- `src/render` owns the cell renderer, layout primitives, and read-only TUI shell
 
 The preferred local checks are:
 
@@ -335,10 +335,11 @@ In short:
 
 ## Next Step
 
-The next implementation milestone is the TUI shell around the existing ledger and register workflows.
+The next implementation milestone is the first interactive workflow slice on top of the read-only TUI shell.
 
 Near-term supporting work still pending:
 
+- interactive posting and register actions inside the TUI
 - release target and installation decisions
 - packaging polish around generated man pages
 
