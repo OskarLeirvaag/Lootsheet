@@ -31,37 +31,8 @@ func (d *Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 		Lines: data.HeaderLines,
 	})
 
-	left, right := body.SplitVertical(body.W*2/5, 1)
-	accounts, journal := left.SplitHorizontal(left.H/2, 1)
-	ledger, lowerRight := right.SplitHorizontal(right.H/2, 1)
-	quests, loot := lowerRight.SplitHorizontal(lowerRight.H/2, 1)
-
-	DrawPanel(buffer, accounts, theme, Panel{
-		Title: "Accounts",
-		Lines: data.AccountsLines,
-	})
-
-	DrawPanel(buffer, journal, theme, Panel{
-		Title: "Journal",
-		Lines: data.JournalLines,
-	})
-
-	DrawPanel(buffer, ledger, theme, Panel{
-		Title: "Ledger Snapshot",
-		Lines: data.LedgerLines,
-	})
-
-	DrawPanel(buffer, quests, theme, Panel{
-		Title: "Quest Register",
-		Lines: data.QuestLines,
-	})
-
-	DrawPanel(buffer, loot, theme, Panel{
-		Title: "Loot Register",
-		Lines: data.LootLines,
-	})
-
-	drawFooter(buffer, footer, theme, keymap.HelpText())
+	drawDashboardPanels(buffer, body, theme, &data)
+	drawFooter(buffer, footer, theme, keymap.HelpTextFor(ActionQuit, ActionRedraw))
 }
 
 func renderCompactDashboard(buffer *Buffer, bounds Rect, theme *Theme, keymap KeyMap) {
@@ -71,8 +42,57 @@ func renderCompactDashboard(buffer *Buffer, bounds Rect, theme *Theme, keymap Ke
 		Lines: []string{
 			"Terminal too small for the full dashboard.",
 			"Resize the terminal and the boxed layout will redraw cleanly.",
-			keymap.HelpText(),
+			keymap.HelpTextFor(ActionQuit, ActionRedraw),
 		},
+	})
+}
+
+func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *DashboardData) {
+	if body.Empty() {
+		return
+	}
+
+	resolved := resolveDashboardData(data)
+
+	if body.W < 52 || body.H < 10 {
+		DrawPanel(buffer, body, theme, Panel{
+			Title: "Dashboard",
+			Lines: []string{
+				"Terminal too small for the full dashboard panels.",
+				"Resize to restore the boxed layout.",
+			},
+		})
+		return
+	}
+
+	left, right := body.SplitVertical(body.W*2/5, 1)
+	accounts, journal := left.SplitHorizontal(left.H/2, 1)
+	ledger, lowerRight := right.SplitHorizontal(right.H/2, 1)
+	quests, loot := lowerRight.SplitHorizontal(lowerRight.H/2, 1)
+
+	DrawPanel(buffer, accounts, theme, Panel{
+		Title: "Accounts",
+		Lines: resolved.AccountsLines,
+	})
+
+	DrawPanel(buffer, journal, theme, Panel{
+		Title: "Journal",
+		Lines: resolved.JournalLines,
+	})
+
+	DrawPanel(buffer, ledger, theme, Panel{
+		Title: "Ledger Snapshot",
+		Lines: resolved.LedgerLines,
+	})
+
+	DrawPanel(buffer, quests, theme, Panel{
+		Title: "Quest Register",
+		Lines: resolved.QuestLines,
+	})
+
+	DrawPanel(buffer, loot, theme, Panel{
+		Title: "Loot Register",
+		Lines: resolved.LootLines,
 	})
 }
 

@@ -11,7 +11,7 @@ import (
 func (a *Application) newTUICommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tui",
-		Short: "Open the full-screen terminal dashboard shell",
+		Short: "Open the full-screen terminal TUI shell",
 		Long:  tuiHelpText,
 	}
 
@@ -22,8 +22,8 @@ func (a *Application) newTUICommand() *cobra.Command {
 		}
 
 		return render.Run(ctx, &render.Options{
-			DashboardLoader: func(ctx context.Context) (render.DashboardData, error) {
-				return buildTUIDashboardData(ctx, a.config.Paths.DatabasePath, assets)
+			ShellLoader: func(ctx context.Context) (render.ShellData, error) {
+				return buildTUIShellData(ctx, a.config.Paths.DatabasePath, assets)
 			},
 		})
 	})

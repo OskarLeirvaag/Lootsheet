@@ -11,9 +11,22 @@ import (
 type Action string
 
 const (
-	ActionNone   Action = ""
-	ActionQuit   Action = "quit"
-	ActionRedraw Action = "redraw"
+	ActionNone          Action = ""
+	ActionQuit          Action = "quit"
+	ActionRedraw        Action = "redraw"
+	ActionNextSection   Action = "next_section"
+	ActionPrevSection   Action = "prev_section"
+	ActionShowDashboard Action = "show_dashboard"
+	ActionShowAccounts  Action = "show_accounts"
+	ActionShowJournal   Action = "show_journal"
+	ActionShowQuests    Action = "show_quests"
+	ActionShowLoot      Action = "show_loot"
+	ActionScrollUp      Action = "scroll_up"
+	ActionScrollDown    Action = "scroll_down"
+	ActionPageUp        Action = "page_up"
+	ActionPageDown      Action = "page_down"
+	ActionScrollTop     Action = "scroll_top"
+	ActionScrollBottom  Action = "scroll_bottom"
 )
 
 // KeyStroke matches a specific tcell key event.
@@ -40,6 +53,85 @@ func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Bindings: []Binding{
 			{
+				Action: ActionNextSection,
+				Stroke: KeyStroke{Key: tcell.KeyRight},
+				Label:  "←→ section",
+			},
+			{
+				Action: ActionPrevSection,
+				Stroke: KeyStroke{Key: tcell.KeyLeft},
+			},
+			{
+				Action: ActionNextSection,
+				Stroke: KeyStroke{Key: tcell.KeyTab},
+			},
+			{
+				Action: ActionPrevSection,
+				Stroke: KeyStroke{Key: tcell.KeyBacktab},
+			},
+			{
+				Action: ActionNextSection,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'l'},
+			},
+			{
+				Action: ActionPrevSection,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'h'},
+			},
+			{
+				Action: ActionScrollDown,
+				Stroke: KeyStroke{Key: tcell.KeyDown},
+				Label:  "↑↓ scroll",
+			},
+			{
+				Action: ActionScrollUp,
+				Stroke: KeyStroke{Key: tcell.KeyUp},
+			},
+			{
+				Action: ActionScrollDown,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'j'},
+			},
+			{
+				Action: ActionScrollUp,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'k'},
+			},
+			{
+				Action: ActionPageDown,
+				Stroke: KeyStroke{Key: tcell.KeyPgDn},
+			},
+			{
+				Action: ActionPageUp,
+				Stroke: KeyStroke{Key: tcell.KeyPgUp},
+			},
+			{
+				Action: ActionScrollTop,
+				Stroke: KeyStroke{Key: tcell.KeyHome},
+			},
+			{
+				Action: ActionScrollBottom,
+				Stroke: KeyStroke{Key: tcell.KeyEnd},
+			},
+			{
+				Action: ActionShowDashboard,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '1'},
+				Label:  "1-5 jump",
+			},
+			{
+				Action: ActionShowAccounts,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '2'},
+			},
+			{
+				Action: ActionShowJournal,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '3'},
+			},
+			{
+				Action: ActionShowQuests,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '4'},
+			},
+			{
+				Action: ActionShowLoot,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
+			},
+			{
 				Action: ActionQuit,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'q'},
 				Label:  "q quit",
@@ -52,7 +144,7 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionRedraw,
 				Stroke: KeyStroke{Key: tcell.KeyCtrlL},
-				Label:  "Ctrl+L redraw",
+				Label:  "Ctrl+L refresh",
 			},
 		},
 	}
@@ -75,9 +167,32 @@ func (k KeyMap) Resolve(event *tcell.EventKey) Action {
 
 // HelpText formats the footer help content.
 func (k KeyMap) HelpText() string {
+	return k.HelpTextFor()
+}
+
+// HelpTextFor formats footer help for the provided action subset.
+func (k KeyMap) HelpTextFor(actions ...Action) string {
+	allowed := make(map[Action]struct{}, len(actions))
+	for _, action := range actions {
+		allowed[action] = struct{}{}
+	}
+
 	labels := make([]string, 0, len(k.withDefaults().Bindings))
+	seen := make(map[string]struct{}, len(k.withDefaults().Bindings))
 	for _, binding := range k.withDefaults().Bindings {
+		if binding.Label == "" {
+			continue
+		}
+		if len(allowed) > 0 {
+			if _, ok := allowed[binding.Action]; !ok {
+				continue
+			}
+		}
+		if _, ok := seen[binding.Label]; ok {
+			continue
+		}
 		labels = append(labels, binding.Label)
+		seen[binding.Label] = struct{}{}
 	}
 
 	return strings.Join(labels, "  ")

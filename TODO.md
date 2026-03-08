@@ -54,13 +54,13 @@
 - [x] Implement alternate-screen lifecycle and terminal resize handling.
 - [x] Define the boxed panel layout system.
 - [x] Build the main dashboard.
-- [ ] Build a chart-of-accounts screen.
-- [ ] Build a journal entry browser.
-- [ ] Build a quest register screen.
-- [ ] Build an unrealized loot register screen.
+- [x] Build a chart-of-accounts screen.
+- [x] Build a journal entry browser.
+- [x] Build a quest register screen.
+- [x] Build an unrealized loot register screen.
 - [x] Add a theme/color configuration model.
 - [ ] Add optional mouse support.
-- [ ] Add keyboard navigation and contextual help.
+- [x] Add keyboard navigation and contextual help.
 
 ## Data and Rules
 
