@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
@@ -314,6 +316,109 @@ func TestShellLootRecognizeUsesOnlyRecognizeAction(t *testing.T) {
 	}
 	if shell.confirm.Action.ID != "loot.recognize_latest" {
 		t.Fatalf("confirm action id = %q, want loot.recognize_latest", shell.confirm.Action.ID)
+	}
+}
+
+func TestShellLootSellUsesInputModalAndCarriesAmount(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			Items: []ListItemData{
+				{
+					Key:         "loot-1",
+					Row:         "7 GP 5 SP    qty:1   recognized  Gold Necklace (Merchant)",
+					DetailTitle: "Gold Necklace",
+					DetailLines: []string{"Status: recognized", "Recognized value: 7 GP 5 SP"},
+					Actions: []ItemActionData{{
+						Trigger:     ActionSell,
+						ID:          "loot.sell",
+						Label:       "s sell",
+						Mode:        ItemActionModeInput,
+						InputTitle:  "Sell \"Gold Necklace\"?",
+						InputPrompt: "Sale amount",
+						InputHelp:   []string{"Sale date: 2026-03-10", "Recognized value: 7 GP 5 SP"},
+						Placeholder: "7 GP 5 SP",
+					}},
+				},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionShowLoot)
+
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "s sell") {
+		t.Fatalf("loot footer help = %q, want s sell", help)
+	}
+
+	if result := shell.HandleAction(ActionRecognize); result.Redraw || shell.input != nil {
+		t.Fatalf("recognize action should not open loot sell modal: %#v", result)
+	}
+
+	result := shell.HandleAction(ActionSell)
+	if !result.Redraw {
+		t.Fatal("expected sell action to trigger redraw")
+	}
+	if shell.input == nil {
+		t.Fatal("expected input modal to open for loot sale")
+	}
+
+	if result, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyRune, '7', tcell.ModNone), ActionNone); !handled || !result.Redraw {
+		t.Fatalf("typing first rune did not update input: %#v handled=%v", result, handled)
+	}
+	shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone), ActionNone)
+	shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'g', tcell.ModNone), ActionNone)
+	shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'p', tcell.ModNone), ActionNone)
+
+	result, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || result.Command == nil {
+		t.Fatalf("enter did not emit sale command: %#v handled=%v", result, handled)
+	}
+	if result.Command.ID != "loot.sell" {
+		t.Fatalf("command id = %q, want loot.sell", result.Command.ID)
+	}
+	if result.Command.Args["amount"] != "7 gp" {
+		t.Fatalf("command amount = %q, want 7 gp", result.Command.Args["amount"])
+	}
+}
+
+func TestShellInputModalShowsBlankSubmitErrorAndClearHelp(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			Items: []ListItemData{
+				{
+					Key:         "loot-1",
+					Row:         "7 GP 5 SP    qty:1   recognized  Gold Necklace (Merchant)",
+					DetailTitle: "Gold Necklace",
+					DetailLines: []string{"Status: recognized"},
+					Actions: []ItemActionData{{
+						Trigger:     ActionSell,
+						ID:          "loot.sell",
+						Label:       "s sell",
+						Mode:        ItemActionModeInput,
+						InputTitle:  "Sell \"Gold Necklace\"?",
+						InputPrompt: "Sale amount",
+						Placeholder: "7 GP 5 SP",
+					}},
+				},
+			},
+		},
+	}
+
+	shell := NewShell(&data)
+	shell.HandleAction(ActionShowLoot)
+	shell.HandleAction(ActionSell)
+
+	result, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || !result.Redraw {
+		t.Fatalf("blank submit should redraw with an error: %#v handled=%v", result, handled)
+	}
+	if shell.input == nil || shell.input.ErrorText == "" {
+		t.Fatal("expected blank submit to keep input modal open with error text")
+	}
+
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "Ctrl+U clear") {
+		t.Fatalf("input footer help = %q, want clear help", help)
 	}
 }
 

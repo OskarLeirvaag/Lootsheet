@@ -196,6 +196,53 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 	}
 }
 
+func TestRunKeepsLootSaleInputModalOpenOnInputError(t *testing.T) {
+	screen := &scriptedScreen{
+		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
+		onInit: func(sim tcell.SimulationScreen) {
+			sim.SetSize(120, 40)
+		},
+		afterFirstShow: func(sim tcell.SimulationScreen) {
+			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 's', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'b', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'a', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'd', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := Run(ctx, &Options{
+		ScreenFactory: func() (Screen, error) {
+			return screen, nil
+		},
+		ShellLoader: func(context.Context) (ShellData, error) {
+			return testLootSellShellData(), nil
+		},
+		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+			if command.Args["amount"] != "bad" {
+				t.Fatalf("command amount = %q, want bad", command.Args["amount"])
+			}
+			cancel()
+			return ShellData{}, StatusMessage{}, InputError{Message: `Invalid amount "bad".`}
+		},
+	}); err != nil {
+		t.Fatalf("run render app: %v", err)
+	}
+
+	for _, token := range []string{
+		`Error: Invalid amount "bad".`,
+		"Sale amount: bad",
+	} {
+		if !strings.Contains(screen.lastFrame, token) {
+			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
+		}
+	}
+}
+
 func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 	screen := &scriptedScreen{
 		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
@@ -290,6 +337,72 @@ func TestRunDispatchesJournalReverseAndKeepsOriginalSelection(t *testing.T) {
 		if !strings.Contains(screen.lastFrame, token) {
 			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
 		}
+	}
+}
+
+func TestRunDispatchesLootSellAndRefreshesSelectionFallback(t *testing.T) {
+	screen := &scriptedScreen{
+		SimulationScreen: tcell.NewSimulationScreen("UTF-8"),
+		onInit: func(sim tcell.SimulationScreen) {
+			sim.SetSize(120, 40)
+		},
+		afterFirstShow: func(sim tcell.SimulationScreen) {
+			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 's', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '8', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, ' ', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'g', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'p', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+		},
+	}
+
+	initial := testLootSellShellData()
+	updated := testLootAfterSaleShellData()
+	var got Command
+
+	if err := Run(context.Background(), &Options{
+		ScreenFactory: func() (Screen, error) {
+			return screen, nil
+		},
+		ShellLoader: func(context.Context) (ShellData, error) {
+			return initial, nil
+		},
+		CommandHandler: func(_ context.Context, command Command) (ShellData, StatusMessage, error) {
+			got = command
+			return updated, StatusMessage{
+				Level: StatusSuccess,
+				Text:  `Sold loot item "Gold Necklace" as entry #10.`,
+			}, nil
+		},
+	}); err != nil {
+		t.Fatalf("run render app: %v", err)
+	}
+
+	if got.ID != "loot.sell" {
+		t.Fatalf("command id = %q, want loot.sell", got.ID)
+	}
+	if got.Section != SectionLoot {
+		t.Fatalf("command section = %v, want loot", got.Section)
+	}
+	if got.ItemKey != "loot-1" {
+		t.Fatalf("command item key = %q, want loot-1", got.ItemKey)
+	}
+	if got.Args["amount"] != "8 gp" {
+		t.Fatalf("command amount = %q, want 8 gp", got.Args["amount"])
+	}
+
+	for _, token := range []string{
+		`Sold loot item "Gold Necklace" as entry #10.`,
+		"Silver Chalice",
+	} {
+		if !strings.Contains(screen.lastFrame, token) {
+			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
+		}
+	}
+	if strings.Contains(screen.lastFrame, "Gold Necklace (Merchant)") || strings.Contains(screen.lastFrame, `Sell "Gold Necklace"?`) {
+		t.Fatalf("sold item should not remain in the post-sale loot list:\n%s", screen.lastFrame)
 	}
 }
 
@@ -608,6 +721,77 @@ func testLootShellData(recognized bool) ShellData {
 					DetailTitle: "Gold Necklace",
 					DetailLines: detailLines,
 					Actions:     actions,
+				},
+			},
+		},
+	}
+}
+
+func testLootSellShellData() ShellData {
+	return ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			HeaderLines:  []string{"Unrealized loot register from smoke.db.", "Select a loot item to inspect it."},
+			SummaryLines: []string{"Tracked items: 1", "Recognized: 1", "Total quantity: 1", "Appraised value: 7 GP 5 SP"},
+			Items: []ListItemData{
+				{
+					Key:         "loot-1",
+					Row:         "7 GP 5 SP    qty:1   recognized  Gold Necklace (Merchant)",
+					DetailTitle: "Gold Necklace",
+					DetailLines: []string{
+						"Status: recognized",
+						"Quantity: 1",
+						"Accounting state: on-ledger recognized inventory",
+						"Latest appraisal: 7 GP 5 SP",
+						"Recognized value: 7 GP 5 SP",
+						"Sale state: sellable from recognized basis",
+					},
+					Actions: []ItemActionData{{
+						Trigger:     ActionSell,
+						ID:          "loot.sell",
+						Label:       "s sell",
+						Mode:        ItemActionModeInput,
+						InputTitle:  "Sell \"Gold Necklace\"?",
+						InputPrompt: "Sale amount",
+						InputHelp: []string{
+							"Sale date: 2026-03-10",
+							"Recognized value: 7 GP 5 SP",
+							"Enter sale proceeds in GP/SP/CP format.",
+						},
+						Placeholder: "7 GP 5 SP",
+					}},
+				},
+			},
+		},
+	}
+}
+
+func testLootAfterSaleShellData() ShellData {
+	return ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			HeaderLines:  []string{"Unrealized loot register from smoke.db.", "Select a loot item to inspect it."},
+			SummaryLines: []string{"Tracked items: 1", "Recognized: 1", "Total quantity: 1", "Appraised value: 2 GP"},
+			Items: []ListItemData{
+				{
+					Key:         "loot-2",
+					Row:         "2 GP         qty:1   recognized  Silver Chalice (Goblin den)",
+					DetailTitle: "Silver Chalice",
+					DetailLines: []string{
+						"Status: recognized",
+						"Quantity: 1",
+						"Accounting state: on-ledger recognized inventory",
+						"Recognized value: 2 GP",
+					},
+					Actions: []ItemActionData{{
+						Trigger:     ActionSell,
+						ID:          "loot.sell",
+						Label:       "s sell",
+						Mode:        ItemActionModeInput,
+						InputTitle:  "Sell \"Silver Chalice\"?",
+						InputPrompt: "Sale amount",
+						Placeholder: "2 GP",
+					}},
 				},
 			},
 		},
