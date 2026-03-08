@@ -11,6 +11,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/quest"
 )
 
 func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
@@ -206,5 +207,92 @@ func TestRunReportDispatcherRoutesToTrialBalance(t *testing.T) {
 
 	if !strings.Contains(stdout.String(), "Trial Balance") {
 		t.Fatalf("output missing Trial Balance header: %q", stdout.String())
+	}
+}
+
+func TestRunPromisedQuestsReport(t *testing.T) {
+	application, databasePath, stdout := setupReportTestApp(t)
+	ctx := context.Background()
+
+	if _, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Pending Promise",
+		Patron:             "Lady Mirelle",
+		PromisedBaseReward: 400,
+		PartialAdvance:     50,
+		BonusConditions:    "Extra if the prisoners survive",
+		Status:             "offered",
+	}); err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := application.runReport(ctx, []string{"promised-quests"}); err != nil {
+		t.Fatalf("run promised quests report: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Promised But Unearned Quests") {
+		t.Fatalf("output missing title: %q", output)
+	}
+	if !strings.Contains(output, "Pending Promise") {
+		t.Fatalf("output missing quest title: %q", output)
+	}
+	if !strings.Contains(output, "Lady Mirelle") {
+		t.Fatalf("output missing patron: %q", output)
+	}
+	if !strings.Contains(output, "4 GP") {
+		t.Fatalf("output missing promised reward: %q", output)
+	}
+	if !strings.Contains(output, "5 SP") {
+		t.Fatalf("output missing advance: %q", output)
+	}
+}
+
+func TestRunWriteOffCandidatesReport(t *testing.T) {
+	application, databasePath, stdout := setupReportTestApp(t)
+	ctx := context.Background()
+
+	createdQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Stale Receivable",
+		Patron:             "Harbormaster Tov",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-01-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := quest.CompleteQuest(ctx, databasePath, createdQuest.ID, "2026-01-02"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+		QuestID:     createdQuest.ID,
+		Amount:      200,
+		Date:        "2026-01-05",
+		Description: "Harbormaster paid part in advance of winter taxes",
+	}); err != nil {
+		t.Fatalf("collect quest payment: %v", err)
+	}
+
+	if err := application.runReport(ctx, []string{"writeoff-candidates", "--as-of", "2026-03-15", "--min-age-days", "30"}); err != nil {
+		t.Fatalf("run write-off candidates report: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Write-Off Candidates") {
+		t.Fatalf("output missing title: %q", output)
+	}
+	if !strings.Contains(output, "Stale Receivable") {
+		t.Fatalf("output missing quest title: %q", output)
+	}
+	if !strings.Contains(output, "Harbormaster To") {
+		t.Fatalf("output missing patron: %q", output)
+	}
+	if !strings.Contains(output, "3 GP") {
+		t.Fatalf("output missing outstanding amount: %q", output)
+	}
+	if !strings.Contains(output, "72") {
+		t.Fatalf("output missing age days: %q", output)
 	}
 }

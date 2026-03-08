@@ -7,6 +7,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/quest"
 )
 
 func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
@@ -269,5 +270,218 @@ func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
 	equity := accountsByCode["3100"]
 	if equity.Balance != 200 {
 		t.Fatalf("Test Equity balance = %d, want 200", equity.Balance)
+	}
+}
+
+func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	createdQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Custom Description Payment",
+		Patron:             "Guildmaster Rena",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := quest.CompleteQuest(ctx, databasePath, createdQuest.ID, "2026-03-05"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+		QuestID:     createdQuest.ID,
+		Amount:      200,
+		Date:        "2026-03-06",
+		Description: "Guild paid first installment",
+	}); err != nil {
+		t.Fatalf("collect quest payment: %v", err)
+	}
+
+	rows, err := GetQuestReceivables(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("get quest receivables: %v", err)
+	}
+
+	if len(rows) != 1 {
+		t.Fatalf("receivable count = %d, want 1", len(rows))
+	}
+
+	if rows[0].TotalPaid != 200 {
+		t.Fatalf("total paid = %d, want 200", rows[0].TotalPaid)
+	}
+
+	if rows[0].Outstanding != 300 {
+		t.Fatalf("outstanding = %d, want 300", rows[0].Outstanding)
+	}
+}
+
+func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	offeredQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Scout the Ruins",
+		Patron:             "Archivist Pell",
+		PromisedBaseReward: 350,
+		PartialAdvance:     25,
+		BonusConditions:    "Bonus if the maps survive intact",
+		Status:             "offered",
+	})
+	if err != nil {
+		t.Fatalf("create offered quest: %v", err)
+	}
+
+	acceptedQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Guard the Caravan",
+		Patron:             "Merchant Hall",
+		PromisedBaseReward: 275,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-02",
+	})
+	if err != nil {
+		t.Fatalf("create accepted quest: %v", err)
+	}
+
+	completedQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Already Earned",
+		PromisedBaseReward: 999,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create completed quest: %v", err)
+	}
+
+	if err := quest.CompleteQuest(ctx, databasePath, completedQuest.ID, "2026-03-04"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	rows, err := GetPromisedQuests(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("get promised quests: %v", err)
+	}
+
+	if len(rows) != 2 {
+		t.Fatalf("promised quest count = %d, want 2", len(rows))
+	}
+
+	if rows[0].QuestID != acceptedQuest.ID {
+		t.Fatalf("first quest id = %q, want accepted quest %q", rows[0].QuestID, acceptedQuest.ID)
+	}
+
+	rowsByID := map[string]PromisedQuestRow{}
+	for _, row := range rows {
+		rowsByID[row.QuestID] = row
+	}
+
+	offeredRow := rowsByID[offeredQuest.ID]
+	if offeredRow.Status != ledger.QuestStatusOffered {
+		t.Fatalf("offered row status = %q, want offered", offeredRow.Status)
+	}
+	if offeredRow.PromisedReward != 350 || offeredRow.PartialAdvance != 25 {
+		t.Fatalf("offered row reward/advance = %d/%d, want 350/25", offeredRow.PromisedReward, offeredRow.PartialAdvance)
+	}
+	if offeredRow.BonusConditions != "Bonus if the maps survive intact" {
+		t.Fatalf("offered row bonus = %q, want original bonus conditions", offeredRow.BonusConditions)
+	}
+}
+
+func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	oldPartialQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Old Partial Balance",
+		Patron:             "Baron Voss",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-01-01",
+	})
+	if err != nil {
+		t.Fatalf("create old partial quest: %v", err)
+	}
+
+	if err := quest.CompleteQuest(ctx, databasePath, oldPartialQuest.ID, "2026-01-02"); err != nil {
+		t.Fatalf("complete old partial quest: %v", err)
+	}
+
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+		QuestID:     oldPartialQuest.ID,
+		Amount:      200,
+		Date:        "2026-01-05",
+		Description: "Baron sent a runner with partial payment",
+	}); err != nil {
+		t.Fatalf("collect old partial quest payment: %v", err)
+	}
+
+	recentQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Recent Balance",
+		Patron:             "Captain Ilya",
+		PromisedBaseReward: 400,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create recent quest: %v", err)
+	}
+
+	if err := quest.CompleteQuest(ctx, databasePath, recentQuest.ID, "2026-03-10"); err != nil {
+		t.Fatalf("complete recent quest: %v", err)
+	}
+
+	fullyPaidQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Settled Balance",
+		Patron:             "Temple of Dawn",
+		PromisedBaseReward: 250,
+		Status:             "accepted",
+		AcceptedOn:         "2026-01-03",
+	})
+	if err != nil {
+		t.Fatalf("create fully paid quest: %v", err)
+	}
+
+	if err := quest.CompleteQuest(ctx, databasePath, fullyPaidQuest.ID, "2026-01-04"); err != nil {
+		t.Fatalf("complete fully paid quest: %v", err)
+	}
+
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+		QuestID: fullyPaidQuest.ID,
+		Amount:  250,
+		Date:    "2026-01-10",
+	}); err != nil {
+		t.Fatalf("collect fully paid quest payment: %v", err)
+	}
+
+	rows, err := GetWriteOffCandidates(ctx, databasePath, WriteOffCandidateFilter{
+		AsOfDate:   "2026-03-15",
+		MinAgeDays: 30,
+	})
+	if err != nil {
+		t.Fatalf("get write-off candidates: %v", err)
+	}
+
+	if len(rows) != 1 {
+		t.Fatalf("candidate count = %d, want 1", len(rows))
+	}
+
+	candidate := rows[0]
+	if candidate.QuestID != oldPartialQuest.ID {
+		t.Fatalf("candidate id = %q, want %q", candidate.QuestID, oldPartialQuest.ID)
+	}
+	if candidate.Status != ledger.QuestStatusPartiallyPaid {
+		t.Fatalf("candidate status = %q, want partially_paid", candidate.Status)
+	}
+	if candidate.TotalPaid != 200 {
+		t.Fatalf("candidate total paid = %d, want 200", candidate.TotalPaid)
+	}
+	if candidate.Outstanding != 300 {
+		t.Fatalf("candidate outstanding = %d, want 300", candidate.Outstanding)
+	}
+	if candidate.AgeDays != 72 {
+		t.Fatalf("candidate age days = %d, want 72", candidate.AgeDays)
 	}
 }

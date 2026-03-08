@@ -44,14 +44,14 @@ func GetQuestReceivables(ctx context.Context, databasePath string) ([]QuestRecei
 				SELECT SUM(jl.debit_amount)
 				FROM journal_lines jl
 				JOIN journal_entries je ON je.id = jl.journal_entry_id
-				WHERE je.description LIKE 'Quest payment: ' || q.title || '%'
-				  AND je.status = 'posted'
-				  AND jl.account_id = (SELECT id FROM accounts WHERE code = '1000')
+				JOIN accounts a ON a.id = jl.account_id
+				WHERE je.status = 'posted'
+				  AND a.code = '1000'
+				  AND jl.memo = 'Quest payment: ' || q.title
 			), 0) AS total_paid
 		FROM quests q
 		WHERE q.status IN ('completed', 'collectible', 'partially_paid')
 		  AND q.promised_base_reward > 0
-		HAVING (q.promised_base_reward - total_paid) > 0
 		ORDER BY q.status, q.title
 	`)
 	if err != nil {
@@ -73,8 +73,8 @@ func GetQuestReceivables(ctx context.Context, databasePath string) ([]QuestRecei
 
 		r.Status = ledger.QuestStatus(status)
 		r.Outstanding = r.PromisedReward - r.TotalPaid
-		if r.Outstanding < 0 {
-			r.Outstanding = 0
+		if r.Outstanding <= 0 {
+			continue
 		}
 
 		result = append(result, r)

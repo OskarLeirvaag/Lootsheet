@@ -281,15 +281,9 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 		return ledger.PostedJournalEntry{}, fmt.Errorf("quest %q cannot be collected: current status is %q, expected one of completed, collectible, partially_paid", questID, quest.Status)
 	}
 
-	var totalPaid int64
-	if err := db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(jl.debit_amount), 0) FROM journal_lines jl
-		 JOIN journal_entries je ON je.id = jl.journal_entry_id
-		 WHERE je.description LIKE ? AND je.status = 'posted'
-		 AND jl.account_id = (SELECT id FROM accounts WHERE code = '1000')`,
-		fmt.Sprintf("Quest payment: %s%%", quest.Title),
-	).Scan(&totalPaid); err != nil {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("query total paid: %w", err)
+	totalPaid, err := queryQuestTotalPaid(ctx, db, quest.Title)
+	if err != nil {
+		return ledger.PostedJournalEntry{}, err
 	}
 
 	description := strings.TrimSpace(input.Description)
@@ -432,15 +426,9 @@ func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuest
 		return ledger.PostedJournalEntry{}, fmt.Errorf("quest %q cannot be written off: current status is %q, expected one of completed, collectible, partially_paid", questID, quest.Status)
 	}
 
-	var totalPaid int64
-	if err := db.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(jl.debit_amount), 0) FROM journal_lines jl
-		 JOIN journal_entries je ON je.id = jl.journal_entry_id
-		 WHERE je.description LIKE ? AND je.status = 'posted'
-		 AND jl.account_id = (SELECT id FROM accounts WHERE code = '1000')`,
-		fmt.Sprintf("Quest payment: %s%%", quest.Title),
-	).Scan(&totalPaid); err != nil {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("query total paid: %w", err)
+	totalPaid, err := queryQuestTotalPaid(ctx, db, quest.Title)
+	if err != nil {
+		return ledger.PostedJournalEntry{}, err
 	}
 
 	outstanding := quest.PromisedBaseReward - totalPaid
@@ -540,4 +528,22 @@ func getQuestStatus(ctx context.Context, db *sql.DB, questID string) (ledger.Que
 	}
 
 	return s, nil
+}
+
+func queryQuestTotalPaid(ctx context.Context, db *sql.DB, questTitle string) (int64, error) {
+	var totalPaid int64
+	if err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(jl.debit_amount), 0)
+		 FROM journal_lines jl
+		 JOIN journal_entries je ON je.id = jl.journal_entry_id
+		 JOIN accounts a ON a.id = jl.account_id
+		 WHERE je.status = 'posted'
+		   AND a.code = '1000'
+		   AND jl.memo = ?`,
+		fmt.Sprintf("Quest payment: %s", questTitle),
+	).Scan(&totalPaid); err != nil {
+		return 0, fmt.Errorf("query total paid: %w", err)
+	}
+
+	return totalPaid, nil
 }

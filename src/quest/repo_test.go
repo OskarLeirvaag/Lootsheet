@@ -429,6 +429,50 @@ func TestCollectQuestPaymentRejectsNonexistentQuest(t *testing.T) {
 	}
 }
 
+func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+
+	createdQuest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Custom Description Balance",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := CompleteQuest(context.Background(), databasePath, createdQuest.ID, "2026-03-10"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+		QuestID:     createdQuest.ID,
+		Amount:      200,
+		Date:        "2026-03-12",
+		Description: "Patron paid a partial amount in marked trade bars",
+	}); err != nil {
+		t.Fatalf("collect partial payment: %v", err)
+	}
+
+	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+		QuestID: createdQuest.ID,
+		Amount:  300,
+		Date:    "2026-03-15",
+	}); err != nil {
+		t.Fatalf("collect remaining payment: %v", err)
+	}
+
+	quests, err := ListQuests(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list quests: %v", err)
+	}
+
+	if quests[0].Status != ledger.QuestStatusPaid {
+		t.Fatalf("quest status = %q, want paid after both payments", quests[0].Status)
+	}
+}
+
 func TestAcceptQuestRejectsNonexistentQuest(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
@@ -558,6 +602,45 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 
 	if quests[0].Status != ledger.QuestStatusDefaulted {
 		t.Fatalf("quest status = %q, want defaulted", quests[0].Status)
+	}
+}
+
+func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+
+	createdQuest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Partial Payment Before Default",
+		PromisedBaseReward: 500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-01",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	if err := CompleteQuest(context.Background(), databasePath, createdQuest.ID, "2026-03-10"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+		QuestID:     createdQuest.ID,
+		Amount:      200,
+		Date:        "2026-03-12",
+		Description: "Patron sent part of the payment with a courier",
+	}); err != nil {
+		t.Fatalf("collect partial payment: %v", err)
+	}
+
+	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+		QuestID: createdQuest.ID,
+		Date:    "2026-03-20",
+	})
+	if err != nil {
+		t.Fatalf("write off quest: %v", err)
+	}
+
+	if entry.DebitTotal != 300 || entry.CreditTotal != 300 {
+		t.Fatalf("entry totals = %d/%d, want 300/300", entry.DebitTotal, entry.CreditTotal)
 	}
 }
 
