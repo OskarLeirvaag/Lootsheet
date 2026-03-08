@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"text/tabwriter"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
@@ -16,9 +17,8 @@ func HandleList(ctx context.Context, hctx ledger.HandlerContext) error {
 		return err
 	}
 
-	if _, err := fmt.Fprintln(hctx.Stdout, "CODE  TYPE       ACTIVE  NAME"); err != nil {
-		return fmt.Errorf("write accounts header: %w", err)
-	}
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "CODE\tTYPE\tACTIVE\tNAME")
 
 	for _, account := range accounts {
 		activeLabel := "no"
@@ -26,16 +26,16 @@ func HandleList(ctx context.Context, hctx ledger.HandlerContext) error {
 			activeLabel = "yes"
 		}
 
-		if _, err := fmt.Fprintf(
-			hctx.Stdout,
-			"%-4s  %-10s %-6s  %s\n",
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
 			account.Code,
 			string(account.Type),
 			activeLabel,
 			account.Name,
-		); err != nil {
-			return fmt.Errorf("write account row: %w", err)
-		}
+		)
+	}
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write accounts table: %w", err)
 	}
 
 	return nil
