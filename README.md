@@ -6,7 +6,7 @@ The intent is to treat party finances like a small accounting system, but adapte
 
 ## Status
 
-LootSheet now has a working SQLite-backed CLI foundation. The next major milestone is the TUI shell; packaging, backup/recovery flow, and sample-data polish are still in progress.
+LootSheet now has a working SQLite-backed CLI foundation plus the first TUI shell slice. The dashboard currently proves terminal lifecycle, boxed layout, theme groundwork, and resize-safe redraws; data adapters, navigation, packaging, backup/recovery flow, and sample-data polish are still in progress.
 
 Implemented so far:
 
@@ -18,6 +18,7 @@ Implemented so far:
 - quest create/list/accept/complete/collect/writeoff lifecycle flows
 - loot create/list/appraise/recognize/sell lifecycle flows
 - reporting for trial balance, account ledger, quest receivables, promised quests, loot summary, and write-off candidates
+- initial `tcell`-backed TUI shell with alternate-screen lifecycle, resize-aware boxed panels, footer help, and a read-only placeholder dashboard
 - installed-binary-style smoke coverage in `./testapp.sh`
 - structured application logging via stdlib `slog` with text levels `DBG`, `INFO`, `WARN`, `ERR`
 
@@ -128,7 +129,7 @@ LootSheet does not have a user-account or auth model in v1.
 - Go
 - Cobra for the CLI command tree and help routing
 - SQLite for local storage
-- `tcell` planned for the full-screen TUI
+- `tcell` for the full-screen TUI shell
 
 ## Repository Shape
 

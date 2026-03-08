@@ -18,6 +18,7 @@ func TestGenerateManPagesWritesLeafAndGroupDocs(t *testing.T) {
 
 	for _, name := range []string{
 		"lootsheet.1",
+		"lootsheet-tui.1",
 		"lootsheet-account.1",
 		"lootsheet-account-create.1",
 		"lootsheet-journal-post.1",

@@ -50,15 +50,15 @@
 
 ## TUI
 
-- [ ] Set up `tcell` screen initialization and shutdown.
-- [ ] Implement alternate-screen lifecycle and terminal resize handling.
-- [ ] Define the boxed panel layout system.
-- [ ] Build the main dashboard.
+- [x] Set up `tcell` screen initialization and shutdown.
+- [x] Implement alternate-screen lifecycle and terminal resize handling.
+- [x] Define the boxed panel layout system.
+- [x] Build the main dashboard.
 - [ ] Build a chart-of-accounts screen.
 - [ ] Build a journal entry browser.
 - [ ] Build a quest register screen.
 - [ ] Build an unrealized loot register screen.
-- [ ] Add a theme/color configuration model.
+- [x] Add a theme/color configuration model.
 - [ ] Add optional mouse support.
 - [ ] Add keyboard navigation and contextual help.
 
