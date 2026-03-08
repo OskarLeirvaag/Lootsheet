@@ -487,6 +487,204 @@ func resolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []serv
 	return resolved, nil
 }
 
+// ErrImmutableEntry is returned when an operation attempts to modify or delete
+// a journal entry that has been posted or reversed. Corrections must use
+// reversal, adjustment, or reclassification.
+var ErrImmutableEntry = fmt.Errorf("posted or reversed journal entries are immutable; use reversal or adjustment to correct")
+
+// getJournalEntryStatus returns the status of a journal entry by ID.
+// Returns sql.ErrNoRows if the entry does not exist.
+func getJournalEntryStatus(ctx context.Context, db *sql.DB, entryID string) (service.JournalEntryStatus, error) {
+	var status string
+	if err := db.QueryRowContext(ctx,
+		"SELECT status FROM journal_entries WHERE id = ?", entryID,
+	).Scan(&status); err != nil {
+		return "", fmt.Errorf("query journal entry status: %w", err)
+	}
+
+	s := service.JournalEntryStatus(status)
+	if !s.Valid() {
+		return "", fmt.Errorf("journal entry %s has invalid status %q", entryID, status)
+	}
+
+	return s, nil
+}
+
+// CheckJournalEntryMutable verifies that a journal entry may be modified.
+// Returns ErrImmutableEntry if the entry is posted or reversed.
+func CheckJournalEntryMutable(ctx context.Context, databasePath string, entryID string) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	status, err := getJournalEntryStatus(ctx, db, entryID)
+	if err != nil {
+		return err
+	}
+
+	if status.Immutable() {
+		return ErrImmutableEntry
+	}
+
+	return nil
+}
+
+// UpdateJournalEntry updates the description and/or entry_date of a journal entry.
+// Returns ErrImmutableEntry if the entry is posted or reversed.
+func UpdateJournalEntry(ctx context.Context, databasePath string, entryID string, description string, entryDate string) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	status, err := getJournalEntryStatus(ctx, db, entryID)
+	if err != nil {
+		return err
+	}
+
+	if status.Immutable() {
+		return ErrImmutableEntry
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"UPDATE journal_entries SET description = ?, entry_date = ? WHERE id = ?",
+		description, entryDate, entryID,
+	); err != nil {
+		return fmt.Errorf("update journal entry: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteJournalEntry deletes a journal entry and its lines.
+// Returns ErrImmutableEntry if the entry is posted or reversed.
+func DeleteJournalEntry(ctx context.Context, databasePath string, entryID string) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	status, err := getJournalEntryStatus(ctx, db, entryID)
+	if err != nil {
+		return err
+	}
+
+	if status.Immutable() {
+		return ErrImmutableEntry
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, "DELETE FROM journal_lines WHERE journal_entry_id = ?", entryID); err != nil {
+		return fmt.Errorf("delete journal lines: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, "DELETE FROM journal_entries WHERE id = ?", entryID); err != nil {
+		return fmt.Errorf("delete journal entry: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete transaction: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteJournalLine deletes a single journal line.
+// Returns ErrImmutableEntry if the parent entry is posted or reversed.
+func DeleteJournalLine(ctx context.Context, databasePath string, lineID string) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var entryID string
+	if err := db.QueryRowContext(ctx,
+		"SELECT journal_entry_id FROM journal_lines WHERE id = ?", lineID,
+	).Scan(&entryID); err != nil {
+		return fmt.Errorf("query journal line parent entry: %w", err)
+	}
+
+	status, err := getJournalEntryStatus(ctx, db, entryID)
+	if err != nil {
+		return err
+	}
+
+	if status.Immutable() {
+		return ErrImmutableEntry
+	}
+
+	if _, err := db.ExecContext(ctx, "DELETE FROM journal_lines WHERE id = ?", lineID); err != nil {
+		return fmt.Errorf("delete journal line: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateJournalLine updates the amounts or memo of a single journal line.
+// Returns ErrImmutableEntry if the parent entry is posted or reversed.
+func UpdateJournalLine(ctx context.Context, databasePath string, lineID string, memo string, debitAmount int64, creditAmount int64) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var entryID string
+	if err := db.QueryRowContext(ctx,
+		"SELECT journal_entry_id FROM journal_lines WHERE id = ?", lineID,
+	).Scan(&entryID); err != nil {
+		return fmt.Errorf("query journal line parent entry: %w", err)
+	}
+
+	status, err := getJournalEntryStatus(ctx, db, entryID)
+	if err != nil {
+		return err
+	}
+
+	if status.Immutable() {
+		return ErrImmutableEntry
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"UPDATE journal_lines SET memo = ?, debit_amount = ?, credit_amount = ? WHERE id = ?",
+		memo, debitAmount, creditAmount, lineID,
+	); err != nil {
+		return fmt.Errorf("update journal line: %w", err)
+	}
+
+	return nil
+}
+
 func nextJournalEntryNumber(ctx context.Context, db *sql.DB) (int, error) {
 	var entryNumber int
 

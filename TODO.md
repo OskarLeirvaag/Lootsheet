@@ -16,7 +16,7 @@
 - [x] Seed a default chart of accounts for a D&D party.
 - [x] Implement journal balancing validation.
 - [ ] Replace the external `sqlite3` command dependency with direct SQLite access from the app binary.
-- [ ] Implement the rule that posted entries cannot be edited or deleted.
+- [x] Implement the rule that posted entries cannot be edited or deleted.
 - [ ] Expand structured logging configuration beyond the default OTel-backed text logger if needed.
 
 ## Next

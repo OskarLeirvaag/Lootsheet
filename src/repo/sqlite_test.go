@@ -418,6 +418,238 @@ func TestMigrateSQLiteDatabaseBackfillsLegacyMetadataBeforeApplyingMigrations(t 
 	}
 }
 
+func TestUpdatePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	err = UpdateJournalEntry(context.Background(), databasePath, posted.ID, "Tampered description", "2026-03-09")
+	if err == nil {
+		t.Fatal("expected update of posted entry to fail")
+	}
+
+	if err != ErrImmutableEntry {
+		t.Fatalf("error = %v, want ErrImmutableEntry", err)
+	}
+
+	// Verify original data is unchanged
+	descRow := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath,
+		fmt.Sprintf("SELECT description FROM journal_entries WHERE id = '%s';", posted.ID),
+	))
+	if descRow != "Restock arrows" {
+		t.Fatalf("description = %q, want original value", descRow)
+	}
+}
+
+func TestDeletePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	err = DeleteJournalEntry(context.Background(), databasePath, posted.ID)
+	if err == nil {
+		t.Fatal("expected delete of posted entry to fail")
+	}
+
+	if err != ErrImmutableEntry {
+		t.Fatalf("error = %v, want ErrImmutableEntry", err)
+	}
+
+	// Verify entry still exists
+	entryCount := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_entries;"))
+	if entryCount != "1" {
+		t.Fatalf("journal entry count = %q, want 1", entryCount)
+	}
+
+	lineCount := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
+	if lineCount != "2" {
+		t.Fatalf("journal line count = %q, want 2", lineCount)
+	}
+}
+
+func TestCheckJournalEntryMutableReturnsImmutabilityErrorForPosted(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	err = CheckJournalEntryMutable(context.Background(), databasePath, posted.ID)
+	if err != ErrImmutableEntry {
+		t.Fatalf("error = %v, want ErrImmutableEntry", err)
+	}
+}
+
+func TestCheckJournalEntryMutableReturnsImmutabilityErrorForReversed(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	// Manually set status to reversed to test the guard
+	runSQLiteScriptForTest(t, databasePath,
+		fmt.Sprintf("UPDATE journal_entries SET status = 'reversed' WHERE id = '%s';", posted.ID),
+	)
+
+	err = CheckJournalEntryMutable(context.Background(), databasePath, posted.ID)
+	if err != ErrImmutableEntry {
+		t.Fatalf("error = %v, want ErrImmutableEntry", err)
+	}
+}
+
+func TestUpdateJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	lineID := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath,
+		fmt.Sprintf("SELECT id FROM journal_lines WHERE journal_entry_id = '%s' LIMIT 1;", posted.ID),
+	))
+
+	err = UpdateJournalLine(context.Background(), databasePath, lineID, "Tampered memo", 999, 0)
+	if err != ErrImmutableEntry {
+		t.Fatalf("error = %v, want ErrImmutableEntry", err)
+	}
+}
+
+func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	lineID := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath,
+		fmt.Sprintf("SELECT id FROM journal_lines WHERE journal_entry_id = '%s' LIMIT 1;", posted.ID),
+	))
+
+	err = DeleteJournalLine(context.Background(), databasePath, lineID)
+	if err != ErrImmutableEntry {
+		t.Fatalf("error = %v, want ErrImmutableEntry", err)
+	}
+
+	// Verify line still exists
+	lineCount := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
+	if lineCount != "2" {
+		t.Fatalf("journal line count = %q, want 2", lineCount)
+	}
+}
+
 func loadMigrationAssetsForTest(t *testing.T) (config.InitAssets, config.InitAssets) {
 	t.Helper()
 
