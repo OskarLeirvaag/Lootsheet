@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/tools"
@@ -135,46 +136,10 @@ func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code stri
 		return nil
 	}
 
-	// Calculate column widths for description and memo based on data.
-	descWidth := 20
-	memoWidth := 16
+	tw := tabwriter.NewWriter(hctx.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "DATE\t#\tDESCRIPTION\tMEMO\tDEBIT\tCREDIT\tBALANCE")
+
 	for _, entry := range report.Entries {
-		if len(entry.Description) > descWidth {
-			descWidth = len(entry.Description)
-		}
-		if len(entry.Memo) > memoWidth {
-			memoWidth = len(entry.Memo)
-		}
-	}
-
-	// Cap widths at reasonable maximums.
-	if descWidth > 40 {
-		descWidth = 40
-	}
-	if memoWidth > 30 {
-		memoWidth = 30
-	}
-
-	// Print header.
-	headerFmt := fmt.Sprintf("%%-%ds  %%-5s  %%-%ds  %%-%ds  %%20s  %%20s  %%20s\n", 10, descWidth, memoWidth)
-	if _, err := fmt.Fprintf(hctx.Stdout, headerFmt,
-		"DATE", "#", "DESCRIPTION", "MEMO", "DEBIT", "CREDIT", "BALANCE",
-	); err != nil {
-		return fmt.Errorf("write ledger column headers: %w", err)
-	}
-
-	// Print entries.
-	rowFmt := fmt.Sprintf("%%-%ds  %%-5d  %%-%ds  %%-%ds  %%20s  %%20s  %%20s\n", 10, descWidth, memoWidth)
-	for _, entry := range report.Entries {
-		desc := entry.Description
-		if len(desc) > descWidth {
-			desc = desc[:descWidth-3] + "..."
-		}
-		memo := entry.Memo
-		if len(memo) > memoWidth {
-			memo = memo[:memoWidth-3] + "..."
-		}
-
 		debitStr := ""
 		if entry.DebitAmount != 0 {
 			debitStr = tools.FormatAmount(entry.DebitAmount)
@@ -185,17 +150,17 @@ func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code stri
 		}
 		balanceStr := tools.FormatAmount(entry.RunningBalance)
 
-		if _, err := fmt.Fprintf(hctx.Stdout, rowFmt,
-			entry.EntryDate, entry.EntryNumber, desc, memo, debitStr, creditStr, balanceStr,
-		); err != nil {
-			return fmt.Errorf("write ledger row: %w", err)
-		}
+		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+			entry.EntryDate, entry.EntryNumber, entry.Description, entry.Memo, debitStr, creditStr, balanceStr,
+		)
+	}
+
+	if err := tw.Flush(); err != nil {
+		return fmt.Errorf("write ledger table: %w", err)
 	}
 
 	// Print final balance line.
-	balanceFormatted := tools.FormatAmount(report.Balance)
-	balanceLabelWidth := 10 + 2 + 5 + 2 + descWidth + 2 + memoWidth + 2 + 20 + 2 + 20 + 2
-	if _, err := fmt.Fprintf(hctx.Stdout, "%*s%s\n", balanceLabelWidth-len(balanceFormatted), "Balance: ", balanceFormatted); err != nil {
+	if _, err := fmt.Fprintf(hctx.Stdout, "Balance: %s\n", tools.FormatAmount(report.Balance)); err != nil {
 		return fmt.Errorf("write ledger balance: %w", err)
 	}
 
