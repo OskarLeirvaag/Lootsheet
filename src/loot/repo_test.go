@@ -361,3 +361,57 @@ func TestRecognizeNonexistentAppraisal(t *testing.T) {
 		t.Fatalf("error = %q, want does not exist", err)
 	}
 }
+
+func TestUpdateLootItemEditsHeldItem(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+
+	item, err := CreateLootItem(context.Background(), databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	updated, err := UpdateLootItem(context.Background(), databasePath, item.ID, &UpdateLootItemInput{
+		Name:     "Emerald Idol Fragment",
+		Source:   "Sunken crypt",
+		Quantity: 2,
+		Holder:   "Cleric",
+		Notes:    "Split between packs",
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if updated.Name != "Emerald Idol Fragment" || updated.Quantity != 2 || updated.Holder != "Cleric" {
+		t.Fatalf("updated item = %#v", updated)
+	}
+}
+
+func TestUpdateLootItemRejectsQuantityChangeAfterRecognition(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+
+	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 750, "Jeweler", "2026-03-09", "")
+	if err != nil {
+		t.Fatalf("appraise: %v", err)
+	}
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-10", ""); err != nil {
+		t.Fatalf("recognize: %v", err)
+	}
+
+	_, err = UpdateLootItem(context.Background(), databasePath, item.ID, &UpdateLootItemInput{
+		Name:     "Gold Necklace",
+		Source:   "Merchant",
+		Quantity: 2,
+		Holder:   "",
+		Notes:    "",
+	})
+	if err == nil {
+		t.Fatal("expected recognized loot quantity edit to fail")
+	}
+	if !strings.Contains(err.Error(), "quantity can only be edited while loot is held") {
+		t.Fatalf("error = %q, want quantity restriction", err)
+	}
+}

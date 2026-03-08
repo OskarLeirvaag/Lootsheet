@@ -707,3 +707,73 @@ func TestWriteOffQuestFullyPaid(t *testing.T) {
 		t.Fatalf("error = %q, want cannot be written off", err)
 	}
 }
+
+func TestUpdateQuestEditsAcceptedQuestFields(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+
+	record, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Goblin Bounty",
+		Patron:             "Mayor Rowan",
+		Description:        "Clear the cave",
+		PromisedBaseReward: 2500,
+		PartialAdvance:     0,
+		BonusConditions:    "No civilian harm",
+		Notes:              "Bring proof",
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-08",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	updated, err := UpdateQuest(context.Background(), databasePath, record.ID, &UpdateQuestInput{
+		Title:              "Goblin Cave Cleanup",
+		Patron:             "Mayor Rowan",
+		Description:        "Sweep the tunnels",
+		PromisedBaseReward: 3000,
+		PartialAdvance:     500,
+		BonusConditions:    "No civilian losses",
+		Notes:              "Bring witnesses",
+		AcceptedOn:         "2026-03-08",
+	})
+	if err != nil {
+		t.Fatalf("update quest: %v", err)
+	}
+
+	if updated.Title != "Goblin Cave Cleanup" || updated.PromisedBaseReward != 3000 || updated.PartialAdvance != 500 {
+		t.Fatalf("updated quest = %#v", updated)
+	}
+	if updated.Notes != "Bring witnesses" {
+		t.Fatalf("updated notes = %q, want Bring witnesses", updated.Notes)
+	}
+}
+
+func TestUpdateQuestRejectsRewardChangeAfterCompletion(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+
+	record, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+		Title:              "Late Reward Change",
+		PromisedBaseReward: 2500,
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-08",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+	if err := CompleteQuest(context.Background(), databasePath, record.ID, "2026-03-09"); err != nil {
+		t.Fatalf("complete quest: %v", err)
+	}
+
+	_, err = UpdateQuest(context.Background(), databasePath, record.ID, &UpdateQuestInput{
+		Title:              "Late Reward Change",
+		PromisedBaseReward: 3000,
+		PartialAdvance:     0,
+		AcceptedOn:         "2026-03-08",
+	})
+	if err == nil {
+		t.Fatal("expected reward edit to fail after completion")
+	}
+	if !strings.Contains(err.Error(), "promised reward cannot be edited") {
+		t.Fatalf("error = %q, want promised reward edit restriction", err)
+	}
+}

@@ -23,20 +23,24 @@ type ItemActionMode string
 const (
 	ItemActionModeConfirm ItemActionMode = "confirm"
 	ItemActionModeInput   ItemActionMode = "input"
+	ItemActionModeCompose ItemActionMode = "compose"
 )
 
 // ItemActionData describes the primary action available for a list item.
 type ItemActionData struct {
-	Trigger      Action
-	ID           string
-	Label        string
-	Mode         ItemActionMode
-	ConfirmTitle string
-	ConfirmLines []string
-	InputTitle   string
-	InputPrompt  string
-	InputHelp    []string
-	Placeholder  string
+	Trigger       Action
+	ID            string
+	Label         string
+	Mode          ItemActionMode
+	ConfirmTitle  string
+	ConfirmLines  []string
+	InputTitle    string
+	InputPrompt   string
+	InputHelp     []string
+	Placeholder   string
+	ComposeMode   string
+	ComposeTitle  string
+	ComposeFields map[string]string
 }
 
 // ListItemData is a structured row plus detail content for list-style screens.

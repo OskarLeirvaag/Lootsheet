@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
@@ -122,6 +123,12 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 	if !strings.Contains(strings.Join(data.LootLines, "\n"), "Tracked items: 1") {
 		t.Fatalf("loot lines = %q", data.LootLines)
 	}
+	if !strings.Contains(strings.Join(data.HoardLines, "\n"), "To share now: 2 SP 5 CP") {
+		t.Fatalf("hoard lines = %q", data.HoardLines)
+	}
+	if !strings.Contains(strings.Join(data.HoardLines, "\n"), "Unsold loot: 8 GP") {
+		t.Fatalf("hoard lines = %q", data.HoardLines)
+	}
 }
 
 func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
@@ -199,10 +206,13 @@ func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
 	}
 
 	item := data.Accounts.Items[0]
-	if len(item.Actions) != 1 {
-		t.Fatalf("account item actions = %#v, want single toggle action", item.Actions)
+	if len(item.Actions) != 2 {
+		t.Fatalf("account item actions = %#v, want remove and toggle actions", item.Actions)
 	}
-	action := item.Actions[0]
+	if item.Actions[0].ID != tuiCommandAccountDelete || item.Actions[0].Trigger != render.ActionDelete {
+		t.Fatalf("first action = %#v, want delete", item.Actions[0])
+	}
+	action := item.Actions[1]
 	if action.ID != tuiCommandAccountDeactivate {
 		t.Fatalf("action id = %q, want %q", action.ID, tuiCommandAccountDeactivate)
 	}
@@ -362,13 +372,75 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(item.Actions) != 1 || item.Actions[0].ID != tuiCommandAccountActivate {
-			t.Fatalf("account item after deactivate = %#v, want activate action", item)
+		if len(item.Actions) != 2 || item.Actions[1].ID != tuiCommandAccountActivate {
+			t.Fatalf("account item after deactivate = %#v, want delete + activate actions", item)
 		}
 		break
 	}
 	if !found {
 		t.Fatal("expected account 1000 in refreshed shell data")
+	}
+}
+
+func TestHandleTUICommandCreatesAccountAndNavigatesToAccounts(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID: tuiCommandAccountCreate,
+		Fields: map[string]string{
+			"code":         "5600",
+			"name":         "Tavern Reparations",
+			"account_type": "expense",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("create account through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionAccounts {
+		t.Fatalf("navigate section = %v, want accounts", result.NavigateTo)
+	}
+	if result.SelectItemKey != "5600" {
+		t.Fatalf("selected item key = %q, want 5600", result.SelectItemKey)
+	}
+	if !strings.Contains(result.Status.Text, "Created account 5600.") {
+		t.Fatalf("status text = %q, want account summary", result.Status.Text)
+	}
+}
+
+func TestHandleTUICommandDeletesAccount(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	if _, err := account.CreateAccount(ctx, databasePath, "9900", "Unused Test Account", ledger.AccountTypeExpense); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID:      tuiCommandAccountDelete,
+		Section: render.SectionAccounts,
+		ItemKey: "9900",
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("delete account through tui command: %v", err)
+	}
+	if !strings.Contains(result.Status.Text, "Removed account 9900.") {
+		t.Fatalf("status text = %q, want removal summary", result.Status.Text)
+	}
+	for _, item := range result.Data.Accounts.Items {
+		if item.Key == "9900" {
+			t.Fatalf("deleted account still present: %#v", item)
+		}
 	}
 }
 
@@ -463,6 +535,9 @@ func TestBuildTUIShellDataIncludesEntryCatalog(t *testing.T) {
 	}
 	if data.Dashboard.QuickEntryLines[0] != "e  I have an expense" {
 		t.Fatalf("quick entry lines = %#v, want expense launcher", data.Dashboard.QuickEntryLines)
+	}
+	if len(data.Dashboard.HoardLines) == 0 {
+		t.Fatal("expected hoard overview lines")
 	}
 }
 
@@ -618,14 +693,17 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(item.Actions) != 2 {
-			t.Fatalf("quest item actions = %#v, want collect and write off", item.Actions)
+		if len(item.Actions) != 3 {
+			t.Fatalf("quest item actions = %#v, want edit, collect, and write off", item.Actions)
 		}
-		if item.Actions[0].Trigger != render.ActionCollect || item.Actions[0].ID != tuiCommandQuestCollectFull {
-			t.Fatalf("quest collect action = %#v", item.Actions[0])
+		if item.Actions[0].Trigger != render.ActionEdit || item.Actions[0].ID != tuiCommandQuestUpdate {
+			t.Fatalf("quest edit action = %#v", item.Actions[0])
 		}
-		if item.Actions[1].Trigger != render.ActionWriteOff || item.Actions[1].ID != tuiCommandQuestWriteOffFull {
-			t.Fatalf("quest write-off action = %#v", item.Actions[1])
+		if item.Actions[1].Trigger != render.ActionCollect || item.Actions[1].ID != tuiCommandQuestCollectFull {
+			t.Fatalf("quest collect action = %#v", item.Actions[1])
+		}
+		if item.Actions[2].Trigger != render.ActionWriteOff || item.Actions[2].ID != tuiCommandQuestWriteOffFull {
+			t.Fatalf("quest write-off action = %#v", item.Actions[2])
 		}
 		detail := strings.Join(item.DetailLines, "\n")
 		for _, token := range []string{"Outstanding: 2 PP 5 GP", "Collected so far: 0 CP", "Accounting state: collectible but unpaid"} {
@@ -633,8 +711,8 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 				t.Fatalf("quest detail missing %q:\n%s", token, detail)
 			}
 		}
-		if !strings.Contains(strings.Join(item.Actions[0].ConfirmLines, "\n"), "Collection date: 2026-03-10") {
-			t.Fatalf("collect confirm lines = %#v", item.Actions[0].ConfirmLines)
+		if !strings.Contains(strings.Join(item.Actions[1].ConfirmLines, "\n"), "Collection date: 2026-03-10") {
+			t.Fatalf("collect confirm lines = %#v", item.Actions[1].ConfirmLines)
 		}
 		break
 	}
@@ -707,8 +785,8 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(item.Actions) != 0 {
-			t.Fatalf("paid quest should not expose actions after refresh: %#v", item)
+		if len(item.Actions) != 1 || item.Actions[0].ID != tuiCommandQuestUpdate {
+			t.Fatalf("paid quest should expose only edit after refresh: %#v", item)
 		}
 		detail := strings.Join(item.DetailLines, "\n")
 		for _, token := range []string{"Status: paid", "Outstanding: 0 CP", "Collected so far: 2 PP 5 GP"} {
@@ -787,8 +865,8 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(item.Actions) != 0 {
-			t.Fatalf("defaulted quest should not expose actions after refresh: %#v", item)
+		if len(item.Actions) != 1 || item.Actions[0].ID != tuiCommandQuestUpdate {
+			t.Fatalf("defaulted quest should expose only edit after refresh: %#v", item)
 		}
 		if !strings.Contains(strings.Join(item.DetailLines, "\n"), "Status: defaulted") {
 			t.Fatalf("refreshed quest detail = %#v, want defaulted", item.DetailLines)
@@ -797,6 +875,79 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected refreshed quest item after write-off")
+	}
+}
+
+func TestHandleTUICommandCreatesQuestAndNavigatesToQuests(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID: tuiCommandQuestCreate,
+		Fields: map[string]string{
+			"title":       "Clear the Barrow",
+			"patron":      "Guildmaster Vane",
+			"description": "Drive out the skeletons",
+			"reward":      "25gp",
+			"advance":     "0",
+			"bonus":       "",
+			"status":      "accepted",
+			"accepted_on": "2026-03-10",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("create quest through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionQuests {
+		t.Fatalf("navigate section = %v, want quests", result.NavigateTo)
+	}
+	if result.SelectItemKey == "" {
+		t.Fatal("expected selected quest item key after create")
+	}
+	if !strings.Contains(result.Status.Text, "Created quest \"Clear the Barrow\".") {
+		t.Fatalf("status text = %q, want quest summary", result.Status.Text)
+	}
+}
+
+func TestHandleTUICommandCreatesLootAndNavigatesToLoot(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID: tuiCommandLootCreate,
+		Fields: map[string]string{
+			"name":     "Emerald Idol",
+			"source":   "Sunken crypt",
+			"quantity": "2",
+			"holder":   "Bard",
+			"notes":    "Wrap in velvet",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("create loot through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionLoot {
+		t.Fatalf("navigate section = %v, want loot", result.NavigateTo)
+	}
+	if result.SelectItemKey == "" {
+		t.Fatal("expected selected loot item key after create")
+	}
+	if !strings.Contains(result.Status.Text, "Created loot item \"Emerald Idol\".") {
+		t.Fatalf("status text = %q, want loot summary", result.Status.Text)
 	}
 }
 
@@ -836,10 +987,13 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 			continue
 		}
 		found = true
-		if len(row.Actions) != 1 {
-			t.Fatalf("loot row actions = %#v, want single recognize action", row.Actions)
+		if len(row.Actions) != 2 {
+			t.Fatalf("loot row actions = %#v, want edit and recognize actions", row.Actions)
 		}
-		action := row.Actions[0]
+		if row.Actions[0].Trigger != render.ActionEdit || row.Actions[0].ID != tuiCommandLootUpdate {
+			t.Fatalf("loot edit action = %#v", row.Actions[0])
+		}
+		action := row.Actions[1]
 		if action.Trigger != render.ActionRecognize {
 			t.Fatalf("loot action trigger = %q, want %q", action.Trigger, render.ActionRecognize)
 		}
@@ -913,10 +1067,13 @@ func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(row.Actions) != 1 {
-			t.Fatalf("recognized loot row actions = %#v, want single sell action", row.Actions)
+		if len(row.Actions) != 2 {
+			t.Fatalf("recognized loot row actions = %#v, want edit and sell actions", row.Actions)
 		}
-		action := row.Actions[0]
+		if row.Actions[0].Trigger != render.ActionEdit || row.Actions[0].ID != tuiCommandLootUpdate {
+			t.Fatalf("loot edit action = %#v", row.Actions[0])
+		}
+		action := row.Actions[1]
 		if action.Trigger != render.ActionSell {
 			t.Fatalf("loot action trigger = %q, want %q", action.Trigger, render.ActionSell)
 		}
@@ -989,16 +1146,16 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 		switch row.Key {
 		case noAppraisal.ID:
 			foundNoAppraisal = true
-			if len(row.Actions) != 0 {
-				t.Fatalf("no-appraisal row should not expose actions: %#v", row)
+			if len(row.Actions) != 1 || row.Actions[0].ID != tuiCommandLootUpdate {
+				t.Fatalf("no-appraisal row should expose only edit: %#v", row)
 			}
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: Unknown / none") {
 				t.Fatalf("no-appraisal detail = %#v", row.DetailLines)
 			}
 		case zeroAppraisal.ID:
 			foundZero = true
-			if len(row.Actions) != 0 {
-				t.Fatalf("zero-appraisal row should not expose actions: %#v", row)
+			if len(row.Actions) != 1 || row.Actions[0].ID != tuiCommandLootUpdate {
+				t.Fatalf("zero-appraisal row should expose only edit: %#v", row)
 			}
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: 0 CP") {
 				t.Fatalf("zero-appraisal detail = %#v", row.DetailLines)
@@ -1073,7 +1230,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(row.Actions) != 1 || row.Actions[0].ID != tuiCommandLootSell {
+		if len(row.Actions) != 2 || row.Actions[1].ID != tuiCommandLootSell {
 			t.Fatalf("recognized loot should expose sell action after refresh: %#v", row)
 		}
 		detail := strings.Join(row.DetailLines, "\n")
@@ -1194,6 +1351,121 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 		if row.Key == item.ID {
 			t.Fatalf("sold loot item should be absent from refreshed loot screen: %#v", row)
 		}
+	}
+}
+
+func TestHandleTUICommandUpdatesQuestAndKeepsSelection(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		Title:              "Goblin Bounty",
+		Patron:             "Mayor Rowan",
+		Description:        "Clear the cave",
+		PromisedBaseReward: 2500,
+		PartialAdvance:     0,
+		BonusConditions:    "Bonus for prisoners",
+		Notes:              "Ask for written proof",
+		Status:             "accepted",
+		AcceptedOn:         "2026-03-08",
+	})
+	if err != nil {
+		t.Fatalf("create quest: %v", err)
+	}
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID:      tuiCommandQuestUpdate,
+		Section: render.SectionQuests,
+		ItemKey: record.ID,
+		Fields: map[string]string{
+			"title":       "Goblin Cave Cleanup",
+			"patron":      "Mayor Rowan",
+			"description": "Sweep the tunnels",
+			"reward":      "30 GP",
+			"advance":     "5 GP",
+			"bonus":       "No civilian losses",
+			"notes":       "Bring witnesses",
+			"accepted_on": "2026-03-08",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("update quest through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionQuests {
+		t.Fatalf("navigate section = %v, want quests", result.NavigateTo)
+	}
+	if result.SelectItemKey != record.ID {
+		t.Fatalf("selected key = %q, want %q", result.SelectItemKey, record.ID)
+	}
+	if !strings.Contains(result.Status.Text, `Updated quest "Goblin Cave Cleanup".`) {
+		t.Fatalf("status text = %q, want updated quest summary", result.Status.Text)
+	}
+
+	quests, err := quest.ListQuests(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list quests: %v", err)
+	}
+	if len(quests) != 1 {
+		t.Fatalf("quest count = %d, want 1", len(quests))
+	}
+	if quests[0].Title != "Goblin Cave Cleanup" || quests[0].PromisedBaseReward != 3000 || quests[0].PartialAdvance != 500 {
+		t.Fatalf("updated quest = %#v", quests[0])
+	}
+}
+
+func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := loot.CreateLootItem(ctx, databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID:      tuiCommandLootUpdate,
+		Section: render.SectionLoot,
+		ItemKey: item.ID,
+		Fields: map[string]string{
+			"name":     "Emerald Idol Fragment",
+			"source":   "Sunken crypt",
+			"quantity": "2",
+			"holder":   "Cleric",
+			"notes":    "Split between packs",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("update loot through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionLoot {
+		t.Fatalf("navigate section = %v, want loot", result.NavigateTo)
+	}
+	if result.SelectItemKey != item.ID {
+		t.Fatalf("selected key = %q, want %q", result.SelectItemKey, item.ID)
+	}
+	if !strings.Contains(result.Status.Text, `Updated loot item "Emerald Idol Fragment".`) {
+		t.Fatalf("status text = %q, want updated loot summary", result.Status.Text)
+	}
+
+	items, err := loot.ListLootItems(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list loot items: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("loot item count = %d, want 1", len(items))
+	}
+	if items[0].Name != "Emerald Idol Fragment" || items[0].Quantity != 2 || items[0].Holder != "Cleric" {
+		t.Fatalf("updated loot item = %#v", items[0])
 	}
 }
 

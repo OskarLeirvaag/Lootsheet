@@ -46,6 +46,52 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 	})
 }
 
+// UpdateLootItem edits descriptive loot fields. Quantity may only change while held.
+func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string, input *UpdateLootItemInput) (LootItemRecord, error) {
+	lootItemID = strings.TrimSpace(lootItemID)
+	if lootItemID == "" {
+		return LootItemRecord{}, fmt.Errorf("loot item ID is required")
+	}
+	if input == nil {
+		return LootItemRecord{}, fmt.Errorf("loot item input is required")
+	}
+
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return LootItemRecord{}, fmt.Errorf("loot item name is required")
+	}
+	if input.Quantity <= 0 {
+		return LootItemRecord{}, fmt.Errorf("quantity must be positive")
+	}
+
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootItemRecord, error) {
+		current, err := getLootItemByID(ctx, db, lootItemID)
+		if err != nil {
+			return LootItemRecord{}, err
+		}
+
+		if current.Status != ledger.LootStatusHeld && input.Quantity != current.Quantity {
+			return LootItemRecord{}, fmt.Errorf("quantity can only be edited while loot is held")
+		}
+
+		if _, err := db.ExecContext(ctx,
+			`UPDATE loot_items
+			 SET name = ?, source = ?, quantity = ?, holder = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+			 WHERE id = ?`,
+			name,
+			strings.TrimSpace(input.Source),
+			input.Quantity,
+			strings.TrimSpace(input.Holder),
+			strings.TrimSpace(input.Notes),
+			lootItemID,
+		); err != nil {
+			return LootItemRecord{}, fmt.Errorf("update loot item: %w", err)
+		}
+
+		return getLootItemByID(ctx, db, lootItemID)
+	})
+}
+
 // ListLootItems returns all loot items ordered by status priority then name.
 func ListLootItems(ctx context.Context, databasePath string) ([]LootItemRecord, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]LootItemRecord, error) {
@@ -425,4 +471,32 @@ func getLootItemStatus(ctx context.Context, db *sql.DB, lootItemID string) (ledg
 	}
 
 	return s, nil
+}
+
+func getLootItemByID(ctx context.Context, db *sql.DB, lootItemID string) (LootItemRecord, error) {
+	var item LootItemRecord
+	var status string
+
+	if err := db.QueryRowContext(ctx,
+		`SELECT id, name, source, status, quantity, holder, notes, created_at, updated_at
+		 FROM loot_items
+		 WHERE id = ?`,
+		lootItemID,
+	).Scan(
+		&item.ID, &item.Name, &item.Source, &status,
+		&item.Quantity, &item.Holder, &item.Notes,
+		&item.CreatedAt, &item.UpdatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return LootItemRecord{}, fmt.Errorf("loot item %q does not exist", lootItemID)
+		}
+		return LootItemRecord{}, fmt.Errorf("query loot item: %w", err)
+	}
+
+	item.Status = ledger.LootStatus(status)
+	if !item.Status.Valid() {
+		return LootItemRecord{}, fmt.Errorf("loot item %s has invalid status %q", lootItemID, status)
+	}
+
+	return item, nil
 }
