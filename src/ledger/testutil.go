@@ -1,0 +1,98 @@
+package ledger
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/config"
+)
+
+// InitTestDB creates a temporary SQLite database initialized with the full
+// LootSheet schema and seed data. It returns the path to the database file.
+// The database is automatically cleaned up when the test finishes.
+func InitTestDB(t testing.TB) string {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	return databasePath
+}
+
+// RunSQLiteQueryForTest opens a database, runs a query that returns a single
+// text column per row, and returns all rows joined by newlines.
+func RunSQLiteQueryForTest(t testing.TB, databasePath string, query string) string {
+	t.Helper()
+
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(context.Background(), query)
+	if err != nil {
+		t.Fatalf("run test query: %v", err)
+	}
+	defer rows.Close()
+
+	var lines []string
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			t.Fatalf("scan test row: %v", err)
+		}
+		lines = append(lines, value)
+	}
+
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate test rows: %v", err)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// RunSQLiteScriptForTest opens a database and executes an arbitrary SQL script.
+func RunSQLiteScriptForTest(t testing.TB, databasePath string, sqlScript string) {
+	t.Helper()
+
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(context.Background(), sqlScript); err != nil {
+		t.Fatalf("run test script: %v: %s", err, fmt.Sprintf("%.200s", sqlScript))
+	}
+}
+
+// LoadMigrationAssetsForTest returns the full and legacy (v1-only) init assets
+// for migration testing.
+func LoadMigrationAssetsForTest(t testing.TB) (config.InitAssets, config.InitAssets) {
+	t.Helper()
+
+	fullAssets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	legacyAssets := fullAssets
+	legacyAssets.Migrations = append([]config.InitMigration(nil), fullAssets.Migrations[:1]...)
+	legacyAssets.SchemaVersion = legacyAssets.Migrations[len(legacyAssets.Migrations)-1].Version
+
+	return fullAssets, legacyAssets
+}

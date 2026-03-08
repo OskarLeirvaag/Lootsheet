@@ -2,15 +2,18 @@ package app
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/report"
 )
 
 type Application struct {
@@ -52,6 +55,13 @@ func New(cfg config.Config, stdout io.Writer, logOutput io.Writer) (*Application
 		stdout: stdout,
 		log:    logger,
 	}, nil
+}
+
+func (a *Application) handlerContext() ledger.HandlerContext {
+	return ledger.HandlerContext{
+		DatabasePath: a.config.Paths.DatabasePath,
+		Stdout:       a.stdout,
+	}
 }
 
 func (a *Application) Run(ctx context.Context, args []string) error {
@@ -103,7 +113,7 @@ func (a *Application) runInit(ctx context.Context) error {
 		return err
 	}
 
-	result, err := repo.EnsureSQLiteInitialized(ctx, a.config.Paths.DatabasePath, initAssets)
+	result, err := ledger.EnsureSQLiteInitialized(ctx, a.config.Paths.DatabasePath, initAssets)
 	if err != nil {
 		a.log.logger.ErrorContext(ctx, "failed to initialize sqlite database", slog.String("error", err.Error()))
 		return err
@@ -142,193 +152,110 @@ func (a *Application) runAccount(ctx context.Context, args []string) error {
 		return fmt.Errorf("missing account subcommand\n\n%s", usageText)
 	}
 
+	hctx := a.handlerContext()
+
 	switch args[0] {
 	case "list":
-		return a.runAccountList(ctx)
+		return account.HandleList(ctx, hctx)
 	case "create":
-		return a.runAccountCreate(ctx, args[1:])
+		return account.HandleCreate(ctx, hctx, args[1:])
 	case "rename":
-		return a.runAccountRename(ctx, args[1:])
+		return account.HandleRename(ctx, hctx, args[1:])
 	case "deactivate":
-		return a.runAccountDeactivate(ctx, args[1:])
+		return account.HandleDeactivate(ctx, hctx, args[1:])
 	case "activate":
-		return a.runAccountActivate(ctx, args[1:])
+		return account.HandleActivate(ctx, hctx, args[1:])
 	case "ledger":
-		return a.runAccountLedger(ctx, args[1:])
+		return journal.HandleAccountLedger(ctx, hctx, args[1:])
 	case "delete":
-		return a.runAccountDelete(ctx, args[1:])
+		return account.HandleDelete(ctx, hctx, args[1:])
 	default:
 		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], usageText)
 	}
 }
 
-func (a *Application) runAccountList(ctx context.Context) error {
-	a.log.logger.InfoContext(ctx, "listing accounts", slog.String("database_path", a.config.Paths.DatabasePath))
-
-	accounts, err := repo.ListAccounts(ctx, a.config.Paths.DatabasePath)
-	if err != nil {
-		a.log.logger.ErrorContext(ctx, "failed to list accounts", slog.String("error", err.Error()))
-		return err
+func (a *Application) runJournal(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing journal subcommand\n\n%s", usageText)
 	}
 
-	if _, err := fmt.Fprintln(a.stdout, "CODE  TYPE       ACTIVE  NAME"); err != nil {
-		return fmt.Errorf("write accounts header: %w", err)
+	hctx := a.handlerContext()
+
+	switch args[0] {
+	case "post":
+		return journal.HandlePost(ctx, hctx, args[1:])
+	case "reverse":
+		return journal.HandleReverse(ctx, hctx, args[1:])
+	default:
+		return fmt.Errorf("unknown journal subcommand %q\n\n%s", args[0], usageText)
 	}
-
-	for _, account := range accounts {
-		activeLabel := "no"
-		if account.Active {
-			activeLabel = "yes"
-		}
-
-		if _, err := fmt.Fprintf(
-			a.stdout,
-			"%-4s  %-10s %-6s  %s\n",
-			account.Code,
-			string(account.Type),
-			activeLabel,
-			account.Name,
-		); err != nil {
-			return fmt.Errorf("write account row: %w", err)
-		}
-	}
-
-	a.log.logger.InfoContext(ctx, "listed accounts", slog.Int("count", len(accounts)))
-	return nil
 }
 
-func (a *Application) runAccountCreate(ctx context.Context, args []string) error {
-	var code, name, accountType string
-
-	flagSet := flag.NewFlagSet("account create", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-	flagSet.StringVar(&name, "name", "", "account name")
-	flagSet.StringVar(&accountType, "type", "", "account type (asset, liability, equity, income, expense)")
-
-	if err := flagSet.Parse(args); err != nil {
-		return fmt.Errorf("%s\n\n%s", err, usageText)
+func (a *Application) runQuest(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing quest subcommand\n\n%s", usageText)
 	}
 
-	a.log.logger.InfoContext(ctx, "creating account",
-		slog.String("database_path", a.config.Paths.DatabasePath),
-		slog.String("code", code),
-		slog.String("name", name),
-		slog.String("type", accountType),
-	)
+	hctx := a.handlerContext()
 
-	result, err := repo.CreateAccount(ctx, a.config.Paths.DatabasePath, code, name, service.AccountType(accountType))
-	if err != nil {
-		a.log.logger.ErrorContext(ctx, "failed to create account", slog.String("error", err.Error()))
-		return err
+	switch args[0] {
+	case "create":
+		return quest.HandleCreate(ctx, hctx, args[1:])
+	case "list":
+		return quest.HandleList(ctx, hctx)
+	case "accept":
+		return quest.HandleAccept(ctx, hctx, args[1:])
+	case "complete":
+		return quest.HandleComplete(ctx, hctx, args[1:])
+	case "collect":
+		return quest.HandleCollect(ctx, hctx, args[1:])
+	case "writeoff":
+		return quest.HandleWriteoff(ctx, hctx, args[1:])
+	default:
+		return fmt.Errorf("unknown quest subcommand %q\n\n%s", args[0], usageText)
 	}
-
-	a.log.logger.InfoContext(ctx, "created account", slog.String("code", result.Code), slog.String("id", result.ID))
-
-	if _, err := fmt.Fprintf(
-		a.stdout,
-		"Created account %s\nCode: %s\nName: %s\nType: %s\n",
-		result.ID,
-		result.Code,
-		result.Name,
-		string(result.Type),
-	); err != nil {
-		return fmt.Errorf("write account output: %w", err)
-	}
-
-	return nil
 }
 
-func (a *Application) runAccountRename(ctx context.Context, args []string) error {
-	var code, name string
-
-	flagSet := flag.NewFlagSet("account rename", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-	flagSet.StringVar(&name, "name", "", "new account name")
-
-	if err := flagSet.Parse(args); err != nil {
-		return fmt.Errorf("%s\n\n%s", err, usageText)
+func (a *Application) runLoot(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing loot subcommand\n\n%s", usageText)
 	}
 
-	a.log.logger.InfoContext(ctx, "renaming account",
-		slog.String("database_path", a.config.Paths.DatabasePath),
-		slog.String("code", code),
-		slog.String("name", name),
-	)
+	hctx := a.handlerContext()
 
-	if err := repo.RenameAccount(ctx, a.config.Paths.DatabasePath, code, name); err != nil {
-		a.log.logger.ErrorContext(ctx, "failed to rename account", slog.String("error", err.Error()))
-		return err
+	switch args[0] {
+	case "create":
+		return loot.HandleCreate(ctx, hctx, args[1:])
+	case "list":
+		return loot.HandleList(ctx, hctx)
+	case "appraise":
+		return loot.HandleAppraise(ctx, hctx, args[1:])
+	case "recognize":
+		return loot.HandleRecognize(ctx, hctx, args[1:])
+	case "sell":
+		return loot.HandleSell(ctx, hctx, args[1:])
+	default:
+		return fmt.Errorf("unknown loot subcommand %q\n\n%s", args[0], usageText)
 	}
-
-	a.log.logger.InfoContext(ctx, "renamed account", slog.String("code", code), slog.String("name", name))
-
-	if _, err := fmt.Fprintf(a.stdout, "Renamed account %s to %q\n", code, name); err != nil {
-		return fmt.Errorf("write rename output: %w", err)
-	}
-
-	return nil
 }
 
-func (a *Application) runAccountDeactivate(ctx context.Context, args []string) error {
-	var code string
-
-	flagSet := flag.NewFlagSet("account deactivate", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-
-	if err := flagSet.Parse(args); err != nil {
-		return fmt.Errorf("%s\n\n%s", err, usageText)
+func (a *Application) runReport(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing report subcommand\n\n%s", usageText)
 	}
 
-	a.log.logger.InfoContext(ctx, "deactivating account",
-		slog.String("database_path", a.config.Paths.DatabasePath),
-		slog.String("code", code),
-	)
+	hctx := a.handlerContext()
 
-	if err := repo.DeactivateAccount(ctx, a.config.Paths.DatabasePath, code); err != nil {
-		a.log.logger.ErrorContext(ctx, "failed to deactivate account", slog.String("error", err.Error()))
-		return err
+	switch args[0] {
+	case "trial-balance":
+		return report.HandleTrialBalance(ctx, hctx)
+	case "quest-receivables":
+		return report.HandleQuestReceivables(ctx, hctx)
+	case "loot-summary":
+		return report.HandleLootSummary(ctx, hctx)
+	default:
+		return fmt.Errorf("unknown report subcommand %q\n\n%s", args[0], usageText)
 	}
-
-	a.log.logger.InfoContext(ctx, "deactivated account", slog.String("code", code))
-
-	if _, err := fmt.Fprintf(a.stdout, "Deactivated account %s\n", code); err != nil {
-		return fmt.Errorf("write deactivate output: %w", err)
-	}
-
-	return nil
-}
-
-func (a *Application) runAccountActivate(ctx context.Context, args []string) error {
-	var code string
-
-	flagSet := flag.NewFlagSet("account activate", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-
-	if err := flagSet.Parse(args); err != nil {
-		return fmt.Errorf("%s\n\n%s", err, usageText)
-	}
-
-	a.log.logger.InfoContext(ctx, "activating account",
-		slog.String("database_path", a.config.Paths.DatabasePath),
-		slog.String("code", code),
-	)
-
-	if err := repo.ActivateAccount(ctx, a.config.Paths.DatabasePath, code); err != nil {
-		a.log.logger.ErrorContext(ctx, "failed to activate account", slog.String("error", err.Error()))
-		return err
-	}
-
-	a.log.logger.InfoContext(ctx, "activated account", slog.String("code", code))
-
-	if _, err := fmt.Fprintf(a.stdout, "Activated account %s\n", code); err != nil {
-		return fmt.Errorf("write activate output: %w", err)
-	}
-
-	return nil
 }
 
 func (a *Application) printUsage() error {

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 func TestRunInitCreatesSQLiteDatabase(t *testing.T) {
@@ -286,7 +286,7 @@ func TestRunJournalReverseWithCustomDescription(t *testing.T) {
 func getFirstJournalEntryID(t *testing.T, databasePath string) string {
 	t.Helper()
 
-	db, err := repo.OpenDBForTest(databasePath)
+	db, err := ledger.OpenDBForTest(databasePath)
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}
@@ -539,7 +539,7 @@ func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
 	t.Setenv(config.EnvDatabasePath, "ledger.db")
 
 	fullAssets, legacyAssets := loadMigrationAssetsForAppTest(t)
-	if _, err := repo.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+	if _, err := ledger.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
 		t.Fatalf("initialize legacy db: %v", err)
 	}
 
@@ -581,7 +581,7 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 	t.Setenv(config.EnvDatabasePath, "ledger.db")
 
 	_, legacyAssets := loadMigrationAssetsForAppTest(t)
-	if _, err := repo.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+	if _, err := ledger.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
 		t.Fatalf("initialize legacy db: %v", err)
 	}
 
@@ -824,7 +824,7 @@ func TestRunQuestCollectPartialPayment(t *testing.T) {
 func getFirstQuestID(t *testing.T, databasePath string) string {
 	t.Helper()
 
-	db, err := repo.OpenDBForTest(databasePath)
+	db, err := ledger.OpenDBForTest(databasePath)
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 func (a *Application) runDatabase(ctx context.Context, args []string) error {
@@ -33,7 +33,7 @@ func (a *Application) runDatabaseStatus(ctx context.Context) error {
 		return err
 	}
 
-	status, err := repo.GetDatabaseStatusWithAssets(ctx, a.config.Paths.DatabasePath, initAssets)
+	status, err := ledger.GetDatabaseStatusWithAssets(ctx, a.config.Paths.DatabasePath, initAssets)
 	if err != nil {
 		a.log.logger.ErrorContext(ctx, "failed to read database status", slog.String("error", err.Error()))
 		return err
@@ -106,7 +106,7 @@ func (a *Application) runDatabaseMigrate(ctx context.Context) error {
 		return err
 	}
 
-	result, err := repo.MigrateSQLiteDatabase(ctx, a.config.Paths.DatabasePath, initAssets)
+	result, err := ledger.MigrateSQLiteDatabase(ctx, a.config.Paths.DatabasePath, initAssets)
 	if err != nil {
 		a.log.logger.ErrorContext(ctx, "failed to migrate database", slog.String("error", err.Error()))
 		return err
