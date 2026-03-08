@@ -32,11 +32,11 @@
   - [x] create quest
   - [x] mark quest completed
   - [x] collect quest payment
-  - [ ] create loot appraisal
-  - [ ] recognize loot appraisal
+  - [x] create loot appraisal
+  - [x] recognize loot appraisal
 - [x] Add account deactivation.
-- [ ] Add account ledger output.
-- [ ] Add trial balance output.
+- [x] Add account ledger output.
+- [x] Add trial balance output.
 - [ ] Add loss-on-sale and bad-debt helper flows.
 
 ## TUI
@@ -59,14 +59,14 @@
 - [ ] Prevent deletion of accounts that have postings.
 - [ ] Allow used accounts to be marked inactive.
 - [x] Keep quest promises off-ledger until earned.
-- [ ] Keep unrealized loot appraisals off-ledger until explicitly recognized.
+- [x] Keep unrealized loot appraisals off-ledger until explicitly recognized.
 - [x] Support partial quest payments, advances, and bonuses.
 - [ ] Support custom accounts like `Wizard Magic Ink`.
 
 ## Reports
 
-- [ ] Trial balance
-- [ ] General ledger report
+- [x] Trial balance
+- [x] General ledger report
 - [ ] Open quest receivables report
 - [ ] Promised-but-unearned quest report
 - [ ] Unrealized loot summary
@@ -82,7 +82,7 @@
 - [x] Add unit tests for journal balancing.
 - [x] Add tests for reversal and correction flows.
 - [x] Add tests for quest completion and collection flows.
-- [ ] Add tests for loot appraisal recognition and sale flows.
+- [x] Add tests for loot appraisal recognition and sale flows.
 - [ ] Add fixtures with a sample campaign ledger.
 - [ ] Add `testapp.sh` end-to-end smoke coverage for installed-binary style runs in a temporary workspace.
 
