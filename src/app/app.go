@@ -80,6 +80,10 @@ func (a *Application) Run(ctx context.Context, args []string) error {
 		return a.runJournal(ctx, args[1:])
 	case "quest":
 		return a.runQuest(ctx, args[1:])
+	case "loot":
+		return a.runLoot(ctx, args[1:])
+	case "report":
+		return a.runReport(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", args[0], usageText)
 	}
@@ -149,6 +153,8 @@ func (a *Application) runAccount(ctx context.Context, args []string) error {
 		return a.runAccountDeactivate(ctx, args[1:])
 	case "activate":
 		return a.runAccountActivate(ctx, args[1:])
+	case "ledger":
+		return a.runAccountLedger(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], usageText)
 	}
@@ -346,5 +352,12 @@ Usage:
   lootsheet quest accept --id ID --date YYYY-MM-DD
   lootsheet quest complete --id ID --date YYYY-MM-DD
   lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+  lootsheet loot create --name TEXT [--source TEXT] [--quantity N] [--holder TEXT] [--notes TEXT]
+  lootsheet loot list
+  lootsheet loot appraise --id ID --value AMOUNT --date DATE [--appraiser TEXT] [--notes TEXT]
+  lootsheet loot recognize --appraisal-id ID --date DATE [--description TEXT]
+  lootsheet loot sell --id ID --amount AMOUNT --date DATE [--description TEXT]
+  lootsheet account ledger --code CODE
+  lootsheet report trial-balance
   lootsheet help
 `
