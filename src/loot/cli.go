@@ -31,6 +31,11 @@ func HandleCreate(ctx context.Context, hctx ledger.HandlerContext, args []string
 		return fmt.Errorf("--name is required")
 	}
 
+	return RunCreate(ctx, hctx, name, source, quantity, holder, notes)
+}
+
+// RunCreate creates a loot item and writes the CLI output.
+func RunCreate(ctx context.Context, hctx ledger.HandlerContext, name string, source string, quantity int, holder string, notes string) error {
 	result, err := CreateLootItem(ctx, hctx.DatabasePath, name, source, quantity, holder, notes)
 	if err != nil {
 		return err
@@ -109,6 +114,11 @@ func HandleAppraise(ctx context.Context, hctx ledger.HandlerContext, args []stri
 		return fmt.Errorf("--date is required")
 	}
 
+	return RunAppraise(ctx, hctx, id, value, appraiser, date, notes)
+}
+
+// RunAppraise records a loot appraisal and writes the CLI output.
+func RunAppraise(ctx context.Context, hctx ledger.HandlerContext, id string, value int64, appraiser string, date string, notes string) error {
 	result, err := AppraiseLootItem(ctx, hctx.DatabasePath, id, value, appraiser, date, notes)
 	if err != nil {
 		return err
@@ -150,6 +160,11 @@ func HandleRecognize(ctx context.Context, hctx ledger.HandlerContext, args []str
 		return fmt.Errorf("--date is required")
 	}
 
+	return RunRecognize(ctx, hctx, appraisalID, date, description)
+}
+
+// RunRecognize recognizes a loot appraisal and writes the CLI output.
+func RunRecognize(ctx context.Context, hctx ledger.HandlerContext, appraisalID string, date string, description string) error {
 	result, err := RecognizeLootAppraisal(ctx, hctx.DatabasePath, appraisalID, date, description)
 	if err != nil {
 		return err
@@ -202,6 +217,11 @@ func HandleSell(ctx context.Context, hctx ledger.HandlerContext, args []string) 
 		return fmt.Errorf("--date is required")
 	}
 
+	return RunSell(ctx, hctx, id, amount, date, description)
+}
+
+// RunSell records a loot sale and writes the CLI output.
+func RunSell(ctx context.Context, hctx ledger.HandlerContext, id string, amount int64, date string, description string) error {
 	result, err := SellLootItem(ctx, hctx.DatabasePath, id, amount, date, description)
 	if err != nil {
 		return err

@@ -40,7 +40,7 @@ func HandleCreate(ctx context.Context, hctx ledger.HandlerContext, args []string
 		return fmt.Errorf("invalid advance %q: %w", advanceStr, err)
 	}
 
-	result, err := CreateQuest(ctx, hctx.DatabasePath, &CreateQuestInput{
+	return RunCreate(ctx, hctx, &CreateQuestInput{
 		Title:              title,
 		Patron:             patron,
 		Description:        description,
@@ -50,6 +50,15 @@ func HandleCreate(ctx context.Context, hctx ledger.HandlerContext, args []string
 		Status:             status,
 		AcceptedOn:         acceptedOn,
 	})
+}
+
+// RunCreate creates a quest and writes the CLI output.
+func RunCreate(ctx context.Context, hctx ledger.HandlerContext, input *CreateQuestInput) error {
+	if input == nil {
+		return fmt.Errorf("quest input is required")
+	}
+
+	result, err := CreateQuest(ctx, hctx.DatabasePath, input)
 	if err != nil {
 		return err
 	}
@@ -115,6 +124,11 @@ func HandleAccept(ctx context.Context, hctx ledger.HandlerContext, args []string
 		return fmt.Errorf("--date is required")
 	}
 
+	return RunAccept(ctx, hctx, id, date)
+}
+
+// RunAccept accepts a quest and writes the CLI output.
+func RunAccept(ctx context.Context, hctx ledger.HandlerContext, id string, date string) error {
 	if err := AcceptQuest(ctx, hctx.DatabasePath, id, date); err != nil {
 		return err
 	}
@@ -147,6 +161,11 @@ func HandleComplete(ctx context.Context, hctx ledger.HandlerContext, args []stri
 		return fmt.Errorf("--date is required")
 	}
 
+	return RunComplete(ctx, hctx, id, date)
+}
+
+// RunComplete completes a quest and writes the CLI output.
+func RunComplete(ctx context.Context, hctx ledger.HandlerContext, id string, date string) error {
 	if err := CompleteQuest(ctx, hctx.DatabasePath, id, date); err != nil {
 		return err
 	}
@@ -190,11 +209,21 @@ func HandleCollect(ctx context.Context, hctx ledger.HandlerContext, args []strin
 		return fmt.Errorf("--date is required")
 	}
 
-	result, err := CollectQuestPayment(ctx, hctx.DatabasePath, CollectQuestPaymentInput{
+	return RunCollect(ctx, hctx, CollectQuestPaymentInput{
 		QuestID:     id,
 		Amount:      amount,
 		Date:        date,
 		Description: description,
+	})
+}
+
+// RunCollect collects quest payment and writes the CLI output.
+func RunCollect(ctx context.Context, hctx ledger.HandlerContext, input CollectQuestPaymentInput) error {
+	result, err := CollectQuestPayment(ctx, hctx.DatabasePath, CollectQuestPaymentInput{
+		QuestID:     input.QuestID,
+		Amount:      input.Amount,
+		Date:        input.Date,
+		Description: input.Description,
 	})
 	if err != nil {
 		return err
@@ -206,7 +235,7 @@ func HandleCollect(ctx context.Context, hctx ledger.HandlerContext, args []strin
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		tools.FormatAmount(amount),
+		tools.FormatAmount(input.Amount),
 		tools.FormatAmount(result.DebitTotal),
 		tools.FormatAmount(result.CreditTotal),
 	); err != nil {
@@ -238,10 +267,19 @@ func HandleWriteoff(ctx context.Context, hctx ledger.HandlerContext, args []stri
 		return fmt.Errorf("--date is required")
 	}
 
-	result, err := WriteOffQuest(ctx, hctx.DatabasePath, WriteOffQuestInput{
+	return RunWriteoff(ctx, hctx, WriteOffQuestInput{
 		QuestID:     id,
 		Date:        date,
 		Description: description,
+	})
+}
+
+// RunWriteoff writes off a quest balance and writes the CLI output.
+func RunWriteoff(ctx context.Context, hctx ledger.HandlerContext, input WriteOffQuestInput) error {
+	result, err := WriteOffQuest(ctx, hctx.DatabasePath, WriteOffQuestInput{
+		QuestID:     input.QuestID,
+		Date:        input.Date,
+		Description: input.Description,
 	})
 	if err != nil {
 		return err

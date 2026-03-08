@@ -41,7 +41,7 @@ The dependency direction should stay simple and one-way:
 
 This is intentionally straightforward DI rather than framework-driven wiring.
 
-The CLI command tree should be owned by Cobra in `src/app`, while the domain packages remain responsible for their own handler logic, validation, and database behavior.
+The CLI command tree and leaf-level flag parsing should be owned by Cobra in `src/app`, while the domain packages remain responsible for command execution, validation, output, and database behavior.
 
 ## Install and Runtime Model
 

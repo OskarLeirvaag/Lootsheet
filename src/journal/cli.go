@@ -18,6 +18,11 @@ func HandlePost(ctx context.Context, hctx ledger.HandlerContext, args []string) 
 		return err
 	}
 
+	return RunPost(ctx, hctx, input)
+}
+
+// RunPost posts a journal entry and writes the CLI output.
+func RunPost(ctx context.Context, hctx ledger.HandlerContext, input ledger.JournalPostInput) error {
 	result, err := PostJournalEntry(ctx, hctx.DatabasePath, input)
 	if err != nil {
 		return err
@@ -62,19 +67,29 @@ func parseJournalPostArgs(args []string) (ledger.JournalPostInput, error) {
 		return ledger.JournalPostInput{}, fmt.Errorf("unexpected journal post arguments: %s\n\n%s", strings.Join(flagSet.Args(), " "), JournalPostUsageText)
 	}
 
-	lines := make([]ledger.JournalLineInput, 0, len(debitSpecs.values)+len(creditSpecs.values))
-	for _, spec := range debitSpecs.values {
+	input, err := BuildJournalPostInput(entryDate, description, debitSpecs.values, creditSpecs.values)
+	if err != nil {
+		return ledger.JournalPostInput{}, fmt.Errorf("%s\n\n%s", err, JournalPostUsageText)
+	}
+
+	return input, nil
+}
+
+// BuildJournalPostInput converts parsed journal post flag values into a post input.
+func BuildJournalPostInput(entryDate string, description string, debitSpecs []string, creditSpecs []string) (ledger.JournalPostInput, error) {
+	lines := make([]ledger.JournalLineInput, 0, len(debitSpecs)+len(creditSpecs))
+	for _, spec := range debitSpecs {
 		line, err := parseJournalLineSpec(spec, true)
 		if err != nil {
-			return ledger.JournalPostInput{}, fmt.Errorf("%s\n\n%s", err, JournalPostUsageText)
+			return ledger.JournalPostInput{}, err
 		}
 		lines = append(lines, line)
 	}
 
-	for _, spec := range creditSpecs.values {
+	for _, spec := range creditSpecs {
 		line, err := parseJournalLineSpec(spec, false)
 		if err != nil {
-			return ledger.JournalPostInput{}, fmt.Errorf("%s\n\n%s", err, JournalPostUsageText)
+			return ledger.JournalPostInput{}, err
 		}
 		lines = append(lines, line)
 	}
@@ -159,6 +174,11 @@ func HandleReverse(ctx context.Context, hctx ledger.HandlerContext, args []strin
 		return fmt.Errorf("--date is required\n\n%s", JournalReverseUsageText)
 	}
 
+	return RunReverse(ctx, hctx, entryID, date, description)
+}
+
+// RunReverse reverses a journal entry and writes the CLI output.
+func RunReverse(ctx context.Context, hctx ledger.HandlerContext, entryID string, date string, description string) error {
 	result, err := ReverseJournalEntry(ctx, hctx.DatabasePath, entryID, date, description)
 	if err != nil {
 		return err
@@ -197,6 +217,11 @@ func HandleAccountLedger(ctx context.Context, hctx ledger.HandlerContext, args [
 		return fmt.Errorf("--code is required")
 	}
 
+	return RunAccountLedger(ctx, hctx, code)
+}
+
+// RunAccountLedger writes the ledger report for a single account.
+func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code string) error {
 	report, err := GetAccountLedger(ctx, hctx.DatabasePath, code)
 	if err != nil {
 		return err

@@ -55,7 +55,12 @@ func HandleCreate(ctx context.Context, hctx ledger.HandlerContext, args []string
 		return err
 	}
 
-	result, err := CreateAccount(ctx, hctx.DatabasePath, code, name, ledger.AccountType(accountType))
+	return RunCreate(ctx, hctx, code, name, ledger.AccountType(accountType))
+}
+
+// RunCreate creates a new account and writes the CLI output.
+func RunCreate(ctx context.Context, hctx ledger.HandlerContext, code string, name string, accountType ledger.AccountType) error {
+	result, err := CreateAccount(ctx, hctx.DatabasePath, code, name, accountType)
 	if err != nil {
 		return err
 	}
@@ -87,6 +92,11 @@ func HandleRename(ctx context.Context, hctx ledger.HandlerContext, args []string
 		return err
 	}
 
+	return RunRename(ctx, hctx, code, name)
+}
+
+// RunRename renames an account and writes the CLI output.
+func RunRename(ctx context.Context, hctx ledger.HandlerContext, code string, name string) error {
 	if err := RenameAccount(ctx, hctx.DatabasePath, code, name); err != nil {
 		return err
 	}
@@ -110,6 +120,11 @@ func HandleDeactivate(ctx context.Context, hctx ledger.HandlerContext, args []st
 		return err
 	}
 
+	return RunDeactivate(ctx, hctx, code)
+}
+
+// RunDeactivate deactivates an account and writes the CLI output.
+func RunDeactivate(ctx context.Context, hctx ledger.HandlerContext, code string) error {
 	if err := DeactivateAccount(ctx, hctx.DatabasePath, code); err != nil {
 		return err
 	}
@@ -133,6 +148,11 @@ func HandleActivate(ctx context.Context, hctx ledger.HandlerContext, args []stri
 		return err
 	}
 
+	return RunActivate(ctx, hctx, code)
+}
+
+// RunActivate activates an account and writes the CLI output.
+func RunActivate(ctx context.Context, hctx ledger.HandlerContext, code string) error {
 	if err := ActivateAccount(ctx, hctx.DatabasePath, code); err != nil {
 		return err
 	}
@@ -156,6 +176,11 @@ func HandleDelete(ctx context.Context, hctx ledger.HandlerContext, args []string
 		return err
 	}
 
+	return RunDelete(ctx, hctx, code)
+}
+
+// RunDelete deletes an unused account and writes the CLI output.
+func RunDelete(ctx context.Context, hctx ledger.HandlerContext, code string) error {
 	if err := DeleteAccount(ctx, hctx.DatabasePath, code); err != nil {
 		return err
 	}

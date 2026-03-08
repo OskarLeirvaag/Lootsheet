@@ -165,8 +165,8 @@ This does not require C++. The visual style comes from terminal rendering strate
 Development should stay boring and explicit.
 
 - `main.go` starts the application and hands off to `src/app`
-- `src/app` owns the Cobra command tree and delegates into domain packages
-- domain packages own their CLI handlers and data access for their slice
+- `src/app` owns the Cobra command tree, leaf flag parsing, and top-level help
+- domain packages own command execution, validation, output rendering, and data access for their slice
 - `src/ledger` owns shared validation, migrations, and DB lifecycle helpers
 - `src/config` owns config file parsing, path resolution, and embedded setup assets
 - `src/tools` owns shared helpers such as amount parsing and formatting

@@ -204,22 +204,30 @@ func HandleWriteOffCandidates(ctx context.Context, hctx ledger.HandlerContext, a
 		return err
 	}
 
-	rows, err := GetWriteOffCandidates(ctx, hctx.DatabasePath, WriteOffCandidateFilter{
+	return RunWriteOffCandidates(ctx, hctx, WriteOffCandidateFilter{
 		AsOfDate:   asOfDate,
 		MinAgeDays: minAgeDays,
+	})
+}
+
+// RunWriteOffCandidates writes the write-off candidates report.
+func RunWriteOffCandidates(ctx context.Context, hctx ledger.HandlerContext, filter WriteOffCandidateFilter) error {
+	rows, err := GetWriteOffCandidates(ctx, hctx.DatabasePath, WriteOffCandidateFilter{
+		AsOfDate:   filter.AsOfDate,
+		MinAgeDays: filter.MinAgeDays,
 	})
 	if err != nil {
 		return err
 	}
 
 	if len(rows) == 0 {
-		if _, err := fmt.Fprintf(hctx.Stdout, "No write-off candidates as of %s.\n", asOfDate); err != nil {
+		if _, err := fmt.Fprintf(hctx.Stdout, "No write-off candidates as of %s.\n", filter.AsOfDate); err != nil {
 			return fmt.Errorf("write write-off candidates output: %w", err)
 		}
 		return nil
 	}
 
-	if _, err := fmt.Fprintf(hctx.Stdout, "Write-Off Candidates (as of %s, min age %d days)\n\n", asOfDate, minAgeDays); err != nil {
+	if _, err := fmt.Fprintf(hctx.Stdout, "Write-Off Candidates (as of %s, min age %d days)\n\n", filter.AsOfDate, filter.MinAgeDays); err != nil {
 		return fmt.Errorf("write write-off candidates title: %w", err)
 	}
 	if _, err := fmt.Fprintf(hctx.Stdout, "%-24s %-16s %-16s %-10s %4s  %-16s %-16s %s\n",

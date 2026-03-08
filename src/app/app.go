@@ -166,23 +166,6 @@ func (a *Application) runAccount(ctx context.Context, args []string) error {
 	}
 }
 
-func (a *Application) runJournal(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("missing journal subcommand\n\n%s", journalHelpText)
-	}
-
-	hctx := a.handlerContext()
-
-	switch args[0] {
-	case "post":
-		return journal.HandlePost(ctx, hctx, args[1:])
-	case "reverse":
-		return journal.HandleReverse(ctx, hctx, args[1:])
-	default:
-		return fmt.Errorf("unknown journal subcommand %q\n\n%s", args[0], journalHelpText)
-	}
-}
-
 func (a *Application) runQuest(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("missing quest subcommand\n\n%s", questHelpText)
