@@ -11,6 +11,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/OskarLeirvaag/Lootsheet/src/report"
@@ -23,6 +24,7 @@ const (
 	tuiCommandJournalReverse    = "journal.reverse"
 	tuiCommandQuestCollectFull  = "quest.collect_full"
 	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
+	tuiCommandLootRecognize     = "loot.recognize_latest"
 )
 
 var tuiNow = time.Now
@@ -92,11 +94,11 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Loot: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Unrealized loot register from %s.", databaseName),
-				"Select a loot item to inspect it. Appraisals stay off-ledger until recognized.",
+				"Select a loot item to inspect it. `n` recognizes the selected latest appraisal using today's date.",
 			},
 			EmptyLines: []string{
 				"No loot tracked yet.",
-				"Loot workflows stay read-only in this slice.",
+				"Recognition appears when a held item has a latest appraisal of at least 1 CP.",
 			},
 		},
 	}
@@ -181,6 +183,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	lootRows, err := report.GetLootSummary(ctx, databasePath)
+	lootSummaryAvailable := false
 	if err != nil {
 		data.Dashboard.LootLines = unavailablePanelLines(err)
 		data.Loot = unavailableSectionData("Loot register unavailable.", err.Error())
@@ -188,7 +191,21 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	} else {
 		data.Dashboard.LootLines = summarizeLoot(lootRows)
 		data.Loot.SummaryLines = summarizeLoot(lootRows)
-		data.Loot.Items = buildLootItems(lootRows)
+		lootSummaryAvailable = true
+	}
+
+	if lootSummaryAvailable {
+		browseItems, browseErr := loot.ListBrowseItems(ctx, databasePath)
+		if browseErr != nil {
+			if len(data.Loot.SummaryLines) == 0 {
+				data.Loot = unavailableSectionData("Loot register unavailable.", browseErr.Error())
+			}
+			data.Loot.Items = nil
+			data.Loot.EmptyLines = unavailablePanelLines(browseErr)
+			panelErrors = append(panelErrors, "loot")
+		} else {
+			data.Loot.Items = buildLootItems(browseItems, tuiToday())
+		}
 	}
 
 	if len(panelErrors) > 0 {
@@ -293,6 +310,29 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", tools.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
+		}
+	case tuiCommandLootRecognize:
+		items, err := loot.ListBrowseItems(ctx, databasePath)
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		item, ok := findBrowseLootItem(items, command.ItemKey)
+		if !ok {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
+		}
+		if !lootRecognizable(&item) {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q cannot be recognized right now", command.ItemKey)
+		}
+
+		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, item.LatestAppraisal.ID, today, "")
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Recognized loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	default:
 		return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("unsupported TUI command %q", command.ID)
@@ -635,14 +675,10 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 	return items
 }
 
-func buildLootItems(rows []report.LootSummaryRow) []render.ListItemData {
+func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(rows))
-	for _, row := range rows {
-		appraised := "No appraisal"
-		if row.LatestAppraisalValue > 0 {
-			appraised = tools.FormatAmount(row.LatestAppraisalValue)
-		}
-
+	for index := range rows {
+		row := &rows[index]
 		name := row.Name
 		if strings.TrimSpace(row.Source) != "" {
 			name = name + " (" + row.Source + ")"
@@ -651,20 +687,58 @@ func buildLootItems(rows []report.LootSummaryRow) []render.ListItemData {
 		detailLines := []string{
 			"Status: " + string(row.Status),
 			fmt.Sprintf("Quantity: %d", row.Quantity),
-			"Latest appraisal: " + appraised,
+			"Accounting state: " + lootAccountingState(row),
+			"Latest appraisal: " + lootLatestAppraisalText(row),
+			fmt.Sprintf("Appraisals tracked: %d", row.AppraisalCount),
 		}
-		if row.AppraisedAt != "" {
-			detailLines = append(detailLines, "Appraised on: "+row.AppraisedAt)
+		if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedAt != "" {
+			detailLines = append(detailLines, "Appraised on: "+row.LatestAppraisal.AppraisedAt)
+		}
+		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Appraiser) != "" {
+			detailLines = append(detailLines, "Appraiser: "+row.LatestAppraisal.Appraiser)
 		}
 		if strings.TrimSpace(row.Source) != "" {
 			detailLines = append(detailLines, "Source: "+row.Source)
 		}
+		if strings.TrimSpace(row.Holder) != "" {
+			detailLines = append(detailLines, "Holder: "+row.Holder)
+		}
+		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Notes) != "" {
+			detailLines = append(detailLines, "Appraisal notes: "+row.LatestAppraisal.Notes)
+		}
+		if strings.TrimSpace(row.Notes) != "" {
+			detailLines = append(detailLines, "Item notes: "+row.Notes)
+		}
+
+		var actions []render.ItemActionData
+		if lootRecognizable(row) {
+			appraisalDetail := "This uses the latest appraisal."
+			if row.AppraisalCount > 1 {
+				appraisalDetail = fmt.Sprintf("This uses the latest of %d appraisals.", row.AppraisalCount)
+			}
+
+			actions = []render.ItemActionData{{
+				Trigger:      render.ActionRecognize,
+				ID:           tuiCommandLootRecognize,
+				Label:        "n recognize",
+				ConfirmTitle: fmt.Sprintf("Recognize %q?", row.Name),
+				ConfirmLines: []string{
+					"Latest appraisal: " + lootLatestAppraisalText(row),
+					"Appraisal date: " + row.LatestAppraisal.AppraisedAt,
+					"Recognition date: " + today,
+					appraisalDetail,
+					"A new posted journal entry will be created.",
+					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Recognize loot appraisal: %s", row.LatestAppraisal.ID)),
+				},
+			}}
+		}
 
 		items = append(items, render.ListItemData{
-			Key:         row.ItemID,
-			Row:         fmt.Sprintf("%-12s qty:%-3d %-11s %s", appraisedValueLabel(row.LatestAppraisalValue), row.Quantity, string(row.Status), name),
+			Key:         row.ID,
+			Row:         fmt.Sprintf("%-12s qty:%-3d %-11s %s", lootRowAppraisalLabel(row), row.Quantity, string(row.Status), name),
 			DetailTitle: row.Name,
 			DetailLines: detailLines,
+			Actions:     actions,
 		})
 	}
 
@@ -702,11 +776,50 @@ func questOutstandingLabel(value int64) string {
 	return tools.FormatAmount(value) + " due"
 }
 
-func appraisedValueLabel(value int64) string {
-	if value <= 0 {
-		return "-"
+func lootAccountingState(row *loot.BrowseItemRecord) string {
+	if row == nil {
+		return ""
 	}
-	return tools.FormatAmount(value)
+
+	switch row.Status {
+	case ledger.LootStatusRecognized:
+		return "on-ledger recognized inventory"
+	case ledger.LootStatusHeld:
+		if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedValue >= 1 {
+			return "appraised but off-ledger"
+		}
+		return "held off-ledger"
+	default:
+		return string(row.Status)
+	}
+}
+
+func lootLatestAppraisalText(row *loot.BrowseItemRecord) string {
+	if row == nil || row.LatestAppraisal == nil {
+		return "Unknown / none"
+	}
+
+	return tools.FormatAmount(row.LatestAppraisal.AppraisedValue)
+}
+
+func lootRowAppraisalLabel(row *loot.BrowseItemRecord) string {
+	if row == nil || row.LatestAppraisal == nil {
+		return "unknown"
+	}
+
+	return tools.FormatAmount(row.LatestAppraisal.AppraisedValue)
+}
+
+func lootRecognizable(row *loot.BrowseItemRecord) bool {
+	if row == nil || row.Status != ledger.LootStatusHeld || row.LatestAppraisal == nil {
+		return false
+	}
+
+	if row.LatestAppraisal.AppraisedValue < 1 {
+		return false
+	}
+
+	return strings.TrimSpace(row.LatestAppraisal.RecognizedEntryID) == ""
 }
 
 func loadTUIQuestRows(ctx context.Context, databasePath string) ([]tuiQuestRow, error) {
@@ -795,6 +908,16 @@ func findTUIQuestRow(rows []tuiQuestRow, questID string) (tuiQuestRow, bool) {
 	}
 
 	return tuiQuestRow{}, false
+}
+
+func findBrowseLootItem(rows []loot.BrowseItemRecord, itemID string) (loot.BrowseItemRecord, bool) {
+	for index := range rows {
+		if rows[index].ID == itemID {
+			return rows[index], true
+		}
+	}
+
+	return loot.BrowseItemRecord{}, false
 }
 
 func blankStatusDetail(detail string) string {

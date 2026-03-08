@@ -122,6 +122,9 @@ func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
 	if !strings.Contains(output, "write off the full outstanding balance") {
 		t.Fatalf("tui help missing quest write-off guidance: %q", output)
 	}
+	if !strings.Contains(output, "recognize the selected latest loot appraisal") {
+		t.Fatalf("tui help missing loot recognize guidance: %q", output)
+	}
 	if !strings.Contains(output, "Enter                      confirm the open modal") {
 		t.Fatalf("tui help missing confirm guidance: %q", output)
 	}

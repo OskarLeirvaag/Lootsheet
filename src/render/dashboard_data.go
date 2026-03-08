@@ -34,11 +34,11 @@ func DefaultDashboardData() DashboardData {
 		},
 		QuestLines: []string{
 			"Promised rewards stay off-ledger until earned.",
-			"Quest register browsing is read-only in this slice.",
+			"Quest register now supports collect and write-off actions.",
 		},
 		LootLines: []string{
 			"Unrealized appraisals stay off-ledger until recognized.",
-			"Loot register browsing is read-only in this slice.",
+			"Loot recognition is the next interactive TUI workflow.",
 		},
 	}
 }

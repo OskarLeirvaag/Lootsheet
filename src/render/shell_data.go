@@ -186,11 +186,11 @@ func defaultListScreenData(section Section) ListScreenData {
 			},
 			SummaryLines: []string{
 				"Recognition and sale flows remain in the domain layer.",
-				"This screen stays read-only in the first interactive slice.",
+				"The next interactive slice promotes recognition into the TUI.",
 			},
 			EmptyLines: []string{
 				"No loot rows loaded yet.",
-				"App-side adapters fill this screen with live loot data.",
+				"App-side adapters fill this screen with live loot data and actions.",
 			},
 		}
 	default:

@@ -1,0 +1,128 @@
+package loot
+
+import (
+	"context"
+	"testing"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+)
+
+func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet")
+	if err != nil {
+		t.Fatalf("create item: %v", err)
+	}
+
+	if _, err := AppraiseLootItem(ctx, databasePath, item.ID, 600, "Guild factor", "2026-03-08", "First pass"); err != nil {
+		t.Fatalf("first appraisal: %v", err)
+	}
+	latest, err := AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
+	if err != nil {
+		t.Fatalf("second appraisal: %v", err)
+	}
+
+	rows, err := ListBrowseItems(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list browse items: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("row count = %d, want 1", len(rows))
+	}
+
+	row := rows[0]
+	if row.ID != item.ID {
+		t.Fatalf("item id = %q, want %q", row.ID, item.ID)
+	}
+	if row.AppraisalCount != 2 {
+		t.Fatalf("appraisal count = %d, want 2", row.AppraisalCount)
+	}
+	if row.LatestAppraisal == nil {
+		t.Fatal("expected latest appraisal")
+	}
+	if row.LatestAppraisal.ID != latest.ID {
+		t.Fatalf("latest appraisal id = %q, want %q", row.LatestAppraisal.ID, latest.ID)
+	}
+	if row.LatestAppraisal.AppraisedValue != 750 {
+		t.Fatalf("latest appraisal value = %d, want 750", row.LatestAppraisal.AppraisedValue)
+	}
+	if row.LatestAppraisal.Appraiser != "Master jeweler" {
+		t.Fatalf("latest appraiser = %q, want Master jeweler", row.LatestAppraisal.Appraiser)
+	}
+	if row.Holder != "Bard" {
+		t.Fatalf("holder = %q, want Bard", row.Holder)
+	}
+	if row.Notes != "Wrapped in velvet" {
+		t.Fatalf("notes = %q, want Wrapped in velvet", row.Notes)
+	}
+}
+
+func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 1, "", "")
+	if err != nil {
+		t.Fatalf("create item: %v", err)
+	}
+
+	appraisal, err := AppraiseLootItem(ctx, databasePath, item.ID, 800, "Guild factor", "2026-03-08", "")
+	if err != nil {
+		t.Fatalf("appraise item: %v", err)
+	}
+
+	entry, err := RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", "")
+	if err != nil {
+		t.Fatalf("recognize appraisal: %v", err)
+	}
+
+	rows, err := ListBrowseItems(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list browse items: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("row count = %d, want 1", len(rows))
+	}
+
+	row := rows[0]
+	if row.Status != ledger.LootStatusRecognized {
+		t.Fatalf("status = %q, want recognized", row.Status)
+	}
+	if row.LatestAppraisal == nil {
+		t.Fatal("expected latest appraisal")
+	}
+	if row.LatestAppraisal.RecognizedEntryID != entry.ID {
+		t.Fatalf("recognized entry id = %q, want %q", row.LatestAppraisal.RecognizedEntryID, entry.ID)
+	}
+}
+
+func TestListBrowseItemsExcludesSoldItems(t *testing.T) {
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "")
+	if err != nil {
+		t.Fatalf("create item: %v", err)
+	}
+
+	appraisal, err := AppraiseLootItem(ctx, databasePath, item.ID, 500, "", "2026-03-08", "")
+	if err != nil {
+		t.Fatalf("appraise item: %v", err)
+	}
+	if _, err := RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+		t.Fatalf("recognize appraisal: %v", err)
+	}
+	if _, err := SellLootItem(ctx, databasePath, item.ID, 500, "2026-03-10", ""); err != nil {
+		t.Fatalf("sell item: %v", err)
+	}
+
+	rows, err := ListBrowseItems(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list browse items: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("row count = %d, want 0", len(rows))
+	}
+}
