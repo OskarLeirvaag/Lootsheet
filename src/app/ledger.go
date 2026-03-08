@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/service"
 )
 
 func (a *Application) runAccountLedger(ctx context.Context, args []string) error {
@@ -73,7 +74,7 @@ func (a *Application) runAccountLedger(ctx context.Context, args []string) error
 	}
 
 	// Print header.
-	headerFmt := fmt.Sprintf("%%-%ds  %%-5s  %%-%ds  %%-%ds  %%9s  %%9s  %%9s\n", 10, descWidth, memoWidth)
+	headerFmt := fmt.Sprintf("%%-%ds  %%-5s  %%-%ds  %%-%ds  %%20s  %%20s  %%20s\n", 10, descWidth, memoWidth)
 	if _, err := fmt.Fprintf(a.stdout, headerFmt,
 		"DATE", "#", "DESCRIPTION", "MEMO", "DEBIT", "CREDIT", "BALANCE",
 	); err != nil {
@@ -81,7 +82,7 @@ func (a *Application) runAccountLedger(ctx context.Context, args []string) error
 	}
 
 	// Print entries.
-	rowFmt := fmt.Sprintf("%%-%ds  %%-5d  %%-%ds  %%-%ds  %%9s  %%9s  %%9d\n", 10, descWidth, memoWidth)
+	rowFmt := fmt.Sprintf("%%-%ds  %%-5d  %%-%ds  %%-%ds  %%20s  %%20s  %%20s\n", 10, descWidth, memoWidth)
 	for _, entry := range report.Entries {
 		desc := entry.Description
 		if len(desc) > descWidth {
@@ -94,23 +95,25 @@ func (a *Application) runAccountLedger(ctx context.Context, args []string) error
 
 		debitStr := ""
 		if entry.DebitAmount != 0 {
-			debitStr = fmt.Sprintf("%d", entry.DebitAmount)
+			debitStr = service.FormatAmount(entry.DebitAmount)
 		}
 		creditStr := ""
 		if entry.CreditAmount != 0 {
-			creditStr = fmt.Sprintf("%d", entry.CreditAmount)
+			creditStr = service.FormatAmount(entry.CreditAmount)
 		}
+		balanceStr := service.FormatAmount(entry.RunningBalance)
 
 		if _, err := fmt.Fprintf(a.stdout, rowFmt,
-			entry.EntryDate, entry.EntryNumber, desc, memo, debitStr, creditStr, entry.RunningBalance,
+			entry.EntryDate, entry.EntryNumber, desc, memo, debitStr, creditStr, balanceStr,
 		); err != nil {
 			return fmt.Errorf("write ledger row: %w", err)
 		}
 	}
 
 	// Print final balance line.
-	balanceLabelWidth := 10 + 2 + 5 + 2 + descWidth + 2 + memoWidth + 2 + 9 + 2 + 9 + 2
-	if _, err := fmt.Fprintf(a.stdout, "%*s%d\n", balanceLabelWidth-len(fmt.Sprintf("%d", report.Balance)), "Balance: ", report.Balance); err != nil {
+	balanceFormatted := service.FormatAmount(report.Balance)
+	balanceLabelWidth := 10 + 2 + 5 + 2 + descWidth + 2 + memoWidth + 2 + 20 + 2 + 20 + 2
+	if _, err := fmt.Fprintf(a.stdout, "%*s%s\n", balanceLabelWidth-len(balanceFormatted), "Balance: ", balanceFormatted); err != nil {
 		return fmt.Errorf("write ledger balance: %w", err)
 	}
 

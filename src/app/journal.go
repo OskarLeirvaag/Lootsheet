@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
@@ -60,13 +59,13 @@ func (a *Application) runJournalPost(ctx context.Context, args []string) error {
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Posted journal entry #%d\nDate: %s\nDescription: %s\nLines: %d\nDebits: %d\nCredits: %d\n",
+		"Posted journal entry #%d\nDate: %s\nDescription: %s\nLines: %d\nDebits: %s\nCredits: %s\n",
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
 		result.LineCount,
-		result.DebitTotal,
-		result.CreditTotal,
+		service.FormatAmount(result.DebitTotal),
+		service.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write journal output: %w", err)
 	}
@@ -132,9 +131,9 @@ func parseJournalLineSpec(value string, isDebit bool) (service.JournalLineInput,
 		return service.JournalLineInput{}, fmt.Errorf("journal line %q is missing an account code", value)
 	}
 
-	amount, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+	amount, err := service.ParseAmount(parts[1])
 	if err != nil {
-		return service.JournalLineInput{}, fmt.Errorf("journal line %q has an invalid amount", value)
+		return service.JournalLineInput{}, fmt.Errorf("journal line %q has an invalid amount: %w", value, err)
 	}
 
 	memo := ""
@@ -219,13 +218,13 @@ func (a *Application) runJournalReverse(ctx context.Context, args []string) erro
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Reversed journal entry as #%d\nDate: %s\nDescription: %s\nLines: %d\nDebits: %d\nCredits: %d\n",
+		"Reversed journal entry as #%d\nDate: %s\nDescription: %s\nLines: %d\nDebits: %s\nCredits: %s\n",
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
 		result.LineCount,
-		result.DebitTotal,
-		result.CreditTotal,
+		service.FormatAmount(result.DebitTotal),
+		service.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write reversal output: %w", err)
 	}
@@ -248,7 +247,12 @@ const journalPostUsageText = `LootSheet CLI
 Usage:
   lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
 
+Amounts accept D&D 5e denominations: PP, GP, EP, SP, CP (case insensitive).
+  Mixed:   2GP5SP, 1PP 2GP 3SP 5CP
+  Decimal: 5.5GP, 0.5SP
+  Bare integer (treated as CP): 100
+
 Examples:
-  lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:25:Quiver refill --credit 1000:25
-  lootsheet journal post --date 2026-03-08 --description "Quest reward earned" --debit 1100:100 --credit 4000:100
+  lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP:Quiver refill --credit 1000:2SP5CP
+  lootsheet journal post --date 2026-03-08 --description "Quest reward earned" --debit 1100:1GP --credit 4000:1GP
 `

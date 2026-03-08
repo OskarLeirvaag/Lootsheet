@@ -142,7 +142,7 @@ func TestRunJournalPostCreatesPostedEntry(t *testing.T) {
 		t.Fatalf("journal post output missing entry number: %q", output)
 	}
 
-	if !strings.Contains(output, "Debits: 25") || !strings.Contains(output, "Credits: 25") {
+	if !strings.Contains(output, "Debits: 2 SP 5 CP") || !strings.Contains(output, "Credits: 2 SP 5 CP") {
 		t.Fatalf("journal post output missing totals: %q", output)
 	}
 }
@@ -227,7 +227,7 @@ func TestRunJournalReverseCreatesReversalEntry(t *testing.T) {
 		t.Fatalf("reverse output missing entry number: %q", output)
 	}
 
-	if !strings.Contains(output, "Debits: 25") || !strings.Contains(output, "Credits: 25") {
+	if !strings.Contains(output, "Debits: 2 SP 5 CP") || !strings.Contains(output, "Credits: 2 SP 5 CP") {
 		t.Fatalf("reverse output missing totals: %q", output)
 	}
 
@@ -643,7 +643,7 @@ func TestRunQuestCreateListAcceptCompleteCollect(t *testing.T) {
 	if !strings.Contains(createOutput, "Clear the Goblin Cave") {
 		t.Fatalf("quest create output missing title: %q", createOutput)
 	}
-	if !strings.Contains(createOutput, "Reward: 500") {
+	if !strings.Contains(createOutput, "Reward: 5 GP") {
 		t.Fatalf("quest create output missing reward: %q", createOutput)
 	}
 
@@ -710,10 +710,10 @@ func TestRunQuestCreateListAcceptCompleteCollect(t *testing.T) {
 	if !strings.Contains(collectOutput, "Collected quest payment as journal entry #1") {
 		t.Fatalf("collect output missing entry number: %q", collectOutput)
 	}
-	if !strings.Contains(collectOutput, "Amount: 500") {
+	if !strings.Contains(collectOutput, "Amount: 5 GP") {
 		t.Fatalf("collect output missing amount: %q", collectOutput)
 	}
-	if !strings.Contains(collectOutput, "Debits: 500") || !strings.Contains(collectOutput, "Credits: 500") {
+	if !strings.Contains(collectOutput, "Debits: 5 GP") || !strings.Contains(collectOutput, "Credits: 5 GP") {
 		t.Fatalf("collect output missing totals: %q", collectOutput)
 	}
 

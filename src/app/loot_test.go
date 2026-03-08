@@ -97,7 +97,7 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	if !strings.Contains(appraiseOutput, "Appraised loot item") {
 		t.Fatalf("appraise output missing confirmation: %q", appraiseOutput)
 	}
-	if !strings.Contains(appraiseOutput, "Value: 500") {
+	if !strings.Contains(appraiseOutput, "Value: 5 GP") {
 		t.Fatalf("appraise output missing value: %q", appraiseOutput)
 	}
 
@@ -110,7 +110,7 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	if !strings.Contains(recognizeOutput, "Recognized loot appraisal as journal entry #1") {
 		t.Fatalf("recognize output missing entry number: %q", recognizeOutput)
 	}
-	if !strings.Contains(recognizeOutput, "Debits: 500") || !strings.Contains(recognizeOutput, "Credits: 500") {
+	if !strings.Contains(recognizeOutput, "Debits: 5 GP") || !strings.Contains(recognizeOutput, "Credits: 5 GP") {
 		t.Fatalf("recognize output missing totals: %q", recognizeOutput)
 	}
 
@@ -127,7 +127,7 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	if !strings.Contains(sellOutput, "Sold loot item as journal entry #2") {
 		t.Fatalf("sell output missing entry number: %q", sellOutput)
 	}
-	if !strings.Contains(sellOutput, "Amount: 600") {
+	if !strings.Contains(sellOutput, "Amount: 6 GP") {
 		t.Fatalf("sell output missing amount: %q", sellOutput)
 	}
 
@@ -156,7 +156,7 @@ func TestRunLootSellBelowAppraisal(t *testing.T) {
 	})
 
 	// Debits: 300 (cash) + 200 (loss) = 500; Credits: 500 (inventory).
-	if !strings.Contains(sellOutput, "Debits: 500") || !strings.Contains(sellOutput, "Credits: 500") {
+	if !strings.Contains(sellOutput, "Debits: 5 GP") || !strings.Contains(sellOutput, "Credits: 5 GP") {
 		t.Fatalf("sell output missing balanced totals: %q", sellOutput)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/service"
 )
 
 func (a *Application) runReport(ctx context.Context, args []string) error {
@@ -38,26 +39,26 @@ func (a *Application) runTrialBalance(ctx context.Context) error {
 		return fmt.Errorf("write trial balance blank line: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(a.stdout, "%-6s%-21s%-11s%8s%9s%9s\n",
+	if _, err := fmt.Fprintf(a.stdout, "%-6s%-21s%-11s  %-20s  %-20s  %-20s\n",
 		"CODE", "ACCOUNT", "TYPE", "DEBITS", "CREDITS", "BALANCE",
 	); err != nil {
 		return fmt.Errorf("write trial balance column header: %w", err)
 	}
 
 	for _, row := range report.Accounts {
-		if _, err := fmt.Fprintf(a.stdout, "%-6s%-21s%-11s%8d%9d%9d\n",
+		if _, err := fmt.Fprintf(a.stdout, "%-6s%-21s%-11s  %-20s  %-20s  %-20s\n",
 			row.AccountCode,
 			truncate(row.AccountName, 20),
 			string(row.AccountType),
-			row.TotalDebits,
-			row.TotalCredits,
-			row.Balance,
+			service.FormatAmount(row.TotalDebits),
+			service.FormatAmount(row.TotalCredits),
+			service.FormatAmount(row.Balance),
 		); err != nil {
 			return fmt.Errorf("write trial balance row: %w", err)
 		}
 	}
 
-	if _, err := fmt.Fprintf(a.stdout, "%-38s%8s%9s\n", "", "---", "---"); err != nil {
+	if _, err := fmt.Fprintf(a.stdout, "%-38s  %-20s  %-20s\n", "", "---", "---"); err != nil {
 		return fmt.Errorf("write trial balance separator: %w", err)
 	}
 
@@ -67,11 +68,11 @@ func (a *Application) runTrialBalance(ctx context.Context) error {
 		if diff < 0 {
 			diff = -diff
 		}
-		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %d)", diff)
+		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %s)", service.FormatAmount(diff))
 	}
 
-	if _, err := fmt.Fprintf(a.stdout, "%-27s%-11s%8d%9d  %s\n",
-		"", "Totals:", report.TotalDebits, report.TotalCredits, balanceLabel,
+	if _, err := fmt.Fprintf(a.stdout, "%-27s%-11s  %-20s  %-20s  %s\n",
+		"", "Totals:", service.FormatAmount(report.TotalDebits), service.FormatAmount(report.TotalCredits), balanceLabel,
 	); err != nil {
 		return fmt.Errorf("write trial balance totals: %w", err)
 	}
