@@ -15,7 +15,7 @@
 - [x] Write the first SQLite schema.
 - [x] Seed a default chart of accounts for a D&D party.
 - [x] Implement journal balancing validation.
-- [ ] Replace the external `sqlite3` command dependency with direct SQLite access from the app binary.
+- [x] Replace the external `sqlite3` command dependency with direct SQLite access from the app binary.
 - [x] Implement the rule that posted entries cannot be edited or deleted.
 - [ ] Expand structured logging configuration beyond the default OTel-backed text logger if needed.
 
@@ -37,7 +37,7 @@
 - [x] Add account deactivation.
 - [x] Add account ledger output.
 - [x] Add trial balance output.
-- [ ] Add loss-on-sale and bad-debt helper flows.
+- [x] Add loss-on-sale and bad-debt helper flows.
 
 ## TUI
 
@@ -55,30 +55,30 @@
 
 ## Data and Rules
 
-- [ ] Ensure account IDs are immutable even when names change.
-- [ ] Prevent deletion of accounts that have postings.
-- [ ] Allow used accounts to be marked inactive.
+- [x] Ensure account IDs are immutable even when names change.
+- [x] Prevent deletion of accounts that have postings.
+- [x] Allow used accounts to be marked inactive.
 - [x] Keep quest promises off-ledger until earned.
 - [x] Keep unrealized loot appraisals off-ledger until explicitly recognized.
 - [x] Support partial quest payments, advances, and bonuses.
-- [ ] Support custom accounts like `Wizard Magic Ink`.
+- [x] Support custom accounts like `Wizard Magic Ink`.
 
 ## Reports
 
 - [x] Trial balance
 - [x] General ledger report
-- [ ] Open quest receivables report
+- [x] Open quest receivables report
 - [ ] Promised-but-unearned quest report
-- [ ] Unrealized loot summary
+- [x] Unrealized loot summary
 - [ ] Write-off candidates
 
 ## Quality
 
 - [x] Add a `Makefile` or equivalent development entrypoints.
-- [ ] Add `golangci-lint` configuration.
-- [ ] Run `go fmt ./...` as a standard check.
-- [ ] Run `go vet ./...` as a standard check.
-- [ ] Run `golangci-lint run` as a standard check.
+- [x] Add `golangci-lint` configuration.
+- [x] Run `go fmt ./...` as a standard check.
+- [x] Run `go vet ./...` as a standard check.
+- [x] Run `golangci-lint run` as a standard check.
 - [x] Add unit tests for journal balancing.
 - [x] Add tests for reversal and correction flows.
 - [x] Add tests for quest completion and collection flows.
