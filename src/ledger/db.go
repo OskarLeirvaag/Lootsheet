@@ -170,6 +170,37 @@ func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 	return state, nil
 }
 
+// WithDB ensures the database is initialized, opens a connection, calls fn,
+// and closes the connection when fn returns. Use this for operations that
+// return only an error.
+func WithDB(ctx context.Context, databasePath string, fn func(db *sql.DB) error) error {
+	if err := EnsureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+	db, err := OpenDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return fn(db)
+}
+
+// WithDBResult ensures the database is initialized, opens a connection, calls
+// fn, and closes the connection when fn returns. Use this for operations that
+// return a value and an error.
+func WithDBResult[T any](ctx context.Context, databasePath string, fn func(db *sql.DB) (T, error)) (T, error) {
+	var zero T
+	if err := EnsureInitializedDatabase(ctx, databasePath); err != nil {
+		return zero, err
+	}
+	db, err := OpenDB(databasePath)
+	if err != nil {
+		return zero, err
+	}
+	defer db.Close()
+	return fn(db)
+}
+
 // EnsureInitializedDatabase checks that the database at the given path
 // has been initialized with the LootSheet schema.
 func EnsureInitializedDatabase(ctx context.Context, databasePath string) error {
