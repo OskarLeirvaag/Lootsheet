@@ -9,10 +9,6 @@ import (
 )
 
 func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, assets config.InitAssets) (DatabaseStatus, error) {
-	if err := ensureSQLiteAvailable(); err != nil {
-		return DatabaseStatus{}, err
-	}
-
 	state, err := inspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return DatabaseStatus{}, err
@@ -49,10 +45,6 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 }
 
 func MigrateSQLiteDatabase(ctx context.Context, databasePath string, assets config.InitAssets) (MigrationResult, error) {
-	if err := ensureSQLiteAvailable(); err != nil {
-		return MigrationResult{}, err
-	}
-
 	state, err := inspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return MigrationResult{}, err
@@ -89,12 +81,55 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, assets conf
 		return result, nil
 	}
 
-	if err := runSQLiteScript(
-		ctx,
-		databasePath,
-		buildMigrationScript(state, appliedMigrations, pendingMigrations, result.ToSchemaVersion),
-	); err != nil {
+	db, err := openDB(databasePath)
+	if err != nil {
 		return MigrationResult{}, err
+	}
+	defer db.Close()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return MigrationResult{}, fmt.Errorf("begin migration transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if state.UsesLegacyMetadata {
+		if _, err := tx.ExecContext(ctx, schemaMigrationsTableSQL); err != nil {
+			return MigrationResult{}, fmt.Errorf("create schema_migrations table: %w", err)
+		}
+
+		for _, migration := range appliedMigrations {
+			if _, err := tx.ExecContext(ctx,
+				"INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+				migration.Version, migration.Name,
+			); err != nil {
+				return MigrationResult{}, fmt.Errorf("backfill migration record %s: %w", migration.Name, err)
+			}
+		}
+	}
+
+	for _, migration := range pendingMigrations {
+		if _, err := tx.ExecContext(ctx, migration.SQL); err != nil {
+			return MigrationResult{}, fmt.Errorf("execute migration %s: %w", migration.Name, err)
+		}
+
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+			migration.Version, migration.Name,
+		); err != nil {
+			return MigrationResult{}, fmt.Errorf("record migration %s: %w", migration.Name, err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP",
+		"schema_version", result.ToSchemaVersion,
+	); err != nil {
+		return MigrationResult{}, fmt.Errorf("update schema version: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return MigrationResult{}, fmt.Errorf("commit migration transaction: %w", err)
 	}
 
 	return result, nil
@@ -127,50 +162,8 @@ func toPendingMigrations(migrations []config.InitMigration) []PendingMigration {
 	return pending
 }
 
-func buildMigrationScript(
-	state databaseState,
-	appliedMigrations []config.InitMigration,
-	pendingMigrations []config.InitMigration,
-	targetSchemaVersion string,
-) string {
-	statements := make([]string, 0, len(appliedMigrations)+len(pendingMigrations)*2+1)
-
-	if state.UsesLegacyMetadata {
-		statements = append(statements, buildSchemaMigrationsTableStatement())
-
-		for _, migration := range appliedMigrations {
-			statements = append(statements, buildInsertStatement(
-				"schema_migrations",
-				[]string{"version", "name"},
-				[]string{sqlString(migration.Version), sqlString(migration.Name)},
-			))
-		}
-	}
-
-	for _, migration := range pendingMigrations {
-		statements = append(statements, migration.SQL)
-		statements = append(statements, buildInsertStatement(
-			"schema_migrations",
-			[]string{"version", "name"},
-			[]string{sqlString(migration.Version), sqlString(migration.Name)},
-		))
-	}
-
-	statements = append(statements, buildUpsertStatement(
-		"settings",
-		[]string{"key", "value"},
-		[]string{sqlString("schema_version"), sqlString(targetSchemaVersion)},
-		[]string{"key"},
-		[]string{"value = excluded.value", "updated_at = CURRENT_TIMESTAMP"},
-	))
-
-	return buildTransactionScript(statements...)
-}
-
-func buildSchemaMigrationsTableStatement() string {
-	return `CREATE TABLE IF NOT EXISTS schema_migrations (
+const schemaMigrationsTableSQL = `CREATE TABLE IF NOT EXISTS schema_migrations (
     version TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );`
-}
