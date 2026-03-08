@@ -5,6 +5,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/report"
 	"github.com/spf13/cobra"
 )
 
@@ -87,7 +91,7 @@ func (a *Application) newAccountCommand() *cobra.Command {
 
 	cmd.AddCommand(
 		a.newNoArgsLeafCommand("list", "Show the chart of accounts", accountListHelpText, func(ctx context.Context) error {
-			return a.runAccount(ctx, []string{"list"})
+			return account.RunList(ctx, a.handlerContext())
 		}),
 		a.newAccountCreateCommand(),
 		a.newAccountRenameCommand(),
@@ -131,7 +135,7 @@ func (a *Application) newQuestCommand() *cobra.Command {
 	cmd.AddCommand(
 		a.newQuestCreateCommand(),
 		a.newNoArgsLeafCommand("list", "List quest register entries", questListHelpText, func(ctx context.Context) error {
-			return a.runQuest(ctx, []string{"list"})
+			return quest.RunList(ctx, a.handlerContext())
 		}),
 		a.newQuestAcceptCommand(),
 		a.newQuestCompleteCommand(),
@@ -155,7 +159,7 @@ func (a *Application) newLootCommand() *cobra.Command {
 	cmd.AddCommand(
 		a.newLootCreateCommand(),
 		a.newNoArgsLeafCommand("list", "List tracked loot items", lootListHelpText, func(ctx context.Context) error {
-			return a.runLoot(ctx, []string{"list"})
+			return loot.RunList(ctx, a.handlerContext())
 		}),
 		a.newLootAppraiseCommand(),
 		a.newLootRecognizeCommand(),
@@ -177,16 +181,16 @@ func (a *Application) newReportCommand() *cobra.Command {
 
 	cmd.AddCommand(
 		a.newNoArgsLeafCommand("trial-balance", "Show the trial balance", reportTrialBalanceHelpText, func(ctx context.Context) error {
-			return a.runReport(ctx, []string{"trial-balance"})
+			return report.RunTrialBalance(ctx, a.handlerContext())
 		}),
 		a.newNoArgsLeafCommand("quest-receivables", "Show earned but unpaid quest rewards", reportQuestReceivablesHelpText, func(ctx context.Context) error {
-			return a.runReport(ctx, []string{"quest-receivables"})
+			return report.RunQuestReceivables(ctx, a.handlerContext())
 		}),
 		a.newNoArgsLeafCommand("promised-quests", "Show promised but unearned quests", reportPromisedQuestsHelpText, func(ctx context.Context) error {
-			return a.runReport(ctx, []string{"promised-quests"})
+			return report.RunPromisedQuests(ctx, a.handlerContext())
 		}),
 		a.newNoArgsLeafCommand("loot-summary", "Show held and recognized loot", reportLootSummaryHelpText, func(ctx context.Context) error {
-			return a.runReport(ctx, []string{"loot-summary"})
+			return report.RunLootSummary(ctx, a.handlerContext())
 		}),
 		a.newReportWriteoffCandidatesCommand(),
 	)

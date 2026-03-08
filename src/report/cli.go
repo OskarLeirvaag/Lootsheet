@@ -2,17 +2,14 @@ package report
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io"
-	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
-// HandleTrialBalance generates and displays the trial balance report.
-func HandleTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
+// RunTrialBalance generates and displays the trial balance report.
+func RunTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
 	report, err := GetTrialBalance(ctx, hctx.DatabasePath)
 	if err != nil {
 		return err
@@ -67,8 +64,8 @@ func HandleTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
 	return nil
 }
 
-// HandleQuestReceivables generates and displays the quest receivables report.
-func HandleQuestReceivables(ctx context.Context, hctx ledger.HandlerContext) error {
+// RunQuestReceivables generates and displays the quest receivables report.
+func RunQuestReceivables(ctx context.Context, hctx ledger.HandlerContext) error {
 	rows, err := GetQuestReceivables(ctx, hctx.DatabasePath)
 	if err != nil {
 		return err
@@ -103,8 +100,8 @@ func HandleQuestReceivables(ctx context.Context, hctx ledger.HandlerContext) err
 	return nil
 }
 
-// HandlePromisedQuests generates and displays the promised-but-unearned quest report.
-func HandlePromisedQuests(ctx context.Context, hctx ledger.HandlerContext) error {
+// RunPromisedQuests generates and displays the promised-but-unearned quest report.
+func RunPromisedQuests(ctx context.Context, hctx ledger.HandlerContext) error {
 	rows, err := GetPromisedQuests(ctx, hctx.DatabasePath)
 	if err != nil {
 		return err
@@ -150,8 +147,8 @@ func HandlePromisedQuests(ctx context.Context, hctx ledger.HandlerContext) error
 	return nil
 }
 
-// HandleLootSummary generates and displays the loot summary report.
-func HandleLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
+// RunLootSummary generates and displays the loot summary report.
+func RunLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
 	rows, err := GetLootSummary(ctx, hctx.DatabasePath)
 	if err != nil {
 		return err
@@ -188,26 +185,6 @@ func HandleLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
 	}
 
 	return nil
-}
-
-// HandleWriteOffCandidates generates and displays the write-off candidates report.
-func HandleWriteOffCandidates(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	asOfDate := time.Now().Format(reportDateLayout)
-	minAgeDays := 30
-
-	flagSet := flag.NewFlagSet("report writeoff-candidates", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&asOfDate, "as-of", asOfDate, "report date in YYYY-MM-DD")
-	flagSet.IntVar(&minAgeDays, "min-age-days", minAgeDays, "minimum completed age in days")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	return RunWriteOffCandidates(ctx, hctx, WriteOffCandidateFilter{
-		AsOfDate:   asOfDate,
-		MinAgeDays: minAgeDays,
-	})
 }
 
 // RunWriteOffCandidates writes the write-off candidates report.

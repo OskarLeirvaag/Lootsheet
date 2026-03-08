@@ -2,24 +2,12 @@ package journal
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
-
-// HandlePost parses flags and posts a journal entry.
-func HandlePost(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	input, err := parseJournalPostArgs(args)
-	if err != nil {
-		return err
-	}
-
-	return RunPost(ctx, hctx, input)
-}
 
 // RunPost posts a journal entry and writes the CLI output.
 func RunPost(ctx context.Context, hctx ledger.HandlerContext, input ledger.JournalPostInput) error {
@@ -42,37 +30,6 @@ func RunPost(ctx context.Context, hctx ledger.HandlerContext, input ledger.Journ
 	}
 
 	return nil
-}
-
-func parseJournalPostArgs(args []string) (ledger.JournalPostInput, error) {
-	var (
-		entryDate   string
-		description string
-		debitSpecs  stringListFlag
-		creditSpecs stringListFlag
-	)
-
-	flagSet := flag.NewFlagSet("journal post", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&entryDate, "date", "", "entry date in YYYY-MM-DD")
-	flagSet.StringVar(&description, "description", "", "journal entry description")
-	flagSet.Var(&debitSpecs, "debit", "debit line in CODE:AMOUNT[:MEMO] format")
-	flagSet.Var(&creditSpecs, "credit", "credit line in CODE:AMOUNT[:MEMO] format")
-
-	if err := flagSet.Parse(args); err != nil {
-		return ledger.JournalPostInput{}, fmt.Errorf("%s\n\n%s", err, JournalPostUsageText)
-	}
-
-	if flagSet.NArg() > 0 {
-		return ledger.JournalPostInput{}, fmt.Errorf("unexpected journal post arguments: %s\n\n%s", strings.Join(flagSet.Args(), " "), JournalPostUsageText)
-	}
-
-	input, err := BuildJournalPostInput(entryDate, description, debitSpecs.values, creditSpecs.values)
-	if err != nil {
-		return ledger.JournalPostInput{}, fmt.Errorf("%s\n\n%s", err, JournalPostUsageText)
-	}
-
-	return input, nil
 }
 
 // BuildJournalPostInput converts parsed journal post flag values into a post input.
@@ -135,48 +92,6 @@ func parseJournalLineSpec(value string, isDebit bool) (ledger.JournalLineInput, 
 	return line, nil
 }
 
-type stringListFlag struct {
-	values []string
-}
-
-func (f *stringListFlag) String() string {
-	return strings.Join(f.values, ",")
-}
-
-func (f *stringListFlag) Set(value string) error {
-	f.values = append(f.values, value)
-	return nil
-}
-
-// HandleReverse parses flags and reverses a journal entry.
-func HandleReverse(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var entryID, date, description string
-
-	flagSet := flag.NewFlagSet("journal reverse", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&entryID, "entry-id", "", "UUID of the journal entry to reverse")
-	flagSet.StringVar(&date, "date", "", "reversal date in YYYY-MM-DD")
-	flagSet.StringVar(&description, "description", "", "optional reversal description")
-
-	if err := flagSet.Parse(args); err != nil {
-		return fmt.Errorf("%s\n\n%s", err, JournalReverseUsageText)
-	}
-
-	if flagSet.NArg() > 0 {
-		return fmt.Errorf("unexpected journal reverse arguments: %s\n\n%s", strings.Join(flagSet.Args(), " "), JournalReverseUsageText)
-	}
-
-	if entryID == "" {
-		return fmt.Errorf("--entry-id is required\n\n%s", JournalReverseUsageText)
-	}
-
-	if date == "" {
-		return fmt.Errorf("--date is required\n\n%s", JournalReverseUsageText)
-	}
-
-	return RunReverse(ctx, hctx, entryID, date, description)
-}
-
 // RunReverse reverses a journal entry and writes the CLI output.
 func RunReverse(ctx context.Context, hctx ledger.HandlerContext, entryID string, date string, description string) error {
 	result, err := ReverseJournalEntry(ctx, hctx.DatabasePath, entryID, date, description)
@@ -198,26 +113,6 @@ func RunReverse(ctx context.Context, hctx ledger.HandlerContext, entryID string,
 	}
 
 	return nil
-}
-
-// HandleAccountLedger parses flags and displays the account ledger.
-func HandleAccountLedger(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var code string
-
-	flagSet := flag.NewFlagSet("account ledger", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	code = strings.TrimSpace(code)
-	if code == "" {
-		return fmt.Errorf("--code is required")
-	}
-
-	return RunAccountLedger(ctx, hctx, code)
 }
 
 // RunAccountLedger writes the ledger report for a single account.
@@ -306,30 +201,3 @@ func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code stri
 
 	return nil
 }
-
-// JournalPostUsageText is the help text for the journal post command.
-const JournalPostUsageText = `LootSheet CLI
-
-Usage:
-  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
-
-Amounts accept D&D 5e denominations: PP, GP, EP, SP, CP (case insensitive).
-  Mixed:   2GP5SP, 1PP 2GP 3SP 5CP
-  Decimal: 5.5GP, 0.5SP
-  Bare integer (treated as CP): 100
-
-Examples:
-  lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP:Quiver refill --credit 1000:2SP5CP
-  lootsheet journal post --date 2026-03-08 --description "Quest reward earned" --debit 1100:1GP --credit 4000:1GP
-`
-
-// JournalReverseUsageText is the help text for the journal reverse command.
-const JournalReverseUsageText = `LootSheet CLI
-
-Usage:
-  lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
-
-Examples:
-  lootsheet journal reverse --entry-id abc-123 --date 2026-03-09
-  lootsheet journal reverse --entry-id abc-123 --date 2026-03-09 --description "Correcting duplicate entry"
-`
