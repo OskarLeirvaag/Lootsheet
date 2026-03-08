@@ -5,6 +5,7 @@ This file describes the intended implementation sequence for LootSheet.
 ## Current Snapshot
 
 - Phases 1 and 2 are largely complete: the SQLite-backed CLI workflows are in place.
+- The CLI command tree now runs through Cobra, which should also be the base for completions and packaged man pages.
 - Several reporting deliverables from Phase 5 shipped early to support the CLI and smoke coverage.
 - The next major product milestone is Phase 3, the `tcell`-based TUI shell.
 - The main supporting work around that milestone is backup/recovery flow, packaging, and sample data.

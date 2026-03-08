@@ -88,29 +88,7 @@ func (a *Application) Run(ctx context.Context, args []string) error {
 
 	a.log.logger.DebugContext(ctx, "command start", slog.String("args", fmt.Sprint(args)))
 
-	helpPath, wantsHelp := normalizeHelpPath(args)
-	if wantsHelp {
-		return a.printHelpPath(helpPath)
-	}
-
-	switch args[0] {
-	case "db":
-		return a.runDatabase(ctx, args[1:])
-	case "init":
-		return a.runInit(ctx)
-	case "account":
-		return a.runAccount(ctx, args[1:])
-	case "journal":
-		return a.runJournal(ctx, args[1:])
-	case "quest":
-		return a.runQuest(ctx, args[1:])
-	case "loot":
-		return a.runLoot(ctx, args[1:])
-	case "report":
-		return a.runReport(ctx, args[1:])
-	default:
-		return fmt.Errorf("unknown command %q\n\n%s", args[0], rootHelpText)
-	}
+	return a.executeRootCommand(ctx, args)
 }
 
 func (a *Application) runInit(ctx context.Context) error {
