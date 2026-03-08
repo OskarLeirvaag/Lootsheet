@@ -40,17 +40,17 @@ func TestEnsureSQLiteInitializedCreatesSchemaAndSeeds(t *testing.T) {
 	}
 
 	schemaVersion := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath, "SELECT value FROM settings WHERE key = 'schema_version';"))
-	if schemaVersion != "1" {
-		t.Fatalf("schema version = %q, want 1", schemaVersion)
+	if schemaVersion != "2" {
+		t.Fatalf("schema version = %q, want 2", schemaVersion)
 	}
 
-	migrationRow := strings.TrimSpace(runSQLiteQueryForTest(
+	migrationRows := strings.TrimSpace(runSQLiteQueryForTest(
 		t,
 		databasePath,
 		"SELECT version || '\t' || name FROM schema_migrations ORDER BY version;",
 	))
-	if migrationRow != "1\t001_init.sql" {
-		t.Fatalf("migration row = %q, want first init migration record", migrationRow)
+	if migrationRows != "1\t001_init.sql\n2\t002_add_journal_entry_reversal_tracking.sql" {
+		t.Fatalf("migration rows = %q, want init migration records", migrationRows)
 	}
 }
 
@@ -231,7 +231,12 @@ func TestGetDatabaseStatusReturnsUninitializedForMissingDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "missing.db")
 
-	status, err := GetDatabaseStatus(context.Background(), databasePath)
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	status, err := GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
 	if err != nil {
 		t.Fatalf("get database status: %v", err)
 	}
@@ -244,12 +249,24 @@ func TestGetDatabaseStatusReturnsUninitializedForMissingDatabase(t *testing.T) {
 		t.Fatal("expected missing database to report Initialized=false")
 	}
 
+	if status.State != DatabaseStateUninitialized {
+		t.Fatalf("state = %q, want %q", status.State, DatabaseStateUninitialized)
+	}
+
 	if status.SchemaVersion != "" {
 		t.Fatalf("schema version = %q, want empty", status.SchemaVersion)
 	}
 
+	if status.TargetSchemaVersion != "2" {
+		t.Fatalf("target schema version = %q, want 2", status.TargetSchemaVersion)
+	}
+
 	if len(status.AppliedMigrations) != 0 {
 		t.Fatalf("applied migrations = %d, want 0", len(status.AppliedMigrations))
+	}
+
+	if len(status.PendingMigrations) != 0 {
+		t.Fatalf("pending migrations = %d, want 0", len(status.PendingMigrations))
 	}
 }
 
@@ -270,7 +287,7 @@ func TestGetDatabaseStatusReturnsAppliedMigrationsAfterInit(t *testing.T) {
 		t.Fatalf("initialize sqlite database: %v", err)
 	}
 
-	status, err := GetDatabaseStatus(context.Background(), databasePath)
+	status, err := GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
 	if err != nil {
 		t.Fatalf("get database status: %v", err)
 	}
@@ -279,16 +296,28 @@ func TestGetDatabaseStatusReturnsAppliedMigrationsAfterInit(t *testing.T) {
 		t.Fatalf("status = %+v, want existing initialized database", status)
 	}
 
-	if status.SchemaVersion != "1" {
-		t.Fatalf("schema version = %q, want 1", status.SchemaVersion)
+	if status.State != DatabaseStateCurrent {
+		t.Fatalf("state = %q, want %q", status.State, DatabaseStateCurrent)
 	}
 
-	if len(status.AppliedMigrations) != 1 {
-		t.Fatalf("applied migrations = %d, want 1", len(status.AppliedMigrations))
+	if status.SchemaVersion != "2" {
+		t.Fatalf("schema version = %q, want 2", status.SchemaVersion)
 	}
 
-	if status.AppliedMigrations[0].Name != "001_init.sql" {
-		t.Fatalf("first migration = %+v, want 001_init.sql", status.AppliedMigrations[0])
+	if status.TargetSchemaVersion != "2" {
+		t.Fatalf("target schema version = %q, want 2", status.TargetSchemaVersion)
+	}
+
+	if len(status.AppliedMigrations) != 2 {
+		t.Fatalf("applied migrations = %d, want 2", len(status.AppliedMigrations))
+	}
+
+	if len(status.PendingMigrations) != 0 {
+		t.Fatalf("pending migrations = %d, want 0", len(status.PendingMigrations))
+	}
+
+	if status.AppliedMigrations[1].Name != "002_add_journal_entry_reversal_tracking.sql" {
+		t.Fatalf("second migration = %+v, want 002_add_journal_entry_reversal_tracking.sql", status.AppliedMigrations[1])
 	}
 }
 
@@ -309,13 +338,22 @@ CREATE TABLE settings (
 INSERT INTO settings (key, value) VALUES ('schema_version', '1');
 `)
 
-	status, err := GetDatabaseStatus(context.Background(), databasePath)
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	status, err := GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
 	if err != nil {
 		t.Fatalf("get database status: %v", err)
 	}
 
 	if !status.Exists || !status.Initialized {
 		t.Fatalf("status = %+v, want existing initialized legacy database", status)
+	}
+
+	if status.State != DatabaseStateUpgradeable {
+		t.Fatalf("state = %q, want %q", status.State, DatabaseStateUpgradeable)
 	}
 
 	if status.SchemaVersion != "1" {
@@ -325,6 +363,114 @@ INSERT INTO settings (key, value) VALUES ('schema_version', '1');
 	if len(status.AppliedMigrations) != 0 {
 		t.Fatalf("applied migrations = %d, want 0 for legacy fallback", len(status.AppliedMigrations))
 	}
+
+	if len(status.PendingMigrations) != 1 || status.PendingMigrations[0].Version != "2" {
+		t.Fatalf("pending migrations = %+v, want version 2 pending migration", status.PendingMigrations)
+	}
+}
+
+func TestMigrateSQLiteDatabaseAppliesPendingMigrations(t *testing.T) {
+	if _, err := exec.LookPath(sqliteCommand); err != nil {
+		t.Skipf("%s not available: %v", sqliteCommand, err)
+	}
+
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	fullAssets, legacyAssets := loadMigrationAssetsForTest(t)
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+		t.Fatalf("initialize legacy sqlite database: %v", err)
+	}
+
+	result, err := MigrateSQLiteDatabase(context.Background(), databasePath, fullAssets)
+	if err != nil {
+		t.Fatalf("migrate sqlite database: %v", err)
+	}
+
+	if !result.Migrated {
+		t.Fatal("expected database migration to apply pending migrations")
+	}
+
+	if result.MetadataRepaired {
+		t.Fatal("expected metadata_repaired=false for normal migration")
+	}
+
+	if result.FromSchemaVersion != "1" || result.ToSchemaVersion != "2" {
+		t.Fatalf("result versions = %+v, want 1 -> 2", result)
+	}
+
+	if len(result.AppliedMigrations) != 1 || result.AppliedMigrations[0].Version != "2" {
+		t.Fatalf("applied migrations = %+v, want version 2", result.AppliedMigrations)
+	}
+
+	schemaVersion := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath, "SELECT value FROM settings WHERE key = 'schema_version';"))
+	if schemaVersion != "2" {
+		t.Fatalf("schema version = %q, want 2", schemaVersion)
+	}
+
+	reversedAtColumn := strings.TrimSpace(runSQLiteQueryForTest(
+		t,
+		databasePath,
+		"SELECT COUNT(*) FROM pragma_table_info('journal_entries') WHERE name = 'reversed_at';",
+	))
+	if reversedAtColumn != "1" {
+		t.Fatalf("reversed_at column count = %q, want 1", reversedAtColumn)
+	}
+}
+
+func TestMigrateSQLiteDatabaseBackfillsLegacyMetadataBeforeApplyingMigrations(t *testing.T) {
+	if _, err := exec.LookPath(sqliteCommand); err != nil {
+		t.Skipf("%s not available: %v", sqliteCommand, err)
+	}
+
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "legacy.db")
+
+	fullAssets, legacyAssets := loadMigrationAssetsForTest(t)
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+		t.Fatalf("initialize legacy sqlite database: %v", err)
+	}
+
+	runSQLiteScriptForTest(t, databasePath, "DROP TABLE schema_migrations;")
+
+	result, err := MigrateSQLiteDatabase(context.Background(), databasePath, fullAssets)
+	if err != nil {
+		t.Fatalf("migrate sqlite database: %v", err)
+	}
+
+	if !result.Migrated {
+		t.Fatal("expected legacy database migration to apply pending migrations")
+	}
+
+	if !result.MetadataRepaired {
+		t.Fatal("expected metadata_repaired=true for legacy metadata fallback")
+	}
+
+	migrationRows := strings.TrimSpace(runSQLiteQueryForTest(
+		t,
+		databasePath,
+		"SELECT version || '\t' || name FROM schema_migrations ORDER BY version;",
+	))
+	if migrationRows != "1\t001_init.sql\n2\t002_add_journal_entry_reversal_tracking.sql" {
+		t.Fatalf("migration rows = %q, want backfilled and applied migration records", migrationRows)
+	}
+}
+
+func loadMigrationAssetsForTest(t *testing.T) (config.InitAssets, config.InitAssets) {
+	t.Helper()
+
+	fullAssets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	legacyAssets := fullAssets
+	legacyAssets.Migrations = append([]config.InitMigration(nil), fullAssets.Migrations[:1]...)
+	legacyAssets.SchemaVersion = legacyAssets.Migrations[len(legacyAssets.Migrations)-1].Version
+
+	return fullAssets, legacyAssets
 }
 
 func runSQLiteQueryForTest(t *testing.T, databasePath string, sql string) string {

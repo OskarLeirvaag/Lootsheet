@@ -56,6 +56,7 @@ The operational model should be:
 - no required network service
 - no auth or login-user model
 - one local SQLite database as the system of record for the party books
+- no runtime dependency on an external `sqlite3` executable
 
 ### Filesystem Layout
 
@@ -64,6 +65,7 @@ The application should keep long-term files in stable per-user locations:
 - config in the user config directory
 - SQLite database in the user data directory
 - backups in a predictable application-owned backup location under user data or state
+- smoke-test or temp working files only in explicit temporary locations
 - optional exports in user-chosen locations
 
 These locations should remain stable across upgrades unless the user explicitly changes them.
@@ -94,6 +96,12 @@ The preferred release path for v1 should be simple:
 - publish versioned binaries for Linux and macOS
 - support archive-based installation first
 - add package-manager integrations later only if they reduce real friction
+
+The release artifact should remain self-contained from a storage point of view:
+
+- the `lootsheet` binary should open SQLite directly through an embedded driver
+- installed operation should not require users to separately install `sqlite3`
+- the app may create config, database, backup, and optional export files, but not depend on helper executables for normal operation
 
 The application should remain usable for years even if package-manager integration changes, which means direct binary installs and stable on-disk data layout matter more than fancy installers.
 

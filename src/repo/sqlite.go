@@ -47,11 +47,14 @@ type PostedJournalEntry struct {
 }
 
 type DatabaseStatus struct {
-	Exists            bool
-	Initialized       bool
-	UserTableCount    int
-	SchemaVersion     string
-	AppliedMigrations []AppliedMigration
+	Exists              bool
+	Initialized         bool
+	State               DatabaseLifecycleState
+	UserTableCount      int
+	SchemaVersion       string
+	TargetSchemaVersion string
+	AppliedMigrations   []AppliedMigration
+	PendingMigrations   []PendingMigration
 }
 
 type AppliedMigration struct {
@@ -59,6 +62,28 @@ type AppliedMigration struct {
 	Name      string
 	AppliedAt string
 }
+
+type PendingMigration struct {
+	Version string
+	Name    string
+}
+
+type MigrationResult struct {
+	Migrated          bool
+	MetadataRepaired  bool
+	FromSchemaVersion string
+	ToSchemaVersion   string
+	AppliedMigrations []PendingMigration
+}
+
+type DatabaseLifecycleState string
+
+const (
+	DatabaseStateUninitialized DatabaseLifecycleState = "uninitialized"
+	DatabaseStateCurrent       DatabaseLifecycleState = "current"
+	DatabaseStateUpgradeable   DatabaseLifecycleState = "upgradeable"
+	DatabaseStateUnknown       DatabaseLifecycleState = "unknown"
+)
 
 func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets config.InitAssets) (InitResult, error) {
 	if err := ensureSQLiteAvailable(); err != nil {
@@ -207,10 +232,11 @@ func PostJournalEntry(ctx context.Context, databasePath string, input service.Jo
 }
 
 type databaseState struct {
-	Exists            bool
-	UserTableCount    int
-	SchemaVersion     string
-	AppliedMigrations []AppliedMigration
+	Exists             bool
+	UserTableCount     int
+	SchemaVersion      string
+	AppliedMigrations  []AppliedMigration
+	UsesLegacyMetadata bool
 }
 
 type accountLookupRecord struct {
@@ -276,9 +302,10 @@ func inspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 	}
 
 	return databaseState{
-		Exists:         true,
-		UserTableCount: userTableCount,
-		SchemaVersion:  strings.TrimSpace(schemaVersion),
+		Exists:             true,
+		UserTableCount:     userTableCount,
+		SchemaVersion:      strings.TrimSpace(schemaVersion),
+		UsesLegacyMetadata: true,
 	}, nil
 }
 
