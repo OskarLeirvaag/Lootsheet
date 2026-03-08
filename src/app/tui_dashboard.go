@@ -16,6 +16,11 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
+const (
+	tuiCommandAccountActivate   = "account.activate"
+	tuiCommandAccountDeactivate = "account.deactivate"
+)
+
 func buildTUIShellData(ctx context.Context, databasePath string, assets config.InitAssets) (render.ShellData, error) {
 	status, err := ledger.GetDatabaseStatusWithAssets(ctx, databasePath, assets)
 	if err != nil {
@@ -43,25 +48,41 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Accounts: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Chart of accounts from %s.", databaseName),
-				"Read-only list. Account codes stay immutable; edits remain in the CLI for now.",
+				"Select an account to inspect it. `t` toggles active/inactive with confirmation.",
+			},
+			EmptyLines: []string{
+				"No accounts found.",
+				"The chart of accounts is empty in this database.",
 			},
 		},
 		Journal: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Posted journal history from %s.", databaseName),
-				"Read-only browser. Corrections still happen by reversal or adjustment.",
+				"Select an entry to inspect it. Corrections still happen by reversal or adjustment.",
+			},
+			EmptyLines: []string{
+				"No journal entries yet.",
+				"Posting stays in the CLI for now.",
 			},
 		},
 		Quests: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Quest register from %s.", databaseName),
-				"Promised rewards stay off-ledger until earned.",
+				"Select a quest to inspect it. Promised rewards stay off-ledger until earned.",
+			},
+			EmptyLines: []string{
+				"No quests tracked yet.",
+				"Quest workflows stay read-only in this slice.",
 			},
 		},
 		Loot: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Unrealized loot register from %s.", databaseName),
-				"Appraisals stay off-ledger until explicitly recognized.",
+				"Select a loot item to inspect it. Appraisals stay off-ledger until recognized.",
+			},
+			EmptyLines: []string{
+				"No loot tracked yet.",
+				"Loot workflows stay read-only in this slice.",
 			},
 		},
 	}
@@ -76,7 +97,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	} else {
 		data.Dashboard.AccountsLines = summarizeAccounts(accounts)
 		data.Accounts.SummaryLines = summarizeAccounts(accounts)
-		data.Accounts.RowLines = formatAccountRows(accounts)
+		data.Accounts.Items = buildAccountItems(accounts)
 	}
 
 	journalSummary, err := journal.GetSummary(ctx, databasePath)
@@ -95,11 +116,11 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 			data.Journal = unavailableSectionData("Journal unavailable.", err.Error())
 		}
 		data.Dashboard.JournalLines = unavailablePanelLines(err)
-		data.Journal.RowLines = nil
+		data.Journal.Items = nil
 		data.Journal.EmptyLines = unavailablePanelLines(err)
 		panelErrors = append(panelErrors, "journal")
 	} else {
-		data.Journal.RowLines = formatJournalRows(journalEntries)
+		data.Journal.Items = buildJournalItems(journalEntries)
 	}
 
 	trialBalance, err := report.GetTrialBalance(ctx, databasePath)
@@ -132,11 +153,11 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		if len(data.Quests.SummaryLines) == 0 {
 			data.Quests = unavailableSectionData("Quest register unavailable.", err.Error())
 		}
-		data.Quests.RowLines = nil
+		data.Quests.Items = nil
 		data.Quests.EmptyLines = unavailablePanelLines(err)
 		panelErrors = append(panelErrors, "quests")
 	} else {
-		data.Quests.RowLines = formatQuestRows(quests)
+		data.Quests.Items = buildQuestItems(quests)
 	}
 
 	lootRows, err := report.GetLootSummary(ctx, databasePath)
@@ -147,7 +168,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	} else {
 		data.Dashboard.LootLines = summarizeLoot(lootRows)
 		data.Loot.SummaryLines = summarizeLoot(lootRows)
-		data.Loot.RowLines = formatLootRows(lootRows)
+		data.Loot.Items = buildLootItems(lootRows)
 	}
 
 	if len(panelErrors) > 0 {
@@ -155,6 +176,38 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	return data, nil
+}
+
+func handleTUICommand(ctx context.Context, command render.Command, databasePath string, assets config.InitAssets) (render.ShellData, render.StatusMessage, error) {
+	var message render.StatusMessage
+
+	switch command.ID {
+	case tuiCommandAccountActivate:
+		if err := account.ActivateAccount(ctx, databasePath, command.ItemKey); err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Account %s activated.", command.ItemKey),
+		}
+	case tuiCommandAccountDeactivate:
+		if err := account.DeactivateAccount(ctx, databasePath, command.ItemKey); err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Account %s deactivated.", command.ItemKey),
+		}
+	default:
+		return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("unsupported TUI command %q", command.ID)
+	}
+
+	data, err := buildTUIShellData(ctx, databasePath, assets)
+	if err != nil {
+		return render.ShellData{}, render.StatusMessage{}, err
+	}
+
+	return data, message, nil
 }
 
 func buildTUIDashboardData(ctx context.Context, databasePath string, assets config.InitAssets) (render.DashboardData, error) {
@@ -304,48 +357,80 @@ func summarizeLoot(rows []report.LootSummaryRow) []string {
 	}
 }
 
-func formatAccountRows(accounts []ledger.AccountRecord) []string {
-	rows := make([]string, 0, len(accounts))
+func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
+	items := make([]render.ListItemData, 0, len(accounts))
 	for _, record := range accounts {
-		active := "inactive"
+		status := "inactive"
+		action := &render.ItemActionData{
+			ID:           tuiCommandAccountActivate,
+			Label:        "t activate",
+			ConfirmTitle: fmt.Sprintf("Activate account %s?", record.Code),
+			ConfirmLines: []string{
+				record.Name,
+				"This account will become available for new journal entries again.",
+			},
+		}
 		if record.Active {
-			active = "active"
+			status = "active"
+			action = &render.ItemActionData{
+				ID:           tuiCommandAccountDeactivate,
+				Label:        "t deactivate",
+				ConfirmTitle: fmt.Sprintf("Deactivate account %s?", record.Code),
+				ConfirmLines: []string{
+					record.Name,
+					"Inactive accounts stay in history but cannot be used in new journal entries.",
+				},
+			}
 		}
 
-		rows = append(rows, fmt.Sprintf(
-			"%-4s %-9s %-8s %s",
-			record.Code,
-			string(record.Type),
-			active,
-			record.Name,
-		))
+		items = append(items, render.ListItemData{
+			Key:         record.Code,
+			Row:         fmt.Sprintf("%-4s %-9s %-8s %s", record.Code, string(record.Type), status, record.Name),
+			DetailTitle: "Account " + record.Code,
+			DetailLines: []string{
+				"Name: " + record.Name,
+				"Type: " + string(record.Type),
+				"Status: " + status,
+				"Code: " + record.Code + " (immutable)",
+				"Used accounts may be marked inactive. Accounts with postings cannot be deleted.",
+			},
+			PrimaryAction: action,
+		})
 	}
 
-	return rows
+	return items
 }
 
-func formatJournalRows(entries []journal.EntryRecord) []string {
-	rows := make([]string, 0, len(entries))
+func buildJournalItems(entries []journal.EntryRecord) []render.ListItemData {
+	items := make([]render.ListItemData, 0, len(entries))
 	for _, entry := range entries {
-		status := string(entry.Status)
+		rowStatus := string(entry.Status)
+		detailLines := []string{
+			"Date: " + entry.EntryDate,
+			"Status: " + string(entry.Status),
+			"Description: " + entry.Description,
+		}
 		if entry.ReversesEntryID != "" {
-			status = "reversal"
+			rowStatus = "reversal"
+			detailLines = append(detailLines, "Kind: reversal entry")
+		}
+		if entry.Status == ledger.JournalEntryStatusReversed {
+			detailLines = append(detailLines, "This entry has been reversed and remains in the audit trail.")
 		}
 
-		rows = append(rows, fmt.Sprintf(
-			"#%-4d %-10s %-8s %s",
-			entry.EntryNumber,
-			entry.EntryDate,
-			status,
-			entry.Description,
-		))
+		items = append(items, render.ListItemData{
+			Key:         entry.ID,
+			Row:         fmt.Sprintf("#%-4d %-10s %-8s %s", entry.EntryNumber, entry.EntryDate, rowStatus, entry.Description),
+			DetailTitle: fmt.Sprintf("Entry #%d", entry.EntryNumber),
+			DetailLines: detailLines,
+		})
 	}
 
-	return rows
+	return items
 }
 
-func formatQuestRows(quests []quest.QuestRecord) []string {
-	rows := make([]string, 0, len(quests))
+func buildQuestItems(quests []quest.QuestRecord) []render.ListItemData {
+	items := make([]render.ListItemData, 0, len(quests))
 	for index := range quests {
 		record := &quests[index]
 		patron := record.Patron
@@ -353,22 +438,39 @@ func formatQuestRows(quests []quest.QuestRecord) []string {
 			patron = "No patron"
 		}
 
-		rows = append(rows, fmt.Sprintf(
-			"%-12s %-14s %s (%s)",
-			tools.FormatAmount(record.PromisedBaseReward),
-			string(record.Status),
-			record.Title,
-			patron,
-		))
+		detailLines := []string{
+			"Patron: " + patron,
+			"Status: " + string(record.Status),
+			"Promised reward: " + tools.FormatAmount(record.PromisedBaseReward),
+		}
+		if record.PartialAdvance > 0 {
+			detailLines = append(detailLines, "Partial advance: "+tools.FormatAmount(record.PartialAdvance))
+		}
+		if record.AcceptedOn != "" {
+			detailLines = append(detailLines, "Accepted on: "+record.AcceptedOn)
+		}
+		if record.CompletedOn != "" {
+			detailLines = append(detailLines, "Completed on: "+record.CompletedOn)
+		}
+		if record.ClosedOn != "" {
+			detailLines = append(detailLines, "Closed on: "+record.ClosedOn)
+		}
+
+		items = append(items, render.ListItemData{
+			Key:         record.ID,
+			Row:         fmt.Sprintf("%-12s %-14s %s (%s)", tools.FormatAmount(record.PromisedBaseReward), string(record.Status), record.Title, patron),
+			DetailTitle: record.Title,
+			DetailLines: detailLines,
+		})
 	}
 
-	return rows
+	return items
 }
 
-func formatLootRows(rows []report.LootSummaryRow) []string {
-	lines := make([]string, 0, len(rows))
+func buildLootItems(rows []report.LootSummaryRow) []render.ListItemData {
+	items := make([]render.ListItemData, 0, len(rows))
 	for _, row := range rows {
-		appraised := "-"
+		appraised := "No appraisal"
 		if row.LatestAppraisalValue > 0 {
 			appraised = tools.FormatAmount(row.LatestAppraisalValue)
 		}
@@ -378,16 +480,34 @@ func formatLootRows(rows []report.LootSummaryRow) []string {
 			name = name + " (" + row.Source + ")"
 		}
 
-		lines = append(lines, fmt.Sprintf(
-			"%-12s qty:%-3d %-11s %s",
-			appraised,
-			row.Quantity,
-			string(row.Status),
-			name,
-		))
+		detailLines := []string{
+			"Status: " + string(row.Status),
+			fmt.Sprintf("Quantity: %d", row.Quantity),
+			"Latest appraisal: " + appraised,
+		}
+		if row.AppraisedAt != "" {
+			detailLines = append(detailLines, "Appraised on: "+row.AppraisedAt)
+		}
+		if strings.TrimSpace(row.Source) != "" {
+			detailLines = append(detailLines, "Source: "+row.Source)
+		}
+
+		items = append(items, render.ListItemData{
+			Key:         row.ItemID,
+			Row:         fmt.Sprintf("%-12s qty:%-3d %-11s %s", appraisedValueLabel(row.LatestAppraisalValue), row.Quantity, string(row.Status), name),
+			DetailTitle: row.Name,
+			DetailLines: detailLines,
+		})
 	}
 
-	return lines
+	return items
+}
+
+func appraisedValueLabel(value int64) string {
+	if value <= 0 {
+		return "-"
+	}
+	return tools.FormatAmount(value)
 }
 
 func blankStatusDetail(detail string) string {

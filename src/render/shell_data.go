@@ -1,14 +1,31 @@
 package render
 
-// ListScreenData is the neutral read-only model for list-style TUI sections.
+// ItemActionData describes the primary action available for a list item.
+type ItemActionData struct {
+	ID           string
+	Label        string
+	ConfirmTitle string
+	ConfirmLines []string
+}
+
+// ListItemData is a structured row plus detail content for list-style screens.
+type ListItemData struct {
+	Key           string
+	Row           string
+	DetailTitle   string
+	DetailLines   []string
+	PrimaryAction *ItemActionData
+}
+
+// ListScreenData is the neutral view model for list-style TUI sections.
 type ListScreenData struct {
 	HeaderLines  []string
 	SummaryLines []string
-	RowLines     []string
+	Items        []ListItemData
 	EmptyLines   []string
 }
 
-// ShellData contains the full read-only TUI snapshot.
+// ShellData contains the full TUI snapshot.
 type ShellData struct {
 	Dashboard DashboardData
 	Accounts  ListScreenData
@@ -17,7 +34,7 @@ type ShellData struct {
 	Loot      ListScreenData
 }
 
-// DefaultShellData returns placeholder content for the full read-only shell.
+// DefaultShellData returns placeholder content for the full shell.
 func DefaultShellData() ShellData {
 	return ShellData{
 		Dashboard: DefaultDashboardData(),
@@ -107,7 +124,7 @@ func listScreenDataEmpty(data *ListScreenData) bool {
 
 	return len(data.HeaderLines) == 0 &&
 		len(data.SummaryLines) == 0 &&
-		len(data.RowLines) == 0 &&
+		len(data.Items) == 0 &&
 		len(data.EmptyLines) == 0
 }
 
@@ -117,7 +134,7 @@ func defaultListScreenData(section Section) ListScreenData {
 		return ListScreenData{
 			HeaderLines: []string{
 				"Chart of accounts shell.",
-				"Read-only list now works; editing still stays in the CLI.",
+				"Selection and detail panes are ready for the first interactive slice.",
 			},
 			SummaryLines: []string{
 				"Account codes remain immutable.",
@@ -133,7 +150,7 @@ func defaultListScreenData(section Section) ListScreenData {
 		return ListScreenData{
 			HeaderLines: []string{
 				"Journal browser shell.",
-				"Read-only browsing works; corrections still happen by reversal.",
+				"Selection and detail panes work before edit flows land.",
 			},
 			SummaryLines: []string{
 				"Posted journal entries remain immutable.",
@@ -168,7 +185,7 @@ func defaultListScreenData(section Section) ListScreenData {
 			},
 			SummaryLines: []string{
 				"Recognition and sale flows remain in the domain layer.",
-				"This screen is read-only in the first interactive slice.",
+				"This screen stays read-only in the first interactive slice.",
 			},
 			EmptyLines: []string{
 				"No loot rows loaded yet.",
