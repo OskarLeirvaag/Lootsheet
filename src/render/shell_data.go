@@ -1,5 +1,22 @@
 package render
 
+// AccountOption is a type-filtered account choice for guided entry creation.
+type AccountOption struct {
+	Code string
+	Name string
+	Type string
+}
+
+// EntryCatalog contains the active account choices for guided entry creation.
+type EntryCatalog struct {
+	DefaultDate     string
+	ExpenseAccounts []AccountOption
+	IncomeAccounts  []AccountOption
+	FundingAccounts []AccountOption
+	DepositAccounts []AccountOption
+	AllAccounts     []AccountOption
+}
+
 // ItemActionMode determines how the shell should open an item action.
 type ItemActionMode string
 
@@ -41,11 +58,12 @@ type ListScreenData struct {
 
 // ShellData contains the full TUI snapshot.
 type ShellData struct {
-	Dashboard DashboardData
-	Accounts  ListScreenData
-	Journal   ListScreenData
-	Quests    ListScreenData
-	Loot      ListScreenData
+	Dashboard    DashboardData
+	Accounts     ListScreenData
+	Journal      ListScreenData
+	Quests       ListScreenData
+	Loot         ListScreenData
+	EntryCatalog EntryCatalog
 }
 
 // DefaultShellData returns placeholder content for the full shell.

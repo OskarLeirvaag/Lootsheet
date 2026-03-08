@@ -25,7 +25,7 @@ func (a *Application) newTUICommand() *cobra.Command {
 			ShellLoader: func(ctx context.Context) (render.ShellData, error) {
 				return buildTUIShellData(ctx, a.config.Paths.DatabasePath, assets)
 			},
-			CommandHandler: func(ctx context.Context, command render.Command) (render.ShellData, render.StatusMessage, error) {
+			CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
 				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, assets)
 			},
 		})

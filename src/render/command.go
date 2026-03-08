@@ -7,7 +7,24 @@ type Command struct {
 	ID      string
 	Section Section
 	ItemKey string
-	Args    map[string]string
+	Fields  map[string]string
+	Lines   []CommandLine
+}
+
+// CommandLine is a structured line payload for multi-line compose actions.
+type CommandLine struct {
+	Side        string
+	AccountCode string
+	Amount      string
+	Memo        string
+}
+
+// CommandResult is the app-facing outcome of a TUI command.
+type CommandResult struct {
+	Data          ShellData
+	Status        StatusMessage
+	NavigateTo    Section
+	SelectItemKey string
 }
 
 // StatusLevel describes the severity of a transient TUI status message.
@@ -41,4 +58,4 @@ func (e InputError) Error() string {
 }
 
 // CommandHandler performs an interactive TUI command and returns refreshed data.
-type CommandHandler func(context.Context, Command) (ShellData, StatusMessage, error)
+type CommandHandler func(context.Context, Command) (CommandResult, error)

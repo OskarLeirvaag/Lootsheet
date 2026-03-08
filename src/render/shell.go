@@ -43,6 +43,7 @@ type Shell struct {
 	status          StatusMessage
 	confirm         *confirmState
 	input           *inputState
+	compose         *composeState
 }
 
 // NewShell constructs the interactive TUI shell state.
@@ -69,6 +70,7 @@ func (s *Shell) Reload(data *ShellData) {
 	s.Data = resolveShellData(data)
 	s.confirm = nil
 	s.input = nil
+	s.compose = nil
 	s.reconcileSelections()
 }
 
@@ -90,13 +92,28 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	if s.input != nil {
 		return s.handleInputAction(action)
 	}
+	if s.compose != nil {
+		switch action {
+		case ActionNone, ActionConfirm, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
+			ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
+			return handleResult{}
+		case ActionQuit:
+			s.compose = nil
+			return handleResult{Redraw: true}
+		case ActionRedraw:
+			s.compose = nil
+			return handleResult{Reload: true}
+		}
+	}
 
 	if s.confirm != nil {
 		return s.handleConfirmAction(action)
 	}
 
 	switch action {
-	case ActionNone, ActionConfirm:
+	case ActionNone, ActionConfirm, ActionSubmitCompose:
 		return handleResult{}
 	case ActionQuit:
 		return handleResult{Quit: true}
@@ -153,6 +170,18 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.moveSelectionTo(1 << 30) {
 			return handleResult{Redraw: true}
 		}
+	case ActionNewExpense:
+		if s.openCompose(composeModeExpense) {
+			return handleResult{Redraw: true}
+		}
+	case ActionNewIncome:
+		if s.openCompose(composeModeIncome) {
+			return handleResult{Redraw: true}
+		}
+	case ActionNewCustom:
+		if s.openCompose(composeModeCustom) {
+			return handleResult{Redraw: true}
+		}
 	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
@@ -172,6 +201,11 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 	action := keymap.Resolve(event)
 	if s.input != nil {
 		if result, handled := s.handleInputKeyEvent(event, action); handled {
+			return result
+		}
+	}
+	if s.compose != nil {
+		if result, handled := s.handleComposeKeyEvent(event, action); handled {
 			return result
 		}
 	}
@@ -202,7 +236,9 @@ func (s *Shell) handleConfirmAction(action Action) handleResult {
 func (s *Shell) handleInputAction(action Action) handleResult {
 	switch action {
 	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
-		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
+		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
+		ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 		return handleResult{}
 	case ActionQuit:
 		s.input = nil
@@ -267,7 +303,14 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (handl
 
 // ApplyInputError updates the open input modal with a validation message.
 func (s *Shell) ApplyInputError(message string) {
-	if s == nil || s.input == nil {
+	if s == nil {
+		return
+	}
+	if s.compose != nil {
+		s.applyComposeInputError(message)
+		return
+	}
+	if s.input == nil {
 		return
 	}
 	s.input.ErrorText = strings.TrimSpace(message)
@@ -280,6 +323,7 @@ func (s *Shell) CloseModal() {
 	}
 	s.confirm = nil
 	s.input = nil
+	s.compose = nil
 }
 
 // Render draws the full shell for the current section.
@@ -324,6 +368,9 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	drawStatusLine(buffer, statusRect, theme, s.status)
 	drawFooter(buffer, helpRect, theme, s.footerHelpText(keymap))
 
+	if s.compose != nil {
+		s.renderCompose(buffer, body, theme)
+	}
 	if s.input != nil {
 		s.renderInputModal(buffer, body, theme)
 	}
@@ -378,12 +425,15 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	if s.input != nil {
 		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel  q cancel"
 	}
+	if s.compose != nil {
+		return s.composeHelpText()
+	}
 
 	if s.confirm != nil {
 		return "Enter confirm  Esc cancel  q cancel"
 	}
 
-	help := keymap.HelpTextFor(ActionNextSection, ActionShowDashboard, ActionQuit, ActionRedraw)
+	help := keymap.HelpTextFor(ActionNextSection, ActionShowDashboard, ActionNewCustom, ActionQuit, ActionRedraw)
 	if s.Section.scrollable() {
 		help = joinHelp(help, keymap.HelpTextFor(ActionMoveDown))
 	}
@@ -619,6 +669,13 @@ func (s *Shell) pageSize() int {
 }
 
 func (s *Shell) pendingCommand() *Command {
+	if s.compose != nil {
+		command, ok := s.composeCommand()
+		if !ok {
+			return nil
+		}
+		return command
+	}
 	if s.confirm == nil {
 		if s.input == nil {
 			return nil
@@ -630,7 +687,7 @@ func (s *Shell) pendingCommand() *Command {
 			ItemKey: s.input.ItemKey,
 		}
 		if strings.TrimSpace(s.input.Value) != "" {
-			command.Args = map[string]string{
+			command.Fields = map[string]string{
 				"amount": s.input.Value,
 			}
 		}
@@ -780,6 +837,24 @@ func (s *Shell) reconcileSelections() {
 		}
 		s.reconcileSelection(section)
 	}
+}
+
+// Navigate switches to the requested section and optionally selects the given item key.
+func (s *Shell) Navigate(section Section, selectedKey string) {
+	if s == nil {
+		return
+	}
+
+	if section.scrollable() {
+		s.Section = section
+		if strings.TrimSpace(selectedKey) != "" {
+			s.selectedKeys[section] = strings.TrimSpace(selectedKey)
+		}
+		s.reconcileSelection(section)
+		return
+	}
+
+	s.Section = section
 }
 
 func (s *Shell) reconcileSelection(section Section) {

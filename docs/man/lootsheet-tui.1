@@ -10,20 +10,24 @@ Usage:
   lootsheet tui
 
 Opens the full-screen LootSheet TUI using tcell.
-The current slice is interactive but intentionally narrow: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form, and the Loot screen supports recognizing the selected latest appraisal and selling recognized loot on today's date. Loot sale currently prompts for amount only and leaves date and description on their defaults.
+The current slice is interactive: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the dashboard exposes guided expense, income, and custom journal-entry launchers, the Accounts screen supports activate/deactivate through a confirmation modal, the Journal screen shows line-item detail and supports reversing the selected posted entry on its original date, the Quest screen supports collecting or writing off the full outstanding balance on today's date without a form, and the Loot screen supports recognizing the selected latest appraisal and selling recognized loot on today's date.
 
 Keys:
   Left/Right, Tab/Shift+Tab  move between top-level sections
   1-5                        jump directly to dashboard/accounts/journal/quests/loot
   Up/Down, j/k               move the selected row on list screens
   PgUp/PgDn, Home/End        jump through longer list screens
+  e                          open guided expense entry creation
+  i                          open guided income entry creation
+  a                          open guided custom entry creation
   t                          toggle the selected account active/inactive on the Accounts screen
   r                          reverse the selected posted journal entry on the Journal screen
   c                          collect the full outstanding balance for the selected quest on the Quest screen
   w                          write off the full outstanding balance for the selected quest on the Quest screen
   n                          recognize the selected latest loot appraisal on the Loot screen
   s                          sell the selected recognized loot item on the Loot screen
-  Enter                      confirm the open modal, or submit the amount prompt
+  Enter                      confirm the open modal
+  Ctrl+S                     submit the guided entry composer
   Esc                        cancel the open modal, or quit when no modal is open
   q                          cancel the open modal, or quit when no modal is open
   Ctrl+L                     reload data and force a full redraw

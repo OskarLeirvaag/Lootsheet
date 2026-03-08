@@ -38,6 +38,7 @@
 - [x] Add account ledger output.
 - [x] Add trial balance output.
 - [x] Add loss-on-sale and bad-debt helper flows.
+- [x] Add guided `entry expense|income|custom` workflows in the CLI and TUI.
 
 ## CLI UX
 

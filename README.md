@@ -6,7 +6,7 @@ The intent is to treat party finances like a small accounting system, but adapte
 
 ## Status
 
-LootSheet now has a working SQLite-backed CLI foundation plus an interactive multi-screen TUI slice. The TUI opens into a boxed dashboard, moves between Accounts, Journal, Quests, and Loot screens with keyboard navigation, keeps a selected row and detail pane on list screens, supports account activate/deactivate, journal reversal, full-balance quest collection/write-off, latest-appraisal loot recognition, and recognized-loot sale with amount entry, and redraws cleanly on resize while staying backed by app-facing adapters; broader interactive workflows, packaging, backup/recovery flow, and sample-data polish are still in progress.
+LootSheet now has a working SQLite-backed CLI foundation plus an interactive multi-screen TUI slice. The TUI opens into a boxed dashboard, moves between Accounts, Journal, Quests, and Loot screens with keyboard navigation, keeps a selected row and detail pane on list screens, supports account activate/deactivate, journal reversal, full-balance quest collection/write-off, latest-appraisal loot recognition, recognized-loot sale with amount entry, and guided expense/income/custom journal entry creation from the dashboard, and redraws cleanly on resize while staying backed by app-facing adapters; packaging, backup/recovery flow, and sample-data polish are still in progress.
 
 Implemented so far:
 
@@ -14,6 +14,7 @@ Implemented so far:
 - SQLite initialization from embedded migrations and seed accounts
 - database lifecycle detection for `uninitialized`, `current`, `upgradeable`, `foreign`, and `damaged` states
 - account create/list/rename/activate/deactivate/delete with posting protection
+- guided `entry expense|income|custom` workflows for common journal creation
 - journal post/reverse workflows with balancing validation and immutable posted entries
 - quest create/list/accept/complete/collect/writeoff lifecycle flows
 - loot create/list/appraise/recognize/sell lifecycle flows
@@ -244,6 +245,7 @@ Current commands:
 - `lootsheet db migrate`
 - `lootsheet init`
 - `lootsheet account list|create|rename|deactivate|activate|delete|ledger`
+- `lootsheet entry expense|income|custom`
 - `lootsheet journal post|reverse`
 - `lootsheet quest create|list|accept|complete|collect|writeoff`
 - `lootsheet loot create|list|appraise|recognize|sell`
@@ -258,7 +260,7 @@ Help is hierarchical across the command tree:
 - `lootsheet help`
 - `lootsheet account help`
 - `lootsheet account list help`
-- `lootsheet journal post -h`
+- `lootsheet entry expense -h`
 - `lootsheet journal post --help`
 
 The repository also includes `./testapp.sh`, which builds a temporary binary and
@@ -335,13 +337,12 @@ In short:
 
 ## Next Step
 
-The next implementation milestone is broader interactive workflows on top of the current TUI shell.
+The next implementation milestone is packaging and operational workflows on top of the current CLI/TUI surface.
 
 Near-term supporting work still pending:
 
-- quest and loot mutation flows inside the TUI
-- richer journal drill-down beyond the current line-detail and reversal flow
 - release target and installation decisions
+- backup/export workflows
 - packaging polish around generated man pages
 
 See [PLAN.md](PLAN.md), [TODO.md](TODO.md), and [DESIGN.md](DESIGN.md) for the working project plan.

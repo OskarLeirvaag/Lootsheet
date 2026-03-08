@@ -376,8 +376,8 @@ func TestShellLootSellUsesInputModalAndCarriesAmount(t *testing.T) {
 	if result.Command.ID != "loot.sell" {
 		t.Fatalf("command id = %q, want loot.sell", result.Command.ID)
 	}
-	if result.Command.Args["amount"] != "7 gp" {
-		t.Fatalf("command amount = %q, want 7 gp", result.Command.Args["amount"])
+	if result.Command.Fields["amount"] != "7 gp" {
+		t.Fatalf("command amount = %q, want 7 gp", result.Command.Fields["amount"])
 	}
 }
 
@@ -455,5 +455,65 @@ func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 
 	if item := shell.currentSelectedItem(SectionAccounts); item == nil || item.Key != "1100" {
 		t.Fatalf("selected item after reload = %#v, want key 1100", item)
+	}
+}
+
+func TestShellExpenseComposeOpensAndEmitsCommand(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		EntryCatalog: EntryCatalog{
+			DefaultDate: "2026-03-10",
+			ExpenseAccounts: []AccountOption{
+				{Code: "5100", Name: "Arrows & Ammunition", Type: "expense"},
+			},
+			FundingAccounts: []AccountOption{
+				{Code: "1000", Name: "Party Cash", Type: "asset"},
+			},
+		},
+	}
+
+	shell := NewShell(&data)
+	if result := shell.HandleAction(ActionNewExpense); !result.Redraw || shell.compose == nil {
+		t.Fatalf("expected expense compose to open: %#v %#v", result, shell.compose)
+	}
+
+	for _, event := range []*tcell.EventKey{
+		tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'A', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'o', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'w', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 's', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '2', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '5', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '5', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '1', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '0', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '0', tcell.ModNone),
+	} {
+		shell.handleComposeKeyEvent(event, DefaultKeyMap().Resolve(event))
+	}
+
+	result, handled := shell.handleComposeKeyEvent(tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModNone), ActionSubmitCompose)
+	if !handled || result.Command == nil {
+		t.Fatalf("submit did not emit expense command: %#v handled=%v", result, handled)
+	}
+	if result.Command.ID != "entry.expense.create" {
+		t.Fatalf("command id = %q, want entry.expense.create", result.Command.ID)
+	}
+	if result.Command.Fields["date"] != "2026-03-10" {
+		t.Fatalf("command date = %q, want 2026-03-10", result.Command.Fields["date"])
+	}
+	if result.Command.Fields["description"] != "Arrows" {
+		t.Fatalf("command description = %q, want Arrows", result.Command.Fields["description"])
+	}
+	if result.Command.Fields["amount"] != "25" {
+		t.Fatalf("command amount = %q, want 25", result.Command.Fields["amount"])
+	}
+	if result.Command.Fields["account_code"] != "5100" {
+		t.Fatalf("command account code = %q, want typed account code", result.Command.Fields["account_code"])
 	}
 }

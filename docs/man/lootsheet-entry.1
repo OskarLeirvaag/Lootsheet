@@ -1,0 +1,26 @@
+.TH LOOTSHEET-ENTRY 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-entry \\- Create guided expense, income, and custom journal entries
+.SH SYNOPSIS
+lootsheet entry [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet entry expense --account CODE --amount AMOUNT --description TEXT [--paid-from CODE] [--date YYYY-MM-DD] [--memo TEXT]
+  lootsheet entry income --account CODE --amount AMOUNT --description TEXT [--deposit-to CODE] [--date YYYY-MM-DD] [--memo TEXT]
+  lootsheet entry custom --description TEXT [--date YYYY-MM-DD] --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+
+Subcommands:
+  expense  record a guided two-line expense entry
+  income   record a guided two-line income entry
+  custom   record a guided multi-line journal entry
+.SH OPTIONS
+.TP
+-h, --help
+help for entry
+.SH SEE ALSO
+lootsheet(1)
+lootsheet-entry-custom(1)
+lootsheet-entry-expense(1)
+lootsheet-entry-income(1)

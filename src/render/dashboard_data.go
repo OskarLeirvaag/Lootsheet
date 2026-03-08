@@ -2,12 +2,13 @@ package render
 
 // DashboardData is the read-only view model rendered by the dashboard shell.
 type DashboardData struct {
-	HeaderLines   []string
-	AccountsLines []string
-	JournalLines  []string
-	LedgerLines   []string
-	QuestLines    []string
-	LootLines     []string
+	HeaderLines     []string
+	AccountsLines   []string
+	JournalLines    []string
+	QuickEntryLines []string
+	LedgerLines     []string
+	QuestLines      []string
+	LootLines       []string
 }
 
 // DefaultDashboardData returns the placeholder content used when no adapter is wired yet.
@@ -26,6 +27,11 @@ func DefaultDashboardData() DashboardData {
 			"Posted entries remain immutable.",
 			"Corrections continue to happen by reversal or adjustment.",
 			"Read-only browsing is available before editing flows.",
+		},
+		QuickEntryLines: []string{
+			"e  I have an expense",
+			"i  I have income",
+			"a  Add custom entry",
 		},
 		LedgerLines: []string{
 			"Dashboard summaries stay read-only in this slice.",
@@ -53,12 +59,13 @@ func ErrorDashboardData(summary string, detail string) DashboardData {
 	}
 
 	return DashboardData{
-		HeaderLines:   []string{summary, detail},
-		AccountsLines: []string{"Accounts unavailable.", detail},
-		JournalLines:  []string{"Journal unavailable.", detail},
-		LedgerLines:   []string{"Ledger snapshot unavailable.", detail},
-		QuestLines:    []string{"Quest register unavailable.", detail},
-		LootLines:     []string{"Loot register unavailable.", detail},
+		HeaderLines:     []string{summary, detail},
+		AccountsLines:   []string{"Accounts unavailable.", detail},
+		JournalLines:    []string{"Journal unavailable.", detail},
+		QuickEntryLines: []string{"Quick entry unavailable.", detail},
+		LedgerLines:     []string{"Ledger snapshot unavailable.", detail},
+		QuestLines:      []string{"Quest register unavailable.", detail},
+		LootLines:       []string{"Loot register unavailable.", detail},
 	}
 }
 
@@ -82,6 +89,7 @@ func dashboardDataEmpty(data *DashboardData) bool {
 	return len(data.HeaderLines) == 0 &&
 		len(data.AccountsLines) == 0 &&
 		len(data.JournalLines) == 0 &&
+		len(data.QuickEntryLines) == 0 &&
 		len(data.LedgerLines) == 0 &&
 		len(data.QuestLines) == 0 &&
 		len(data.LootLines) == 0

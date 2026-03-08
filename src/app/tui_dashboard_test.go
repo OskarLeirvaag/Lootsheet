@@ -339,7 +339,7 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	data, status, err := handleTUICommand(ctx, render.Command{
+	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandAccountDeactivate,
 		Section: render.SectionAccounts,
 		ItemKey: "1000",
@@ -347,6 +347,8 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deactivate account through tui command: %v", err)
 	}
+	data := result.Data
+	status := result.Status
 	if status.Level != render.StatusSuccess {
 		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
 	}
@@ -391,7 +393,7 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	data, status, err := handleTUICommand(ctx, render.Command{
+	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandJournalReverse,
 		Section: render.SectionJournal,
 		ItemKey: posted.ID,
@@ -399,6 +401,8 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reverse journal entry through tui command: %v", err)
 	}
+	data := result.Data
+	status := result.Status
 	if status.Level != render.StatusSuccess {
 		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
 	}
@@ -436,6 +440,143 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected original journal item in refreshed shell data")
+	}
+}
+
+func TestBuildTUIShellDataIncludesEntryCatalog(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	data, err := buildTUIShellData(context.Background(), databasePath, assets)
+	if err != nil {
+		t.Fatalf("build shell data: %v", err)
+	}
+
+	if data.EntryCatalog.DefaultDate == "" {
+		t.Fatal("expected entry catalog default date")
+	}
+	if len(data.EntryCatalog.ExpenseAccounts) == 0 || len(data.EntryCatalog.IncomeAccounts) == 0 || len(data.EntryCatalog.DepositAccounts) == 0 {
+		t.Fatalf("entry catalog missing expected account classes: %#v", data.EntryCatalog)
+	}
+	if data.Dashboard.QuickEntryLines[0] != "e  I have an expense" {
+		t.Fatalf("quick entry lines = %#v, want expense launcher", data.Dashboard.QuickEntryLines)
+	}
+}
+
+func TestHandleTUICommandCreatesExpenseAndNavigatesToJournal(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID: tuiCommandCreateExpense,
+		Fields: map[string]string{
+			"date":                "2026-03-10",
+			"description":         "Restock arrows",
+			"amount":              "25",
+			"account_code":        "5100",
+			"offset_account_code": "1000",
+			"memo":                "Quiver refill",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("create expense through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionJournal {
+		t.Fatalf("navigate section = %v, want journal", result.NavigateTo)
+	}
+	if result.SelectItemKey == "" {
+		t.Fatal("expected selected journal item key after expense create")
+	}
+	if !strings.Contains(result.Status.Text, "Recorded expense as journal entry #1.") {
+		t.Fatalf("status text = %q, want expense summary", result.Status.Text)
+	}
+}
+
+func TestHandleTUICommandCreatesIncomeAndNavigatesToJournal(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID: tuiCommandCreateIncome,
+		Fields: map[string]string{
+			"date":                "2026-03-10",
+			"description":         "Goblin bounty",
+			"amount":              "1gp",
+			"account_code":        "4000",
+			"offset_account_code": "1000",
+			"memo":                "Mayor payout",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("create income through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionJournal {
+		t.Fatalf("navigate section = %v, want journal", result.NavigateTo)
+	}
+	if result.SelectItemKey == "" {
+		t.Fatal("expected selected journal item key after income create")
+	}
+	if !strings.Contains(result.Status.Text, "Recorded income as journal entry #1.") {
+		t.Fatalf("status text = %q, want income summary", result.Status.Text)
+	}
+}
+
+func TestHandleTUICommandCreatesCustomEntryAndNavigatesToJournal(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	result, err := handleTUICommand(ctx, render.Command{
+		ID: tuiCommandCreateCustom,
+		Fields: map[string]string{
+			"date":        "2026-03-10",
+			"description": "Gear transfer",
+		},
+		Lines: []render.CommandLine{
+			{Side: "debit", AccountCode: "1300", Amount: "500"},
+			{Side: "credit", AccountCode: "1000", Amount: "500"},
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("create custom through tui command: %v", err)
+	}
+	if result.NavigateTo != render.SectionJournal {
+		t.Fatalf("navigate section = %v, want journal", result.NavigateTo)
+	}
+	if result.SelectItemKey == "" {
+		t.Fatal("expected selected journal item key after custom create")
+	}
+	if !strings.Contains(result.Status.Text, "Recorded custom entry as journal entry #1.") {
+		t.Fatalf("status text = %q, want custom summary", result.Status.Text)
 	}
 }
 
@@ -529,7 +670,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 		t.Fatalf("complete quest: %v", err)
 	}
 
-	data, status, err := handleTUICommand(ctx, render.Command{
+	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandQuestCollectFull,
 		Section: render.SectionQuests,
 		ItemKey: record.ID,
@@ -537,6 +678,8 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collect quest through tui command: %v", err)
 	}
+	data := result.Data
+	status := result.Status
 	if status.Level != render.StatusSuccess {
 		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
 	}
@@ -607,7 +750,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 		t.Fatalf("complete quest: %v", err)
 	}
 
-	data, status, err := handleTUICommand(ctx, render.Command{
+	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandQuestWriteOffFull,
 		Section: render.SectionQuests,
 		ItemKey: record.ID,
@@ -615,6 +758,8 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write off quest through tui command: %v", err)
 	}
+	data := result.Data
+	status := result.Status
 	if status.Level != render.StatusSuccess {
 		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
 	}
@@ -891,7 +1036,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 		t.Fatalf("second appraisal: %v", err)
 	}
 
-	data, status, err := handleTUICommand(ctx, render.Command{
+	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandLootRecognize,
 		Section: render.SectionLoot,
 		ItemKey: item.ID,
@@ -899,6 +1044,8 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recognize loot through tui command: %v", err)
 	}
+	data := result.Data
+	status := result.Status
 	if status.Level != render.StatusSuccess {
 		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
 	}
@@ -963,11 +1110,11 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 		t.Fatalf("recognize loot: %v", err)
 	}
 
-	_, _, err = handleTUICommand(ctx, render.Command{
+	_, err = handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandLootSell,
 		Section: render.SectionLoot,
 		ItemKey: item.ID,
-		Args: map[string]string{
+		Fields: map[string]string{
 			"amount": "banana",
 		},
 	}, databasePath, assets)
@@ -1009,17 +1156,19 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 		t.Fatalf("recognize loot: %v", err)
 	}
 
-	data, status, err := handleTUICommand(ctx, render.Command{
+	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandLootSell,
 		Section: render.SectionLoot,
 		ItemKey: item.ID,
-		Args: map[string]string{
+		Fields: map[string]string{
 			"amount": "8 gp",
 		},
 	}, databasePath, assets)
 	if err != nil {
 		t.Fatalf("sell loot through tui command: %v", err)
 	}
+	data := result.Data
+	status := result.Status
 	if status.Level != render.StatusSuccess {
 		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
 	}

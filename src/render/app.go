@@ -80,7 +80,7 @@ func Run(ctx context.Context, options *Options) error {
 					continue
 				}
 
-				data, status, err := options.CommandHandler(ctx, *result.Command)
+				commandResult, err := options.CommandHandler(ctx, *result.Command)
 				if err != nil {
 					var inputErr InputError
 					if errors.As(err, &inputErr) {
@@ -93,8 +93,11 @@ func Run(ctx context.Context, options *Options) error {
 						})
 					}
 				} else {
-					shell.Reload(&data)
-					shell.SetStatus(status)
+					shell.Reload(&commandResult.Data)
+					if commandResult.NavigateTo != SectionDashboard || commandResult.SelectItemKey != "" {
+						shell.Navigate(commandResult.NavigateTo, commandResult.SelectItemKey)
+					}
+					shell.SetStatus(commandResult.Status)
 				}
 				drawFrame(terminal, shell, &theme, keymap, true)
 				continue
