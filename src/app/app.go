@@ -78,6 +78,8 @@ func (a *Application) Run(ctx context.Context, args []string) error {
 		return a.runAccount(ctx, args[1:])
 	case "journal":
 		return a.runJournal(ctx, args[1:])
+	case "quest":
+		return a.runQuest(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", args[0], usageText)
 	}
@@ -339,5 +341,10 @@ Usage:
   lootsheet account activate --code CODE
   lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
   lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
+  lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]
+  lootsheet quest list
+  lootsheet quest accept --id ID --date YYYY-MM-DD
+  lootsheet quest complete --id ID --date YYYY-MM-DD
+  lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
   lootsheet help
 `
