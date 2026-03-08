@@ -11,7 +11,7 @@ import (
 
 func (a *Application) runDatabase(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing db subcommand\n\n%s", usageText)
+		return fmt.Errorf("missing db subcommand\n\n%s", dbHelpText)
 	}
 
 	switch args[0] {
@@ -20,7 +20,7 @@ func (a *Application) runDatabase(ctx context.Context, args []string) error {
 	case "migrate":
 		return a.runDatabaseMigrate(ctx)
 	default:
-		return fmt.Errorf("unknown db subcommand %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown db subcommand %q\n\n%s", args[0], dbHelpText)
 	}
 }
 
@@ -102,13 +102,18 @@ func (a *Application) runDatabaseStatus(ctx context.Context) error {
 func (a *Application) runDatabaseMigrate(ctx context.Context) error {
 	a.log.logger.InfoContext(ctx, "migrating database", slog.String("database_path", a.config.Paths.DatabasePath))
 
+	if err := a.config.EnsureDirectories(); err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to prepare directories", slog.String("error", err.Error()))
+		return err
+	}
+
 	initAssets, err := config.LoadInitAssets()
 	if err != nil {
 		a.log.logger.ErrorContext(ctx, "failed to load init assets", slog.String("error", err.Error()))
 		return err
 	}
 
-	result, err := ledger.MigrateSQLiteDatabase(ctx, a.config.Paths.DatabasePath, initAssets)
+	result, err := ledger.MigrateSQLiteDatabase(ctx, a.config.Paths.DatabasePath, a.config.Paths.BackupDir, initAssets)
 	if err != nil {
 		a.log.logger.ErrorContext(ctx, "failed to migrate database", slog.String("error", err.Error()))
 		return err
@@ -124,9 +129,10 @@ func (a *Application) runDatabaseMigrate(ctx context.Context) error {
 
 	if _, err := fmt.Fprintf(
 		a.stdout,
-		"Database: %s\nState: %s\nFrom schema version: %s\nTo schema version: %s\nApplied migrations: %d\n",
+		"Database: %s\nState: %s\nBackup: %s\nFrom schema version: %s\nTo schema version: %s\nApplied migrations: %d\n",
 		a.config.Paths.DatabasePath,
 		stateLabel,
+		blankIfEmpty(result.BackupPath),
 		blankIfEmpty(result.FromSchemaVersion),
 		blankIfEmpty(result.ToSchemaVersion),
 		len(result.AppliedMigrations),
@@ -145,6 +151,7 @@ func (a *Application) runDatabaseMigrate(ctx context.Context) error {
 		"database migration finished",
 		slog.Bool("migrated", result.Migrated),
 		slog.Bool("metadata_repaired", result.MetadataRepaired),
+		slog.String("backup_path", result.BackupPath),
 		slog.String("from_schema_version", result.FromSchemaVersion),
 		slog.String("to_schema_version", result.ToSchemaVersion),
 		slog.Int("applied_migrations", len(result.AppliedMigrations)),

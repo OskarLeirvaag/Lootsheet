@@ -41,11 +41,11 @@
 
 ## CLI UX
 
-- [ ] Add comprehensive hierarchical help across the full CLI tree.
-  - [ ] `lootsheet help` should explain the main command groups, accounting model, and common workflows.
-  - [ ] `lootsheet account help`, `lootsheet journal help`, `lootsheet quest help`, `lootsheet loot help`, and `lootsheet report help` should describe each domain workflow clearly.
-  - [ ] Leaf commands such as `lootsheet account list help` and `lootsheet journal post help` should document flags, required inputs, amount/date formats, and concrete examples.
-  - [ ] Support consistent `help`, `-h`, and `--help` behavior across top-level, grouped, and leaf commands.
+- [x] Add comprehensive hierarchical help across the full CLI tree.
+  - [x] `lootsheet help` should explain the main command groups, accounting model, and common workflows.
+  - [x] `lootsheet account help`, `lootsheet journal help`, `lootsheet quest help`, `lootsheet loot help`, and `lootsheet report help` should describe each domain workflow clearly.
+  - [x] Leaf commands such as `lootsheet account list help` and `lootsheet journal post help` should document flags, required inputs, amount/date formats, and concrete examples.
+  - [x] Support consistent `help`, `-h`, and `--help` behavior across top-level, grouped, and leaf commands.
 - [ ] Generate and ship proper `man` pages for the CLI command tree as part of packaging.
 
 ## TUI
@@ -105,12 +105,12 @@
 - [ ] Finalize the installed file set and locations:
   - [ ] config file
   - [ ] SQLite database
-  - [ ] backup directory
-  - [ ] optional export directory conventions
+  - [x] backup directory
+  - [x] optional export directory conventions
 - [x] Add full upgrade migration execution beyond init-time migration tracking.
 - [x] Add startup detection for uninitialized, current, upgradeable, foreign, and damaged databases.
-- [ ] Add backup creation before risky migration or repair flows.
-- [ ] Define stable long-term paths for config, database, backups, and optional exports.
+- [x] Add backup creation before risky migration or repair flows.
+- [x] Define stable long-term paths for config, database, backups, and optional exports.
 - [ ] Document upgrade and recovery workflow for existing local databases.
 - [ ] Evaluate Windows support later after CLI/TUI and packaging are stable on Linux and macOS.
 

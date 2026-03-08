@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -86,6 +87,48 @@ func TestGetDatabaseStatusWithAssetsDamagedForNonSQLiteFile(t *testing.T) {
 
 	if !strings.Contains(status.Detail, "valid SQLite database") {
 		t.Fatalf("detail = %q, want damaged detail", status.Detail)
+	}
+}
+
+func TestMigrateSQLiteDatabaseCreatesBackupBeforeApplyingMigrations(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "ledger.db")
+	backupDir := filepath.Join(tmpDir, "backups")
+
+	fullAssets, legacyAssets := LoadMigrationAssetsForTest(t)
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+		t.Fatalf("initialize legacy db: %v", err)
+	}
+
+	beforeBytes, err := os.ReadFile(databasePath)
+	if err != nil {
+		t.Fatalf("read database before migration: %v", err)
+	}
+
+	result, err := MigrateSQLiteDatabase(context.Background(), databasePath, backupDir, fullAssets)
+	if err != nil {
+		t.Fatalf("migrate database: %v", err)
+	}
+
+	if !result.Migrated {
+		t.Fatal("expected migration to run")
+	}
+
+	if result.BackupPath == "" {
+		t.Fatal("expected backup path to be recorded")
+	}
+
+	if filepath.Dir(result.BackupPath) != backupDir {
+		t.Fatalf("backup path = %q, want inside %q", result.BackupPath, backupDir)
+	}
+
+	backupBytes, err := os.ReadFile(result.BackupPath)
+	if err != nil {
+		t.Fatalf("read backup file: %v", err)
+	}
+
+	if !bytes.Equal(backupBytes, beforeBytes) {
+		t.Fatal("backup file contents do not match the pre-migration database")
 	}
 }
 

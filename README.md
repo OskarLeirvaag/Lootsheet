@@ -196,7 +196,16 @@ Environment overrides:
 - `LOOTSHEET_CONFIG`
 - `LOOTSHEET_DATA_DIR`
 - `LOOTSHEET_DATABASE_PATH`
+- `LOOTSHEET_BACKUP_DIR`
+- `LOOTSHEET_EXPORT_DIR`
 - `LOOTSHEET_LOG_LEVEL`
+
+Resolved long-term storage paths:
+
+- config file under the OS user config directory
+- primary SQLite database under the OS user data directory
+- backups under `backups/` inside the LootSheet data directory by default
+- exports under `exports/` inside the LootSheet data directory by default
 
 ## Database Lifecycle
 
@@ -208,6 +217,8 @@ LootSheet stores init-time setup assets in:
 
 Those files are used only by `lootsheet init` when bootstrapping a fresh SQLite database.
 The applied migrations are recorded in SQLite in `schema_migrations`, and `lootsheet db migrate` applies any later embedded migrations to an existing LootSheet database.
+
+When `lootsheet db migrate` is about to apply a schema migration or repair legacy metadata, it first writes a timestamped backup copy into the configured backup directory.
 
 `lootsheet db status` classifies the current database as:
 
@@ -239,6 +250,14 @@ Current commands:
 - `lootsheet help`
 
 Use `lootsheet help` for the exact command surface and flag syntax.
+
+Help is hierarchical across the command tree:
+
+- `lootsheet help`
+- `lootsheet account help`
+- `lootsheet account list help`
+- `lootsheet journal post -h`
+- `lootsheet journal post --help`
 
 The repository also includes `./testapp.sh`, which builds a temporary binary and
 runs an installed-binary-style smoke scenario against a temporary workspace.
@@ -287,7 +306,6 @@ The next implementation milestone is the TUI shell around the existing ledger an
 
 Near-term supporting work still pending:
 
-- backup-before-migration or repair flows
 - sample campaign fixture data
 - upgrade and recovery documentation
 

@@ -35,7 +35,7 @@ func newLootTestApp(t *testing.T) (*Application, string) {
 		t.Fatalf("load config: %v", err)
 	}
 
-	app, err := New(cfg, &bytes.Buffer{}, io.Discard)
+	app, err := New(&cfg, &bytes.Buffer{}, io.Discard)
 	if err != nil {
 		t.Fatalf("new app: %v", err)
 	}

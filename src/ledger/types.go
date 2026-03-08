@@ -258,6 +258,7 @@ type MigrationResult struct {
 	MetadataRepaired  bool
 	FromSchemaVersion string
 	ToSchemaVersion   string
+	BackupPath        string
 	AppliedMigrations []PendingMigration
 }
 

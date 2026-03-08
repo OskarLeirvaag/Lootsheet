@@ -652,10 +652,12 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config", "config.json")
 	dataDir := filepath.Join(tmpDir, "data")
 	databasePath := filepath.Join(dataDir, "ledger.db")
+	backupDir := filepath.Join(dataDir, "snapshots")
 
 	t.Setenv(config.EnvConfigPath, configPath)
 	t.Setenv(config.EnvDataDir, dataDir)
 	t.Setenv(config.EnvDatabasePath, "ledger.db")
+	t.Setenv(config.EnvBackupDir, backupDir)
 
 	_, legacyAssets := loadMigrationAssetsForAppTest(t)
 	if _, err := ledger.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
@@ -670,6 +672,10 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 	output := stdout.String()
 	if !strings.Contains(output, "State: migrated") {
 		t.Fatalf("db migrate missing migrated state: %q", output)
+	}
+
+	if !strings.Contains(output, "Backup: "+backupDir) {
+		t.Fatalf("db migrate missing backup path: %q", output)
 	}
 
 	if !strings.Contains(output, "From schema version: 1") {

@@ -32,7 +32,7 @@ func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
 	}
 
 	var stdout bytes.Buffer
-	application, err := New(cfg, &stdout, io.Discard)
+	application, err := New(&cfg, &stdout, io.Discard)
 	if err != nil {
 		t.Fatalf("create application: %v", err)
 	}

@@ -18,12 +18,20 @@ const (
 	AppName = "lootsheet"
 	// DefaultDatabase is the default SQLite database filename.
 	DefaultDatabase = "lootsheet.db"
+	// DefaultBackupDirName is the default backup directory inside the data directory.
+	DefaultBackupDirName = "backups"
+	// DefaultExportDirName is the default export directory inside the data directory.
+	DefaultExportDirName = "exports"
 	// EnvConfigPath is the environment variable that overrides the config file location.
 	EnvConfigPath = "LOOTSHEET_CONFIG"
 	// EnvDataDir is the environment variable that overrides the data directory.
 	EnvDataDir = "LOOTSHEET_DATA_DIR"
 	// EnvDatabasePath is the environment variable that overrides the database file path.
-	EnvDatabasePath   = "LOOTSHEET_DATABASE_PATH"
+	EnvDatabasePath = "LOOTSHEET_DATABASE_PATH"
+	// EnvBackupDir is the environment variable that overrides the backup directory.
+	EnvBackupDir = "LOOTSHEET_BACKUP_DIR"
+	// EnvExportDir is the environment variable that overrides the export directory.
+	EnvExportDir      = "LOOTSHEET_EXPORT_DIR"
 	defaultConfigFile = "config.json"
 )
 
@@ -37,6 +45,8 @@ type Paths struct {
 	ConfigFile   string `json:"-"`
 	DataDir      string `json:"data_dir"`
 	DatabasePath string `json:"database_path"`
+	BackupDir    string `json:"backup_dir"`
+	ExportDir    string `json:"export_dir"`
 }
 
 type fileConfig struct {
@@ -46,6 +56,8 @@ type fileConfig struct {
 type filePaths struct {
 	DataDir      string `json:"data_dir"`
 	DatabasePath string `json:"database_path"`
+	BackupDir    string `json:"backup_dir"`
+	ExportDir    string `json:"export_dir"`
 }
 
 // Default returns a Config populated with OS-specific default paths.
@@ -65,6 +77,8 @@ func Default() (Config, error) {
 			ConfigFile:   configPath,
 			DataDir:      dataDir,
 			DatabasePath: filepath.Join(dataDir, DefaultDatabase),
+			BackupDir:    filepath.Join(dataDir, DefaultBackupDirName),
+			ExportDir:    filepath.Join(dataDir, DefaultExportDirName),
 		},
 	}, nil
 }
@@ -100,7 +114,7 @@ func Load() (Config, error) {
 
 // Validate checks that all required path fields are set. It returns an error
 // describing the first missing field, if any.
-func (c Config) Validate() error {
+func (c *Config) Validate() error {
 	switch {
 	case c.Paths.ConfigFile == "":
 		return errors.New("config file path is required")
@@ -108,6 +122,10 @@ func (c Config) Validate() error {
 		return errors.New("data directory path is required")
 	case c.Paths.DatabasePath == "":
 		return errors.New("database path is required")
+	case c.Paths.BackupDir == "":
+		return errors.New("backup directory path is required")
+	case c.Paths.ExportDir == "":
+		return errors.New("export directory path is required")
 	default:
 		return nil
 	}
@@ -115,11 +133,13 @@ func (c Config) Validate() error {
 
 // EnsureDirectories creates the config, data, and database parent directories
 // if they do not already exist.
-func (c Config) EnsureDirectories() error {
+func (c *Config) EnsureDirectories() error {
 	dirs := []string{
 		filepath.Dir(c.Paths.ConfigFile),
 		c.Paths.DataDir,
 		filepath.Dir(c.Paths.DatabasePath),
+		c.Paths.BackupDir,
+		c.Paths.ExportDir,
 	}
 
 	for _, dir := range dirs {
@@ -155,6 +175,26 @@ func (c *Config) normalize() error {
 	}
 	c.Paths.DatabasePath = databasePath
 
+	if strings.TrimSpace(c.Paths.BackupDir) == "" {
+		c.Paths.BackupDir = DefaultBackupDirName
+	}
+
+	backupDir, err := absolutePathFromBase(c.Paths.DataDir, c.Paths.BackupDir)
+	if err != nil {
+		return fmt.Errorf("normalize backup directory: %w", err)
+	}
+	c.Paths.BackupDir = backupDir
+
+	if strings.TrimSpace(c.Paths.ExportDir) == "" {
+		c.Paths.ExportDir = DefaultExportDirName
+	}
+
+	exportDir, err := absolutePathFromBase(c.Paths.DataDir, c.Paths.ExportDir)
+	if err != nil {
+		return fmt.Errorf("normalize export directory: %w", err)
+	}
+	c.Paths.ExportDir = exportDir
+
 	return c.Validate()
 }
 
@@ -174,10 +214,24 @@ func mergeFileConfig(cfg *Config, path string) error {
 
 	if parsed.Paths.DataDir != "" {
 		cfg.Paths.DataDir = parsed.Paths.DataDir
+		if parsed.Paths.BackupDir == "" {
+			cfg.Paths.BackupDir = ""
+		}
+		if parsed.Paths.ExportDir == "" {
+			cfg.Paths.ExportDir = ""
+		}
 	}
 
 	if parsed.Paths.DatabasePath != "" {
 		cfg.Paths.DatabasePath = parsed.Paths.DatabasePath
+	}
+
+	if parsed.Paths.BackupDir != "" {
+		cfg.Paths.BackupDir = parsed.Paths.BackupDir
+	}
+
+	if parsed.Paths.ExportDir != "" {
+		cfg.Paths.ExportDir = parsed.Paths.ExportDir
 	}
 
 	return nil
@@ -186,10 +240,24 @@ func mergeFileConfig(cfg *Config, path string) error {
 func applyEnvOverrides(cfg *Config) {
 	if value := strings.TrimSpace(os.Getenv(EnvDataDir)); value != "" {
 		cfg.Paths.DataDir = value
+		if strings.TrimSpace(os.Getenv(EnvBackupDir)) == "" {
+			cfg.Paths.BackupDir = ""
+		}
+		if strings.TrimSpace(os.Getenv(EnvExportDir)) == "" {
+			cfg.Paths.ExportDir = ""
+		}
 	}
 
 	if value := strings.TrimSpace(os.Getenv(EnvDatabasePath)); value != "" {
 		cfg.Paths.DatabasePath = value
+	}
+
+	if value := strings.TrimSpace(os.Getenv(EnvBackupDir)); value != "" {
+		cfg.Paths.BackupDir = value
+	}
+
+	if value := strings.TrimSpace(os.Getenv(EnvExportDir)); value != "" {
+		cfg.Paths.ExportDir = value
 	}
 }
 
