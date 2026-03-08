@@ -8,9 +8,10 @@ import (
 
 // Options configures the first dashboard shell.
 type Options struct {
-	ScreenFactory ScreenFactory
-	Theme         Theme
-	KeyMap        KeyMap
+	ScreenFactory   ScreenFactory
+	DashboardLoader DashboardLoader
+	Theme           Theme
+	KeyMap          KeyMap
 }
 
 type cancelInterrupt struct{}
@@ -46,7 +47,7 @@ func Run(ctx context.Context, options *Options) error {
 		}
 	}()
 
-	dashboard := Dashboard{}
+	dashboard := &Dashboard{Data: loadDashboardData(ctx, options)}
 	drawFrame(terminal, dashboard, &theme, keymap, false)
 
 	for {
@@ -59,6 +60,7 @@ func Run(ctx context.Context, options *Options) error {
 			case ActionQuit:
 				return nil
 			case ActionRedraw:
+				dashboard.Data = loadDashboardData(ctx, options)
 				drawFrame(terminal, dashboard, &theme, keymap, true)
 			case ActionNone:
 			}
@@ -73,7 +75,23 @@ func Run(ctx context.Context, options *Options) error {
 	}
 }
 
-func drawFrame(terminal *Terminal, dashboard Dashboard, theme *Theme, keymap KeyMap, full bool) {
+// DashboardLoader produces the read-only dashboard snapshot shown in the TUI.
+type DashboardLoader func(context.Context) (DashboardData, error)
+
+func loadDashboardData(ctx context.Context, options *Options) DashboardData {
+	if options == nil || options.DashboardLoader == nil {
+		return DefaultDashboardData()
+	}
+
+	data, err := options.DashboardLoader(ctx)
+	if err != nil {
+		return ErrorDashboardData("Dashboard data unavailable.", err.Error())
+	}
+
+	return resolveDashboardData(&data)
+}
+
+func drawFrame(terminal *Terminal, dashboard *Dashboard, theme *Theme, keymap KeyMap, full bool) {
 	bounds := terminal.Bounds()
 	buffer := NewBuffer(bounds.W, bounds.H, theme.Base)
 	dashboard.Render(buffer, theme, keymap)
