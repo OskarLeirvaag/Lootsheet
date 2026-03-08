@@ -39,6 +39,15 @@
 - [x] Add trial balance output.
 - [x] Add loss-on-sale and bad-debt helper flows.
 
+## CLI UX
+
+- [ ] Add comprehensive hierarchical help across the full CLI tree.
+  - [ ] `lootsheet help` should explain the main command groups, accounting model, and common workflows.
+  - [ ] `lootsheet account help`, `lootsheet journal help`, `lootsheet quest help`, `lootsheet loot help`, and `lootsheet report help` should describe each domain workflow clearly.
+  - [ ] Leaf commands such as `lootsheet account list help` and `lootsheet journal post help` should document flags, required inputs, amount/date formats, and concrete examples.
+  - [ ] Support consistent `help`, `-h`, and `--help` behavior across top-level, grouped, and leaf commands.
+- [ ] Generate and ship proper `man` pages for the CLI command tree as part of packaging.
+
 ## TUI
 
 - [ ] Set up `tcell` screen initialization and shutdown.
