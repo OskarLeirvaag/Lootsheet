@@ -58,7 +58,7 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 // MigrateSQLiteDatabase applies any pending schema migrations to an existing
 // LootSheet database. It also repairs legacy metadata if the database uses
 // the old settings-only format. All changes are applied in a single transaction.
-func MigrateSQLiteDatabase(ctx context.Context, databasePath string, assets config.InitAssets) (MigrationResult, error) {
+func MigrateSQLiteDatabase(ctx context.Context, databasePath string, backupDir string, assets config.InitAssets) (MigrationResult, error) {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return MigrationResult{}, err
@@ -98,6 +98,12 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, assets conf
 	if !result.Migrated && !result.MetadataRepaired {
 		return result, nil
 	}
+
+	backupPath, err := createDatabaseBackup(databasePath, backupDir)
+	if err != nil {
+		return MigrationResult{}, fmt.Errorf("create database backup: %w", err)
+	}
+	result.BackupPath = backupPath
 
 	db, err := OpenDB(databasePath)
 	if err != nil {

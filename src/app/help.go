@@ -1,0 +1,571 @@
+package app
+
+import (
+	"fmt"
+	"io"
+)
+
+type helpTopic struct {
+	text     string
+	children map[string]*helpTopic
+}
+
+var helpRoot = &helpTopic{
+	text: rootHelpText,
+	children: map[string]*helpTopic{
+		"db": {
+			text: dbHelpText,
+			children: map[string]*helpTopic{
+				"status":  {text: dbStatusHelpText},
+				"migrate": {text: dbMigrateHelpText},
+			},
+		},
+		"init": {text: initHelpText},
+		"account": {
+			text: accountHelpText,
+			children: map[string]*helpTopic{
+				"list":       {text: accountListHelpText},
+				"create":     {text: accountCreateHelpText},
+				"rename":     {text: accountRenameHelpText},
+				"deactivate": {text: accountDeactivateHelpText},
+				"activate":   {text: accountActivateHelpText},
+				"delete":     {text: accountDeleteHelpText},
+				"ledger":     {text: accountLedgerHelpText},
+			},
+		},
+		"journal": {
+			text: journalHelpText,
+			children: map[string]*helpTopic{
+				"post":    {text: journalPostHelpText},
+				"reverse": {text: journalReverseHelpText},
+			},
+		},
+		"quest": {
+			text: questHelpText,
+			children: map[string]*helpTopic{
+				"create":   {text: questCreateHelpText},
+				"list":     {text: questListHelpText},
+				"accept":   {text: questAcceptHelpText},
+				"complete": {text: questCompleteHelpText},
+				"collect":  {text: questCollectHelpText},
+				"writeoff": {text: questWriteoffHelpText},
+			},
+		},
+		"loot": {
+			text: lootHelpText,
+			children: map[string]*helpTopic{
+				"create":    {text: lootCreateHelpText},
+				"list":      {text: lootListHelpText},
+				"appraise":  {text: lootAppraiseHelpText},
+				"recognize": {text: lootRecognizeHelpText},
+				"sell":      {text: lootSellHelpText},
+			},
+		},
+		"report": {
+			text: reportHelpText,
+			children: map[string]*helpTopic{
+				"trial-balance":       {text: reportTrialBalanceHelpText},
+				"quest-receivables":   {text: reportQuestReceivablesHelpText},
+				"promised-quests":     {text: reportPromisedQuestsHelpText},
+				"loot-summary":        {text: reportLootSummaryHelpText},
+				"writeoff-candidates": {text: reportWriteoffCandidatesHelpText},
+			},
+		},
+	},
+}
+
+func (a *Application) printHelpPath(path []string) error {
+	text, ok := lookupHelpText(path)
+	if !ok {
+		return fmt.Errorf("unknown help topic %q\n\n%s", joinCommandPath(path), rootHelpText)
+	}
+
+	_, err := io.WriteString(a.stdout, text)
+	return err
+}
+
+func lookupHelpText(path []string) (string, bool) {
+	node := helpRoot
+	for _, segment := range path {
+		next, ok := node.children[segment]
+		if !ok {
+			return "", false
+		}
+		node = next
+	}
+
+	return node.text, true
+}
+
+func normalizeHelpPath(args []string) ([]string, bool) {
+	if len(args) == 0 {
+		return nil, true
+	}
+
+	if args[0] == "help" {
+		return resolveCommandPath(args[1:]), true
+	}
+
+	for index, arg := range args {
+		if !isHelpToken(arg) {
+			continue
+		}
+
+		return resolveCommandPath(args[:index]), true
+	}
+
+	return nil, false
+}
+
+func resolveCommandPath(args []string) []string {
+	node := helpRoot
+	path := make([]string, 0, len(args))
+	for _, arg := range args {
+		next, ok := node.children[arg]
+		if !ok {
+			break
+		}
+
+		path = append(path, arg)
+		node = next
+	}
+
+	return path
+}
+
+func isHelpToken(value string) bool {
+	switch value {
+	case "help", "-h", "--help":
+		return true
+	default:
+		return false
+	}
+}
+
+func joinCommandPath(path []string) string {
+	if len(path) == 0 {
+		return "lootsheet"
+	}
+
+	result := "lootsheet"
+	for _, segment := range path {
+		result += " " + segment
+	}
+
+	return result
+}
+
+const rootHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet COMMAND [SUBCOMMAND] [FLAGS]
+  lootsheet help [COMMAND] [SUBCOMMAND]
+  lootsheet COMMAND help
+  lootsheet COMMAND SUBCOMMAND -h
+  lootsheet COMMAND SUBCOMMAND --help
+
+Command groups:
+  db         inspect database state and run schema migrations
+  init       initialize a fresh LootSheet database
+  account    create, rename, activate, deactivate, delete, and inspect accounts
+  journal    post and reverse balanced journal entries
+  quest      track promised, earned, collected, and written-off quest rewards
+  loot       track loot appraisal, recognition, and sale workflows
+  report     run read-only accounting and register reports
+
+Examples:
+  lootsheet init
+  lootsheet account list
+  lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
+  lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
+  lootsheet report trial-balance
+
+Help examples:
+  lootsheet help
+  lootsheet account help
+  lootsheet account list help
+  lootsheet journal post --help
+`
+
+const dbHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet db status
+  lootsheet db migrate
+
+Subcommands:
+  status   inspect whether the configured SQLite database is uninitialized, current, upgradeable, foreign, or damaged
+  migrate  apply pending embedded schema migrations to an existing LootSheet database
+
+Examples:
+  lootsheet db status
+  lootsheet db migrate
+`
+
+const dbStatusHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet db status
+
+Displays:
+  Database path
+  Existence and lifecycle state
+  Detail for foreign or damaged databases
+  Current and target schema versions
+  Applied and pending migrations
+`
+
+const dbMigrateHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet db migrate
+
+Applies pending schema migrations to the configured LootSheet database.
+Foreign and damaged databases are reported and left untouched.
+
+Examples:
+  lootsheet db migrate
+`
+
+const initHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet init
+
+Bootstraps a fresh SQLite database from the embedded schema and seed accounts.
+If the configured database already contains LootSheet metadata, init reports that it is already initialized and does not reseed it.
+`
+
+const accountHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account list
+  lootsheet account create --code CODE --name NAME --type TYPE
+  lootsheet account rename --code CODE --name NAME
+  lootsheet account deactivate --code CODE
+  lootsheet account activate --code CODE
+  lootsheet account delete --code CODE
+  lootsheet account ledger --code CODE
+
+Subcommands:
+  list        show the chart of accounts
+  create      add a new account to the chart
+  rename      change an account name without changing its immutable code
+  deactivate  mark an account inactive without deleting history
+  activate    reactivate an inactive account
+  delete      remove an unused account that has no postings
+  ledger      print the posting history for a single account
+`
+
+const accountListHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account list
+
+Shows account code, type, active state, and name for the current chart of accounts.
+`
+
+const accountCreateHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account create --code CODE --name NAME --type TYPE
+
+Types:
+  asset
+  liability
+  equity
+  income
+  expense
+
+Examples:
+  lootsheet account create --code 5120 --name "Wizard Magic Ink" --type expense
+  lootsheet account create --code 1210 --name "Dragon Bond Deposits" --type asset
+`
+
+const accountRenameHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account rename --code CODE --name NAME
+
+Example:
+  lootsheet account rename --code 5120 --name "Wizard Ink & Paper"
+`
+
+const accountDeactivateHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account deactivate --code CODE
+
+Example:
+  lootsheet account deactivate --code 5120
+`
+
+const accountActivateHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account activate --code CODE
+
+Example:
+  lootsheet account activate --code 5120
+`
+
+const accountDeleteHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account delete --code CODE
+
+Deletes an account only if it has no journal postings.
+
+Example:
+  lootsheet account delete --code 5120
+`
+
+const accountLedgerHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet account ledger --code CODE
+
+Examples:
+  lootsheet account ledger --code 1000
+  lootsheet account ledger --code 5100
+`
+
+const journalHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+  lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
+
+Subcommands:
+  post     create a new balanced posted journal entry
+  reverse  create an immutable reversing entry for a posted journal entry
+`
+
+const journalPostHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+
+Amounts accept D&D 5e denominations: PP, GP, EP, SP, CP (case insensitive).
+  Mixed:   2GP5SP, 1PP 2GP 3SP 5CP
+  Decimal: 5.5GP, 0.5SP
+  Bare integer (treated as CP): 100
+
+Examples:
+  lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP:Quiver refill --credit 1000:2SP5CP
+  lootsheet journal post --date 2026-03-08 --description "Quest reward earned" --debit 1100:1GP --credit 4000:1GP
+`
+
+const journalReverseHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
+
+Examples:
+  lootsheet journal reverse --entry-id abc-123 --date 2026-03-09
+  lootsheet journal reverse --entry-id abc-123 --date 2026-03-09 --description "Correcting duplicate entry"
+`
+
+const questHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]
+  lootsheet quest list
+  lootsheet quest accept --id ID --date YYYY-MM-DD
+  lootsheet quest complete --id ID --date YYYY-MM-DD
+  lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]
+
+Subcommands:
+  create    register a promised quest reward off-ledger
+  list      show current quests and statuses
+  accept    move an offered quest to accepted
+  complete  recognize a quest as earned
+  collect   collect cash against an earned quest reward
+  writeoff  write off an uncollectible earned quest reward
+`
+
+const questCreateHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]
+
+Amounts accept D&D denominations such as 25GP, 7SP5CP, or bare CP integers.
+
+Examples:
+  lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
+  lootsheet quest create --title "Escort the Caravan" --reward 15GP --advance 5GP --bonus "Extra 2GP if all wagons arrive intact"
+`
+
+const questListHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest list
+
+Shows quest status, promised reward, and title for the quest register.
+`
+
+const questAcceptHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest accept --id ID --date YYYY-MM-DD
+
+Example:
+  lootsheet quest accept --id quest-123 --date 2026-03-08
+`
+
+const questCompleteHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest complete --id ID --date YYYY-MM-DD
+
+Example:
+  lootsheet quest complete --id quest-123 --date 2026-03-12
+`
+
+const questCollectHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+
+Examples:
+  lootsheet quest collect --id quest-123 --amount 10GP --date 2026-03-15
+  lootsheet quest collect --id quest-123 --amount 5GP --date 2026-03-16 --description "Second pouch from the mayor"
+`
+
+const questWriteoffHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]
+
+Example:
+  lootsheet quest writeoff --id quest-123 --date 2026-04-20 --description "Patron vanished into the Feywild"
+`
+
+const lootHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet loot create --name TEXT [--source TEXT] [--quantity N] [--holder TEXT] [--notes TEXT]
+  lootsheet loot list
+  lootsheet loot appraise --id ID --value AMOUNT --date YYYY-MM-DD [--appraiser TEXT] [--notes TEXT]
+  lootsheet loot recognize --appraisal-id ID --date YYYY-MM-DD [--description TEXT]
+  lootsheet loot sell --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+
+Subcommands:
+  create     register found loot off-ledger
+  list       show tracked loot items
+  appraise   record an appraisal without recognizing it on-ledger
+  recognize  bring an appraisal onto the ledger
+  sell       record a sale and any gain or loss
+`
+
+const lootCreateHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet loot create --name TEXT [--source TEXT] [--quantity N] [--holder TEXT] [--notes TEXT]
+
+Examples:
+  lootsheet loot create --name "Moonstone" --source "Goblin cave" --quantity 3
+  lootsheet loot create --name "Silver chalice" --holder "Brom" --notes "Wrapped in old velvet"
+`
+
+const lootListHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet loot list
+
+Shows tracked loot status, quantity, and name.
+`
+
+const lootAppraiseHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet loot appraise --id ID --value AMOUNT --date YYYY-MM-DD [--appraiser TEXT] [--notes TEXT]
+
+Examples:
+  lootsheet loot appraise --id loot-123 --value 75GP --date 2026-03-08 --appraiser "Guild jeweler"
+  lootsheet loot appraise --id loot-123 --value 80GP --date 2026-03-09 --notes "Second opinion"
+`
+
+const lootRecognizeHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet loot recognize --appraisal-id ID --date YYYY-MM-DD [--description TEXT]
+
+Examples:
+  lootsheet loot recognize --appraisal-id appraisal-123 --date 2026-03-10
+  lootsheet loot recognize --appraisal-id appraisal-123 --date 2026-03-10 --description "Recognize moonstone inventory"
+`
+
+const lootSellHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet loot sell --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
+
+Examples:
+  lootsheet loot sell --id loot-123 --amount 55GP --date 2026-03-12
+  lootsheet loot sell --id loot-123 --amount 50GP --date 2026-03-12 --description "Sold to dockside broker"
+`
+
+const reportHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet report trial-balance
+  lootsheet report quest-receivables
+  lootsheet report promised-quests
+  lootsheet report loot-summary
+  lootsheet report writeoff-candidates [--as-of YYYY-MM-DD] [--min-age-days N]
+
+Subcommands:
+  trial-balance         show debits, credits, balances, and overall balancing status
+  quest-receivables     show earned quest rewards that are not fully collected
+  promised-quests       show offered or accepted quests that remain off-ledger
+  loot-summary          show held or recognized loot with appraisal visibility
+  writeoff-candidates   show older completed quests with remaining uncollected balances
+`
+
+const reportTrialBalanceHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet report trial-balance
+
+Prints the trial balance for the current ledger, including total debits and credits and whether the books are balanced.
+`
+
+const reportQuestReceivablesHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet report quest-receivables
+
+Shows promised, paid, and outstanding amounts for earned quest rewards that still have an unpaid balance.
+`
+
+const reportPromisedQuestsHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet report promised-quests
+
+Shows offered and accepted quests with promised reward, advance, and bonus terms before recognition.
+`
+
+const reportLootSummaryHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet report loot-summary
+
+Shows held and recognized loot items with quantity and latest appraisal value where available.
+`
+
+const reportWriteoffCandidatesHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet report writeoff-candidates [--as-of YYYY-MM-DD] [--min-age-days N]
+
+Defaults:
+  --as-of         today
+  --min-age-days  30
+
+Examples:
+  lootsheet report writeoff-candidates
+  lootsheet report writeoff-candidates --as-of 2026-04-01 --min-age-days 45
+`

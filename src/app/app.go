@@ -34,7 +34,7 @@ func Run(ctx context.Context, args []string, stdout io.Writer) error {
 		return err
 	}
 
-	application, err := New(cfg, stdout, os.Stderr)
+	application, err := New(&cfg, stdout, os.Stderr)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,11 @@ func Run(ctx context.Context, args []string, stdout io.Writer) error {
 // New creates a new Application with the given configuration, stdout destination,
 // and log output writer. It validates the configuration and initializes the
 // OTel-backed structured logger.
-func New(cfg config.Config, stdout io.Writer, logOutput io.Writer) (*Application, error) {
+func New(cfg *config.Config, stdout io.Writer, logOutput io.Writer) (*Application, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -60,7 +64,7 @@ func New(cfg config.Config, stdout io.Writer, logOutput io.Writer) (*Application
 	}
 
 	return &Application{
-		config: cfg,
+		config: *cfg,
 		stdout: stdout,
 		log:    logger,
 	}, nil
@@ -84,13 +88,12 @@ func (a *Application) Run(ctx context.Context, args []string) error {
 
 	a.log.logger.DebugContext(ctx, "command start", slog.String("args", fmt.Sprint(args)))
 
-	if len(args) == 0 {
-		return a.printUsage()
+	helpPath, wantsHelp := normalizeHelpPath(args)
+	if wantsHelp {
+		return a.printHelpPath(helpPath)
 	}
 
 	switch args[0] {
-	case "help", "-h", "--help":
-		return a.printUsage()
 	case "db":
 		return a.runDatabase(ctx, args[1:])
 	case "init":
@@ -106,7 +109,7 @@ func (a *Application) Run(ctx context.Context, args []string) error {
 	case "report":
 		return a.runReport(ctx, args[1:])
 	default:
-		return fmt.Errorf("unknown command %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown command %q\n\n%s", args[0], rootHelpText)
 	}
 }
 
@@ -160,7 +163,7 @@ func (a *Application) runInit(ctx context.Context) error {
 
 func (a *Application) runAccount(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing account subcommand\n\n%s", usageText)
+		return fmt.Errorf("missing account subcommand\n\n%s", accountHelpText)
 	}
 
 	hctx := a.handlerContext()
@@ -181,13 +184,13 @@ func (a *Application) runAccount(ctx context.Context, args []string) error {
 	case "delete":
 		return account.HandleDelete(ctx, hctx, args[1:])
 	default:
-		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], accountHelpText)
 	}
 }
 
 func (a *Application) runJournal(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing journal subcommand\n\n%s", usageText)
+		return fmt.Errorf("missing journal subcommand\n\n%s", journalHelpText)
 	}
 
 	hctx := a.handlerContext()
@@ -198,13 +201,13 @@ func (a *Application) runJournal(ctx context.Context, args []string) error {
 	case "reverse":
 		return journal.HandleReverse(ctx, hctx, args[1:])
 	default:
-		return fmt.Errorf("unknown journal subcommand %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown journal subcommand %q\n\n%s", args[0], journalHelpText)
 	}
 }
 
 func (a *Application) runQuest(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing quest subcommand\n\n%s", usageText)
+		return fmt.Errorf("missing quest subcommand\n\n%s", questHelpText)
 	}
 
 	hctx := a.handlerContext()
@@ -223,13 +226,13 @@ func (a *Application) runQuest(ctx context.Context, args []string) error {
 	case "writeoff":
 		return quest.HandleWriteoff(ctx, hctx, args[1:])
 	default:
-		return fmt.Errorf("unknown quest subcommand %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown quest subcommand %q\n\n%s", args[0], questHelpText)
 	}
 }
 
 func (a *Application) runLoot(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing loot subcommand\n\n%s", usageText)
+		return fmt.Errorf("missing loot subcommand\n\n%s", lootHelpText)
 	}
 
 	hctx := a.handlerContext()
@@ -246,13 +249,13 @@ func (a *Application) runLoot(ctx context.Context, args []string) error {
 	case "sell":
 		return loot.HandleSell(ctx, hctx, args[1:])
 	default:
-		return fmt.Errorf("unknown loot subcommand %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown loot subcommand %q\n\n%s", args[0], lootHelpText)
 	}
 }
 
 func (a *Application) runReport(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("missing report subcommand\n\n%s", usageText)
+		return fmt.Errorf("missing report subcommand\n\n%s", reportHelpText)
 	}
 
 	hctx := a.handlerContext()
@@ -269,45 +272,6 @@ func (a *Application) runReport(ctx context.Context, args []string) error {
 	case "writeoff-candidates":
 		return report.HandleWriteOffCandidates(ctx, hctx, args[1:])
 	default:
-		return fmt.Errorf("unknown report subcommand %q\n\n%s", args[0], usageText)
+		return fmt.Errorf("unknown report subcommand %q\n\n%s", args[0], reportHelpText)
 	}
 }
-
-func (a *Application) printUsage() error {
-	_, err := io.WriteString(a.stdout, usageText)
-	return err
-}
-
-const usageText = `LootSheet CLI
-
-Usage:
-  lootsheet db status
-  lootsheet db migrate
-  lootsheet init
-  lootsheet account list
-  lootsheet account create --code CODE --name NAME --type TYPE
-  lootsheet account rename --code CODE --name NAME
-  lootsheet account deactivate --code CODE
-  lootsheet account activate --code CODE
-  lootsheet account delete --code CODE
-  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
-  lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
-  lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]
-  lootsheet quest list
-  lootsheet quest accept --id ID --date YYYY-MM-DD
-  lootsheet quest complete --id ID --date YYYY-MM-DD
-  lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
-  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]
-  lootsheet loot create --name TEXT [--source TEXT] [--quantity N] [--holder TEXT] [--notes TEXT]
-  lootsheet loot list
-  lootsheet loot appraise --id ID --value AMOUNT --date DATE [--appraiser TEXT] [--notes TEXT]
-  lootsheet loot recognize --appraisal-id ID --date DATE [--description TEXT]
-  lootsheet loot sell --id ID --amount AMOUNT --date DATE [--description TEXT]
-  lootsheet account ledger --code CODE
-  lootsheet report trial-balance
-  lootsheet report quest-receivables
-  lootsheet report promised-quests
-  lootsheet report loot-summary
-  lootsheet report writeoff-candidates [--as-of YYYY-MM-DD] [--min-age-days N]
-  lootsheet help
-`
