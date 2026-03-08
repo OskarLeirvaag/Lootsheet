@@ -46,6 +46,17 @@ func (s JournalEntryStatus) Valid() bool {
 	}
 }
 
+// Immutable returns true if the entry status forbids edits and deletes.
+// Posted and reversed entries are immutable; corrections must use reversal or adjustment.
+func (s JournalEntryStatus) Immutable() bool {
+	switch s {
+	case JournalEntryStatusPosted, JournalEntryStatusReversed:
+		return true
+	default:
+		return false
+	}
+}
+
 func JournalEntryStatuses() []JournalEntryStatus {
 	return []JournalEntryStatus{
 		JournalEntryStatusDraft,
