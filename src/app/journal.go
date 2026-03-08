@@ -10,6 +10,7 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
 	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
 func (a *Application) runJournal(ctx context.Context, args []string) error {
@@ -64,8 +65,8 @@ func (a *Application) runJournalPost(ctx context.Context, args []string) error {
 		result.EntryDate,
 		result.Description,
 		result.LineCount,
-		service.FormatAmount(result.DebitTotal),
-		service.FormatAmount(result.CreditTotal),
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write journal output: %w", err)
 	}
@@ -131,7 +132,7 @@ func parseJournalLineSpec(value string, isDebit bool) (service.JournalLineInput,
 		return service.JournalLineInput{}, fmt.Errorf("journal line %q is missing an account code", value)
 	}
 
-	amount, err := service.ParseAmount(parts[1])
+	amount, err := tools.ParseAmount(parts[1])
 	if err != nil {
 		return service.JournalLineInput{}, fmt.Errorf("journal line %q has an invalid amount: %w", value, err)
 	}
@@ -223,8 +224,8 @@ func (a *Application) runJournalReverse(ctx context.Context, args []string) erro
 		result.EntryDate,
 		result.Description,
 		result.LineCount,
-		service.FormatAmount(result.DebitTotal),
-		service.FormatAmount(result.CreditTotal),
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write reversal output: %w", err)
 	}

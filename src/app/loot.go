@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 	"io"
 	"log/slog"
 )
@@ -130,7 +130,7 @@ func (a *Application) runLootAppraise(ctx context.Context, args []string) error 
 		return fmt.Errorf("--value is required\n\n%s", lootAppraiseUsageText)
 	}
 
-	value, err := service.ParseAmount(valueStr)
+	value, err := tools.ParseAmount(valueStr)
 	if err != nil {
 		return fmt.Errorf("invalid value %q: %w\n\n%s", valueStr, err, lootAppraiseUsageText)
 	}
@@ -161,7 +161,7 @@ func (a *Application) runLootAppraise(ctx context.Context, args []string) error 
 		"Appraised loot item %s\nAppraisal ID: %s\nValue: %s\nDate: %s\n",
 		id,
 		result.ID,
-		service.FormatAmount(result.AppraisedValue),
+		tools.FormatAmount(result.AppraisedValue),
 		result.AppraisedAt,
 	); err != nil {
 		return fmt.Errorf("write loot appraise output: %w", err)
@@ -214,8 +214,8 @@ func (a *Application) runLootRecognize(ctx context.Context, args []string) error
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		service.FormatAmount(result.DebitTotal),
-		service.FormatAmount(result.CreditTotal),
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write loot recognize output: %w", err)
 	}
@@ -245,7 +245,7 @@ func (a *Application) runLootSell(ctx context.Context, args []string) error {
 		return fmt.Errorf("--amount is required\n\n%s", lootSellUsageText)
 	}
 
-	amount, err := service.ParseAmount(amountStr)
+	amount, err := tools.ParseAmount(amountStr)
 	if err != nil {
 		return fmt.Errorf("invalid amount %q: %w\n\n%s", amountStr, err, lootSellUsageText)
 	}
@@ -278,9 +278,9 @@ func (a *Application) runLootSell(ctx context.Context, args []string) error {
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		service.FormatAmount(amount),
-		service.FormatAmount(result.DebitTotal),
-		service.FormatAmount(result.CreditTotal),
+		tools.FormatAmount(amount),
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write loot sell output: %w", err)
 	}
