@@ -2,8 +2,8 @@ package repo
 
 import (
 	"context"
-	"os"
-	"os/exec"
+	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,10 +13,6 @@ import (
 )
 
 func TestEnsureSQLiteInitializedCreatesSchemaAndSeeds(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -55,10 +51,6 @@ func TestEnsureSQLiteInitializedCreatesSchemaAndSeeds(t *testing.T) {
 }
 
 func TestEnsureSQLiteInitializedDoesNotReseedExistingDatabase(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -93,10 +85,6 @@ func TestEnsureSQLiteInitializedDoesNotReseedExistingDatabase(t *testing.T) {
 }
 
 func TestListAccountsReturnsSeededAccounts(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -124,10 +112,6 @@ func TestListAccountsReturnsSeededAccounts(t *testing.T) {
 }
 
 func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -185,10 +169,6 @@ func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
 }
 
 func TestPostJournalEntryRejectsUnbalancedInput(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -224,10 +204,6 @@ func TestPostJournalEntryRejectsUnbalancedInput(t *testing.T) {
 }
 
 func TestGetDatabaseStatusReturnsUninitializedForMissingDatabase(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "missing.db")
 
@@ -271,10 +247,6 @@ func TestGetDatabaseStatusReturnsUninitializedForMissingDatabase(t *testing.T) {
 }
 
 func TestGetDatabaseStatusReturnsAppliedMigrationsAfterInit(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -322,10 +294,6 @@ func TestGetDatabaseStatusReturnsAppliedMigrationsAfterInit(t *testing.T) {
 }
 
 func TestGetDatabaseStatusFallsBackToLegacySettingsVersion(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "legacy.db")
 
@@ -370,10 +338,6 @@ INSERT INTO settings (key, value) VALUES ('schema_version', '1');
 }
 
 func TestMigrateSQLiteDatabaseAppliesPendingMigrations(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
 
@@ -420,10 +384,6 @@ func TestMigrateSQLiteDatabaseAppliesPendingMigrations(t *testing.T) {
 }
 
 func TestMigrateSQLiteDatabaseBackfillsLegacyMetadataBeforeApplyingMigrations(t *testing.T) {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		t.Skipf("%s not available: %v", sqliteCommand, err)
-	}
-
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "legacy.db")
 
@@ -473,27 +433,47 @@ func loadMigrationAssetsForTest(t *testing.T) (config.InitAssets, config.InitAss
 	return fullAssets, legacyAssets
 }
 
-func runSQLiteQueryForTest(t *testing.T, databasePath string, sql string) string {
+func runSQLiteQueryForTest(t *testing.T, databasePath string, query string) string {
 	t.Helper()
 
-	command := exec.Command(sqliteCommand, "-batch", "-noheader", databasePath, sql)
-	output, err := command.CombinedOutput()
+	db, err := sql.Open("sqlite", databasePath)
 	if err != nil {
-		t.Fatalf("run sqlite query: %v: %s", err, strings.TrimSpace(string(output)))
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query(query)
+	if err != nil {
+		t.Fatalf("run test query: %v", err)
+	}
+	defer rows.Close()
+
+	var lines []string
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			t.Fatalf("scan test row: %v", err)
+		}
+		lines = append(lines, value)
 	}
 
-	return string(output)
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate test rows: %v", err)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
-func runSQLiteScriptForTest(t *testing.T, databasePath string, sql string) {
+func runSQLiteScriptForTest(t *testing.T, databasePath string, sqlScript string) {
 	t.Helper()
 
-	command := exec.Command(sqliteCommand, databasePath)
-	command.Stdin = strings.NewReader(sql)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
 
-	if err := command.Run(); err != nil {
-		t.Fatalf("run sqlite script: %v", err)
+	if _, err := db.Exec(sqlScript); err != nil {
+		t.Fatalf("run test script: %v: %s", err, fmt.Sprintf("%.200s", sqlScript))
 	}
 }

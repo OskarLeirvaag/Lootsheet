@@ -2,22 +2,20 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+	_ "modernc.org/sqlite"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/service"
 )
-
-const sqliteCommand = "sqlite3"
 
 type InitResult struct {
 	Initialized  bool
@@ -85,11 +83,26 @@ const (
 	DatabaseStateUnknown       DatabaseLifecycleState = "unknown"
 )
 
-func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets config.InitAssets) (InitResult, error) {
-	if err := ensureSQLiteAvailable(); err != nil {
-		return InitResult{}, err
+func openDB(databasePath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	for _, pragma := range []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA busy_timeout = 5000",
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("set database pragma: %w", err)
+		}
+	}
+
+	return db, nil
+}
+
+func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets config.InitAssets) (InitResult, error) {
 	state, err := inspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return InitResult{}, err
@@ -106,8 +119,63 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 		return InitResult{}, fmt.Errorf("create database directory: %w", err)
 	}
 
-	if err := runSQLiteScript(ctx, databasePath, buildInitScript(assets)); err != nil {
+	db, err := openDB(databasePath)
+	if err != nil {
 		return InitResult{}, err
+	}
+	defer db.Close()
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return InitResult{}, fmt.Errorf("begin init transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, migration := range assets.Migrations {
+		if _, err := tx.ExecContext(ctx, migration.SQL); err != nil {
+			return InitResult{}, fmt.Errorf("execute init migration %s: %w", migration.Name, err)
+		}
+	}
+
+	for _, migration := range assets.Migrations {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+			migration.Version, migration.Name,
+		); err != nil {
+			return InitResult{}, fmt.Errorf("record init migration %s: %w", migration.Name, err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO settings (key, value) VALUES (?, ?)",
+		"schema_version", assets.SchemaVersion,
+	); err != nil {
+		return InitResult{}, fmt.Errorf("record schema version: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO settings (key, value) VALUES (?, CURRENT_TIMESTAMP)",
+		"initialized_at",
+	); err != nil {
+		return InitResult{}, fmt.Errorf("record initialization timestamp: %w", err)
+	}
+
+	for _, account := range assets.Accounts {
+		active := 0
+		if account.Active {
+			active = 1
+		}
+
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO accounts (id, code, name, type, active) VALUES (?, ?, ?, ?, ?)",
+			account.ID, account.Code, account.Name, account.Type, active,
+		); err != nil {
+			return InitResult{}, fmt.Errorf("seed account %s: %w", account.Code, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return InitResult{}, fmt.Errorf("commit init transaction: %w", err)
 	}
 
 	return InitResult{
@@ -119,10 +187,6 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 }
 
 func GetDatabaseStatus(ctx context.Context, databasePath string) (DatabaseStatus, error) {
-	if err := ensureSQLiteAvailable(); err != nil {
-		return DatabaseStatus{}, err
-	}
-
 	state, err := inspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return DatabaseStatus{}, err
@@ -138,64 +202,49 @@ func GetDatabaseStatus(ctx context.Context, databasePath string) (DatabaseStatus
 }
 
 func ListAccounts(ctx context.Context, databasePath string) ([]AccountRecord, error) {
-	if err := ensureSQLiteAvailable(); err != nil {
-		return nil, err
-	}
-
 	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
 		return nil, err
 	}
 
-	output, err := runSQLiteQuery(
-		ctx,
-		databasePath,
-		"SELECT id, code, name, type, active FROM accounts ORDER BY code, id;",
-		"-separator",
-		"\t",
-	)
+	db, err := openDB(databasePath)
 	if err != nil {
 		return nil, err
 	}
+	defer db.Close()
 
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	if len(lines) == 1 && lines[0] == "" {
-		return []AccountRecord{}, nil
+	rows, err := db.QueryContext(ctx, "SELECT id, code, name, type, active FROM accounts ORDER BY code, id")
+	if err != nil {
+		return nil, fmt.Errorf("query accounts: %w", err)
+	}
+	defer rows.Close()
+
+	accounts := []AccountRecord{}
+	for rows.Next() {
+		var r AccountRecord
+		var accountType string
+		var active int
+
+		if err := rows.Scan(&r.ID, &r.Code, &r.Name, &accountType, &active); err != nil {
+			return nil, fmt.Errorf("scan account row: %w", err)
+		}
+
+		r.Type = service.AccountType(accountType)
+		if !r.Type.Valid() {
+			return nil, fmt.Errorf("scan account row: invalid account type %q", accountType)
+		}
+
+		r.Active = active == 1
+		accounts = append(accounts, r)
 	}
 
-	accounts := make([]AccountRecord, 0, len(lines))
-	for _, line := range lines {
-		fields := strings.Split(line, "\t")
-		if len(fields) != 5 {
-			return nil, fmt.Errorf("parse account row: expected 5 columns, got %d", len(fields))
-		}
-
-		accountType := service.AccountType(fields[3])
-		if !accountType.Valid() {
-			return nil, fmt.Errorf("parse account row: invalid account type %q", fields[3])
-		}
-
-		active, err := strconv.Atoi(fields[4])
-		if err != nil {
-			return nil, fmt.Errorf("parse account row active flag: %w", err)
-		}
-
-		accounts = append(accounts, AccountRecord{
-			ID:     fields[0],
-			Code:   fields[1],
-			Name:   fields[2],
-			Type:   accountType,
-			Active: active == 1,
-		})
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate account rows: %w", err)
 	}
 
 	return accounts, nil
 }
 
 func PostJournalEntry(ctx context.Context, databasePath string, input service.JournalPostInput) (PostedJournalEntry, error) {
-	if err := ensureSQLiteAvailable(); err != nil {
-		return PostedJournalEntry{}, err
-	}
-
 	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
 		return PostedJournalEntry{}, err
 	}
@@ -205,19 +254,48 @@ func PostJournalEntry(ctx context.Context, databasePath string, input service.Jo
 		return PostedJournalEntry{}, err
 	}
 
-	accountIDsByCode, err := resolveActiveAccountIDsByCode(ctx, databasePath, validated.Lines)
+	db, err := openDB(databasePath)
+	if err != nil {
+		return PostedJournalEntry{}, err
+	}
+	defer db.Close()
+
+	accountIDsByCode, err := resolveActiveAccountIDsByCode(ctx, db, validated.Lines)
 	if err != nil {
 		return PostedJournalEntry{}, err
 	}
 
-	entryNumber, err := nextJournalEntryNumber(ctx, databasePath)
+	entryNumber, err := nextJournalEntryNumber(ctx, db)
 	if err != nil {
 		return PostedJournalEntry{}, err
 	}
 
 	entryID := uuid.NewString()
-	if err := runSQLiteScript(ctx, databasePath, buildPostJournalEntryScript(entryID, entryNumber, validated, accountIDsByCode)); err != nil {
-		return PostedJournalEntry{}, err
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("begin journal post transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+		entryID, entryNumber, "posted", validated.EntryDate, validated.Description,
+	); err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("insert journal entry: %w", err)
+	}
+
+	for index, line := range validated.Lines {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO journal_lines (id, journal_entry_id, line_number, account_id, memo, debit_amount, credit_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			uuid.NewString(), entryID, index+1, accountIDsByCode[line.AccountCode], line.Memo, line.DebitAmount, line.CreditAmount,
+		); err != nil {
+			return PostedJournalEntry{}, fmt.Errorf("insert journal line %d: %w", index+1, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return PostedJournalEntry{}, fmt.Errorf("commit journal post transaction: %w", err)
 	}
 
 	return PostedJournalEntry{
@@ -256,21 +334,20 @@ func inspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 		return databaseState{}, fmt.Errorf("database path %q is a directory", databasePath)
 	}
 
-	userTableCountOutput, err := runSQLiteQuery(
-		ctx,
-		databasePath,
-		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';",
-	)
+	db, err := openDB(databasePath)
 	if err != nil {
 		return databaseState{}, err
 	}
+	defer db.Close()
 
-	userTableCount, err := strconv.Atoi(strings.TrimSpace(userTableCountOutput))
-	if err != nil {
-		return databaseState{}, fmt.Errorf("parse user table count: %w", err)
+	var userTableCount int
+	if err := db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+	).Scan(&userTableCount); err != nil {
+		return databaseState{}, fmt.Errorf("count user tables: %w", err)
 	}
 
-	appliedMigrations, err := loadAppliedMigrations(ctx, databasePath)
+	appliedMigrations, err := loadAppliedMigrations(ctx, db)
 	if err == nil {
 		schemaVersion := ""
 		if len(appliedMigrations) > 0 {
@@ -289,22 +366,21 @@ func inspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 		return databaseState{}, err
 	}
 
-	schemaVersion, err := runSQLiteQuery(
-		ctx,
-		databasePath,
-		"SELECT value FROM settings WHERE key = 'schema_version';",
-	)
-	if err != nil {
-		if strings.Contains(err.Error(), "no such table: settings") {
+	var schemaVersion string
+	queryErr := db.QueryRowContext(ctx,
+		"SELECT value FROM settings WHERE key = 'schema_version'",
+	).Scan(&schemaVersion)
+	if queryErr != nil {
+		if strings.Contains(queryErr.Error(), "no such table: settings") {
 			return databaseState{Exists: true, UserTableCount: userTableCount}, nil
 		}
-		return databaseState{}, err
+		return databaseState{}, queryErr
 	}
 
 	return databaseState{
 		Exists:             true,
 		UserTableCount:     userTableCount,
-		SchemaVersion:      strings.TrimSpace(schemaVersion),
+		SchemaVersion:      schemaVersion,
 		UsesLegacyMetadata: true,
 	}, nil
 }
@@ -322,45 +398,32 @@ func ensureInitializedDatabase(ctx context.Context, databasePath string) error {
 	return nil
 }
 
-func loadAppliedMigrations(ctx context.Context, databasePath string) ([]AppliedMigration, error) {
-	output, err := runSQLiteQuery(
-		ctx,
-		databasePath,
-		"SELECT version, name, applied_at FROM schema_migrations ORDER BY CAST(version AS INTEGER), name;",
-		"-separator",
-		"\t",
+func loadAppliedMigrations(ctx context.Context, db *sql.DB) ([]AppliedMigration, error) {
+	rows, err := db.QueryContext(ctx,
+		"SELECT version, name, applied_at FROM schema_migrations ORDER BY CAST(version AS INTEGER), name",
 	)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	trimmedOutput := strings.TrimSpace(output)
-	if trimmedOutput == "" {
-		return []AppliedMigration{}, nil
+	migrations := []AppliedMigration{}
+	for rows.Next() {
+		var m AppliedMigration
+		if err := rows.Scan(&m.Version, &m.Name, &m.AppliedAt); err != nil {
+			return nil, fmt.Errorf("scan applied migration: %w", err)
+		}
+		migrations = append(migrations, m)
 	}
 
-	migrations := make([]AppliedMigration, 0)
-	for _, line := range strings.Split(trimmedOutput, "\n") {
-		fields := strings.Split(line, "\t")
-		if len(fields) != 3 {
-			return nil, fmt.Errorf("parse applied migration row: expected 3 columns, got %d", len(fields))
-		}
-
-		migrations = append(migrations, AppliedMigration{
-			Version:   fields[0],
-			Name:      fields[1],
-			AppliedAt: fields[2],
-		})
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return migrations, nil
 }
 
-func resolveActiveAccountIDsByCode(
-	ctx context.Context,
-	databasePath string,
-	lines []service.JournalLineInput,
-) (map[string]string, error) {
+func resolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []service.JournalLineInput) (map[string]string, error) {
 	accountCodes := make([]string, 0, len(lines))
 	seenCodes := make(map[string]struct{}, len(lines))
 
@@ -375,31 +438,36 @@ func resolveActiveAccountIDsByCode(
 
 	slices.Sort(accountCodes)
 
-	query := "SELECT code, id, active FROM accounts WHERE code IN (" + sqlStringList(accountCodes) + ");"
-	output, err := runSQLiteQuery(ctx, databasePath, query, "-separator", "\t")
-	if err != nil {
-		return nil, err
+	placeholders := make([]string, len(accountCodes))
+	args := make([]any, len(accountCodes))
+	for i, code := range accountCodes {
+		placeholders[i] = "?"
+		args[i] = code
 	}
 
+	query := "SELECT code, id, active FROM accounts WHERE code IN (" + strings.Join(placeholders, ", ") + ")"
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query account codes: %w", err)
+	}
+	defer rows.Close()
+
 	records := map[string]accountLookupRecord{}
-	trimmedOutput := strings.TrimSpace(output)
-	if trimmedOutput != "" {
-		for _, line := range strings.Split(trimmedOutput, "\n") {
-			fields := strings.Split(line, "\t")
-			if len(fields) != 3 {
-				return nil, fmt.Errorf("parse account lookup row: expected 3 columns, got %d", len(fields))
-			}
+	for rows.Next() {
+		var code string
+		var r accountLookupRecord
+		var active int
 
-			active, err := strconv.Atoi(fields[2])
-			if err != nil {
-				return nil, fmt.Errorf("parse account lookup active flag: %w", err)
-			}
-
-			records[fields[0]] = accountLookupRecord{
-				ID:     fields[1],
-				Active: active == 1,
-			}
+		if err := rows.Scan(&code, &r.ID, &active); err != nil {
+			return nil, fmt.Errorf("scan account lookup row: %w", err)
 		}
+
+		r.Active = active == 1
+		records[code] = r
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate account lookup rows: %w", err)
 	}
 
 	resolved := make(map[string]string, len(accountCodes))
@@ -419,131 +487,14 @@ func resolveActiveAccountIDsByCode(
 	return resolved, nil
 }
 
-func nextJournalEntryNumber(ctx context.Context, databasePath string) (int, error) {
-	output, err := runSQLiteQuery(
-		ctx,
-		databasePath,
-		"SELECT COALESCE(MAX(entry_number), 0) + 1 FROM journal_entries;",
-	)
-	if err != nil {
-		return 0, err
-	}
+func nextJournalEntryNumber(ctx context.Context, db *sql.DB) (int, error) {
+	var entryNumber int
 
-	entryNumber, err := strconv.Atoi(strings.TrimSpace(output))
-	if err != nil {
-		return 0, fmt.Errorf("parse next journal entry number: %w", err)
+	if err := db.QueryRowContext(ctx,
+		"SELECT COALESCE(MAX(entry_number), 0) + 1 FROM journal_entries",
+	).Scan(&entryNumber); err != nil {
+		return 0, fmt.Errorf("query next journal entry number: %w", err)
 	}
 
 	return entryNumber, nil
-}
-
-func ensureSQLiteAvailable() error {
-	if _, err := exec.LookPath(sqliteCommand); err != nil {
-		return fmt.Errorf("sqlite3 command not available: %w", err)
-	}
-
-	return nil
-}
-
-func runSQLiteQuery(ctx context.Context, databasePath string, sql string, extraArgs ...string) (string, error) {
-	args := []string{"-batch", "-noheader"}
-	args = append(args, extraArgs...)
-	args = append(args, databasePath, sql)
-
-	command := exec.CommandContext(ctx, sqliteCommand, args...)
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("run sqlite query: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-
-	return string(output), nil
-}
-
-func runSQLiteScript(ctx context.Context, databasePath string, sql string) error {
-	command := exec.CommandContext(ctx, sqliteCommand, "-batch", "-bail", databasePath)
-	command.Stdin = strings.NewReader(sql)
-
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("run sqlite script: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-
-	return nil
-}
-
-func buildInitScript(assets config.InitAssets) string {
-	statements := make([]string, 0, len(assets.Migrations)*2+len(assets.Accounts)+2)
-
-	for _, migration := range assets.Migrations {
-		statements = append(statements, migration.SQL)
-	}
-
-	for _, migration := range assets.Migrations {
-		statements = append(statements, buildInsertStatement(
-			"schema_migrations",
-			[]string{"version", "name"},
-			[]string{sqlString(migration.Version), sqlString(migration.Name)},
-		))
-	}
-
-	statements = append(statements,
-		buildInsertStatement("settings", []string{"key", "value"}, []string{sqlString("schema_version"), sqlString(assets.SchemaVersion)}),
-		buildInsertStatement("settings", []string{"key", "value"}, []string{sqlString("initialized_at"), sqlCurrentTimestamp}),
-	)
-
-	for _, account := range assets.Accounts {
-		statements = append(statements, buildInsertStatement(
-			"accounts",
-			[]string{"id", "code", "name", "type", "active"},
-			[]string{
-				sqlString(account.ID),
-				sqlString(account.Code),
-				sqlString(account.Name),
-				sqlString(account.Type),
-				sqlBool(account.Active),
-			},
-		))
-	}
-
-	return buildTransactionScript(statements...)
-}
-
-func buildPostJournalEntryScript(
-	entryID string,
-	entryNumber int,
-	input service.ValidatedJournalPost,
-	accountIDsByCode map[string]string,
-) string {
-	statements := make([]string, 0, len(input.Lines)+1)
-
-	statements = append(statements, buildInsertStatement(
-		"journal_entries",
-		[]string{"id", "entry_number", "status", "entry_date", "description", "posted_at"},
-		[]string{
-			sqlString(entryID),
-			sqlInt(entryNumber),
-			sqlString("posted"),
-			sqlString(input.EntryDate),
-			sqlString(input.Description),
-			sqlCurrentTimestamp,
-		},
-	))
-
-	for index, line := range input.Lines {
-		statements = append(statements, buildInsertStatement(
-			"journal_lines",
-			[]string{"id", "journal_entry_id", "line_number", "account_id", "memo", "debit_amount", "credit_amount"},
-			[]string{
-				sqlString(uuid.NewString()),
-				sqlString(entryID),
-				sqlInt(index + 1),
-				sqlString(accountIDsByCode[line.AccountCode]),
-				sqlString(line.Memo),
-				sqlInt64(line.DebitAmount),
-				sqlInt64(line.CreditAmount),
-			},
-		))
-	}
-
-	return buildTransactionScript(statements...)
 }
