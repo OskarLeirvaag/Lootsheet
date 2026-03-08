@@ -1,4 +1,4 @@
-package service
+package tools
 
 import (
 	"testing"
@@ -205,7 +205,6 @@ func TestFormatAmountNegative(t *testing.T) {
 }
 
 func TestParseFormatRoundTrip(t *testing.T) {
-	// Parse a string, format the result, parse again, verify same value.
 	tests := []struct {
 		input string
 		cp    int64
@@ -230,7 +229,6 @@ func TestParseFormatRoundTrip(t *testing.T) {
 
 			formatted := FormatAmount(parsed)
 
-			// Parse the formatted output back.
 			reparsed, err := ParseAmount(formatted)
 			if err != nil {
 				t.Fatalf("ParseAmount(%q) (round-trip) error: %v", formatted, err)

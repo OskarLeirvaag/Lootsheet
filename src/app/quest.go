@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 	"io"
 	"log/slog"
 )
@@ -50,12 +50,12 @@ func (a *Application) runQuestCreate(ctx context.Context, args []string) error {
 		return fmt.Errorf("%s\n\n%s", err, questCreateUsageText)
 	}
 
-	reward, err := service.ParseAmount(rewardStr)
+	reward, err := tools.ParseAmount(rewardStr)
 	if err != nil {
 		return fmt.Errorf("invalid reward %q: %w\n\n%s", rewardStr, err, questCreateUsageText)
 	}
 
-	advance, err := service.ParseAmount(advanceStr)
+	advance, err := tools.ParseAmount(advanceStr)
 	if err != nil {
 		return fmt.Errorf("invalid advance %q: %w\n\n%s", advanceStr, err, questCreateUsageText)
 	}
@@ -89,7 +89,7 @@ func (a *Application) runQuestCreate(ctx context.Context, args []string) error {
 		result.ID,
 		result.Title,
 		string(result.Status),
-		service.FormatAmount(result.PromisedBaseReward),
+		tools.FormatAmount(result.PromisedBaseReward),
 	); err != nil {
 		return fmt.Errorf("write quest output: %w", err)
 	}
@@ -115,7 +115,7 @@ func (a *Application) runQuestList(ctx context.Context) error {
 			a.stdout,
 			"%-16s %-22s  %s\n",
 			string(quest.Status),
-			service.FormatAmount(quest.PromisedBaseReward),
+			tools.FormatAmount(quest.PromisedBaseReward),
 			quest.Title,
 		); err != nil {
 			return fmt.Errorf("write quest row: %w", err)
@@ -228,7 +228,7 @@ func (a *Application) runQuestCollect(ctx context.Context, args []string) error 
 		return fmt.Errorf("--amount is required\n\n%s", questCollectUsageText)
 	}
 
-	amount, err := service.ParseAmount(amountStr)
+	amount, err := tools.ParseAmount(amountStr)
 	if err != nil {
 		return fmt.Errorf("invalid amount %q: %w\n\n%s", amountStr, err, questCollectUsageText)
 	}
@@ -266,9 +266,9 @@ func (a *Application) runQuestCollect(ctx context.Context, args []string) error 
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		service.FormatAmount(amount),
-		service.FormatAmount(result.DebitTotal),
-		service.FormatAmount(result.CreditTotal),
+		tools.FormatAmount(amount),
+		tools.FormatAmount(result.DebitTotal),
+		tools.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write collect output: %w", err)
 	}

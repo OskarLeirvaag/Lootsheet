@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
 func (a *Application) runAccountLedger(ctx context.Context, args []string) error {
@@ -95,13 +95,13 @@ func (a *Application) runAccountLedger(ctx context.Context, args []string) error
 
 		debitStr := ""
 		if entry.DebitAmount != 0 {
-			debitStr = service.FormatAmount(entry.DebitAmount)
+			debitStr = tools.FormatAmount(entry.DebitAmount)
 		}
 		creditStr := ""
 		if entry.CreditAmount != 0 {
-			creditStr = service.FormatAmount(entry.CreditAmount)
+			creditStr = tools.FormatAmount(entry.CreditAmount)
 		}
-		balanceStr := service.FormatAmount(entry.RunningBalance)
+		balanceStr := tools.FormatAmount(entry.RunningBalance)
 
 		if _, err := fmt.Fprintf(a.stdout, rowFmt,
 			entry.EntryDate, entry.EntryNumber, desc, memo, debitStr, creditStr, balanceStr,
@@ -111,7 +111,7 @@ func (a *Application) runAccountLedger(ctx context.Context, args []string) error
 	}
 
 	// Print final balance line.
-	balanceFormatted := service.FormatAmount(report.Balance)
+	balanceFormatted := tools.FormatAmount(report.Balance)
 	balanceLabelWidth := 10 + 2 + 5 + 2 + descWidth + 2 + memoWidth + 2 + 20 + 2 + 20 + 2
 	if _, err := fmt.Fprintf(a.stdout, "%*s%s\n", balanceLabelWidth-len(balanceFormatted), "Balance: ", balanceFormatted); err != nil {
 		return fmt.Errorf("write ledger balance: %w", err)

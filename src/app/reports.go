@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
-	"github.com/OskarLeirvaag/Lootsheet/src/service"
+	"github.com/OskarLeirvaag/Lootsheet/src/tools"
 )
 
 func (a *Application) runReport(ctx context.Context, args []string) error {
@@ -50,9 +50,9 @@ func (a *Application) runTrialBalance(ctx context.Context) error {
 			row.AccountCode,
 			truncate(row.AccountName, 20),
 			string(row.AccountType),
-			service.FormatAmount(row.TotalDebits),
-			service.FormatAmount(row.TotalCredits),
-			service.FormatAmount(row.Balance),
+			tools.FormatAmount(row.TotalDebits),
+			tools.FormatAmount(row.TotalCredits),
+			tools.FormatAmount(row.Balance),
 		); err != nil {
 			return fmt.Errorf("write trial balance row: %w", err)
 		}
@@ -68,11 +68,11 @@ func (a *Application) runTrialBalance(ctx context.Context) error {
 		if diff < 0 {
 			diff = -diff
 		}
-		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %s)", service.FormatAmount(diff))
+		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %s)", tools.FormatAmount(diff))
 	}
 
 	if _, err := fmt.Fprintf(a.stdout, "%-27s%-11s  %-20s  %-20s  %s\n",
-		"", "Totals:", service.FormatAmount(report.TotalDebits), service.FormatAmount(report.TotalCredits), balanceLabel,
+		"", "Totals:", tools.FormatAmount(report.TotalDebits), tools.FormatAmount(report.TotalCredits), balanceLabel,
 	); err != nil {
 		return fmt.Errorf("write trial balance totals: %w", err)
 	}
