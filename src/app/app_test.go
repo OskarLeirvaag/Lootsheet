@@ -178,6 +178,128 @@ func TestRunJournalPostRejectsUnbalancedEntry(t *testing.T) {
 	}
 }
 
+func TestRunJournalReverseCreatesReversalEntry(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	// Post an entry first.
+	var postStdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"journal",
+		"post",
+		"--date", "2026-03-08",
+		"--description", "Restock arrows",
+		"--debit", "5100:25:Quiver refill",
+		"--credit", "1000:25",
+	}, &postStdout)
+	if err != nil {
+		t.Fatalf("run journal post: %v", err)
+	}
+
+	// Get the entry ID from the database.
+	entryID := getFirstJournalEntryID(t, databasePath)
+
+	// Reverse it.
+	var reverseStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"journal",
+		"reverse",
+		"--entry-id", entryID,
+		"--date", "2026-03-09",
+	}, &reverseStdout)
+	if err != nil {
+		t.Fatalf("run journal reverse: %v", err)
+	}
+
+	output := reverseStdout.String()
+	if !strings.Contains(output, "Reversed journal entry as #2") {
+		t.Fatalf("reverse output missing entry number: %q", output)
+	}
+
+	if !strings.Contains(output, "Debits: 25") || !strings.Contains(output, "Credits: 25") {
+		t.Fatalf("reverse output missing totals: %q", output)
+	}
+
+	if !strings.Contains(output, "Reversal of entry #1") {
+		t.Fatalf("reverse output missing default description: %q", output)
+	}
+}
+
+func TestRunJournalReverseWithCustomDescription(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	var postStdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"journal",
+		"post",
+		"--date", "2026-03-08",
+		"--description", "Wrong entry",
+		"--debit", "5100:50",
+		"--credit", "1000:50",
+	}, &postStdout)
+	if err != nil {
+		t.Fatalf("run journal post: %v", err)
+	}
+
+	entryID := getFirstJournalEntryID(t, databasePath)
+
+	var reverseStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"journal",
+		"reverse",
+		"--entry-id", entryID,
+		"--date", "2026-03-09",
+		"--description", "Correcting duplicate purchase",
+	}, &reverseStdout)
+	if err != nil {
+		t.Fatalf("run journal reverse: %v", err)
+	}
+
+	if !strings.Contains(reverseStdout.String(), "Correcting duplicate purchase") {
+		t.Fatalf("reverse output missing custom description: %q", reverseStdout.String())
+	}
+}
+
+func getFirstJournalEntryID(t *testing.T, databasePath string) string {
+	t.Helper()
+
+	db, err := repo.OpenDBForTest(databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	var entryID string
+	if err := db.QueryRow("SELECT id FROM journal_entries ORDER BY entry_number LIMIT 1").Scan(&entryID); err != nil {
+		t.Fatalf("query first journal entry ID: %v", err)
+	}
+
+	return entryID
+}
+
 func TestRunAccountCreateAddsNewAccount(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config", "config.json")

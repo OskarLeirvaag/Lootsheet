@@ -865,6 +865,156 @@ func TestDeactivateAccountRejectsNonexistentCode(t *testing.T) {
 	}
 }
 
+func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	reversal, err := ReverseJournalEntry(context.Background(), databasePath, posted.ID, "2026-03-09", "")
+	if err != nil {
+		t.Fatalf("reverse journal entry: %v", err)
+	}
+
+	if reversal.EntryNumber != 2 {
+		t.Fatalf("reversal entry number = %d, want 2", reversal.EntryNumber)
+	}
+
+	if reversal.EntryDate != "2026-03-09" {
+		t.Fatalf("reversal entry date = %q, want 2026-03-09", reversal.EntryDate)
+	}
+
+	if reversal.Description != "Reversal of entry #1" {
+		t.Fatalf("reversal description = %q, want default description", reversal.Description)
+	}
+
+	if reversal.LineCount != 2 {
+		t.Fatalf("reversal line count = %d, want 2", reversal.LineCount)
+	}
+
+	if reversal.DebitTotal != 25 || reversal.CreditTotal != 25 {
+		t.Fatalf("reversal totals = %d/%d, want 25/25", reversal.DebitTotal, reversal.CreditTotal)
+	}
+
+	// Verify the reversal entry has swapped amounts: original debit 5100:25 becomes credit 5100:25.
+	reversalLines := strings.TrimSpace(runSQLiteQueryForTest(
+		t,
+		databasePath,
+		fmt.Sprintf(
+			"SELECT debit_amount || ',' || credit_amount FROM journal_lines WHERE journal_entry_id = '%s' ORDER BY line_number;",
+			reversal.ID,
+		),
+	))
+	if reversalLines != "0,25\n25,0" {
+		t.Fatalf("reversal lines = %q, want swapped amounts", reversalLines)
+	}
+
+	// Verify the reversal entry references the original.
+	reversesEntryID := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath,
+		fmt.Sprintf("SELECT reverses_entry_id FROM journal_entries WHERE id = '%s';", reversal.ID),
+	))
+	if reversesEntryID != posted.ID {
+		t.Fatalf("reverses_entry_id = %q, want %q", reversesEntryID, posted.ID)
+	}
+
+	// Verify original entry is now reversed.
+	originalStatus := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath,
+		fmt.Sprintf("SELECT status FROM journal_entries WHERE id = '%s';", posted.ID),
+	))
+	if originalStatus != "reversed" {
+		t.Fatalf("original status = %q, want reversed", originalStatus)
+	}
+
+	// Verify reversed_at is set on the original.
+	reversedAt := strings.TrimSpace(runSQLiteQueryForTest(t, databasePath,
+		fmt.Sprintf("SELECT COALESCE(reversed_at, '') FROM journal_entries WHERE id = '%s';", posted.ID),
+	))
+	if reversedAt == "" {
+		t.Fatal("original entry reversed_at is empty")
+	}
+}
+
+func TestReverseAlreadyReversedEntryFails(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	posted, err := PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Restock arrows",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 25, Memo: "Quiver refill"},
+			{AccountCode: "1000", CreditAmount: 25},
+		},
+	})
+	if err != nil {
+		t.Fatalf("post journal entry: %v", err)
+	}
+
+	if _, err := ReverseJournalEntry(context.Background(), databasePath, posted.ID, "2026-03-09", ""); err != nil {
+		t.Fatalf("first reversal: %v", err)
+	}
+
+	_, err = ReverseJournalEntry(context.Background(), databasePath, posted.ID, "2026-03-10", "")
+	if err == nil {
+		t.Fatal("expected reversing an already-reversed entry to fail")
+	}
+
+	if err != ErrEntryNotReversible {
+		t.Fatalf("error = %v, want ErrEntryNotReversible", err)
+	}
+}
+
+func TestReverseNonexistentEntryFails(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	_, err = ReverseJournalEntry(context.Background(), databasePath, "nonexistent-id", "2026-03-09", "")
+	if err == nil {
+		t.Fatal("expected reversing a nonexistent entry to fail")
+	}
+
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("error = %q, want does-not-exist error", err)
+	}
+}
+
 func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")

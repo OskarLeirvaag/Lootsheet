@@ -338,5 +338,6 @@ Usage:
   lootsheet account deactivate --code CODE
   lootsheet account activate --code CODE
   lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+  lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
   lootsheet help
 `
