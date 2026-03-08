@@ -20,15 +20,17 @@ type BrowseAppraisalRecord struct {
 
 // BrowseItemRecord is the loot browse row used by the TUI.
 type BrowseItemRecord struct {
-	ID              string
-	Name            string
-	Source          string
-	Status          ledger.LootStatus
-	Quantity        int
-	Holder          string
-	Notes           string
-	AppraisalCount  int
-	LatestAppraisal *BrowseAppraisalRecord
+	ID                       string
+	Name                     string
+	Source                   string
+	Status                   ledger.LootStatus
+	Quantity                 int
+	Holder                   string
+	Notes                    string
+	AppraisalCount           int
+	HasRecognizedAppraisal   bool
+	RecognizedAppraisalValue int64
+	LatestAppraisal          *BrowseAppraisalRecord
 }
 
 // ListBrowseItems returns held and recognized loot items with latest-appraisal detail.
@@ -136,6 +138,42 @@ func ListBrowseItems(ctx context.Context, databasePath string) ([]BrowseItemReco
 
 		if err := appraisalRows.Err(); err != nil {
 			return nil, fmt.Errorf("iterate loot browse appraisals: %w", err)
+		}
+
+		recognizedRows, err := db.QueryContext(ctx, `
+			SELECT
+				la.loot_item_id,
+				la.appraised_value
+			FROM loot_appraisals la
+			JOIN loot_items li ON li.id = la.loot_item_id
+			WHERE li.status IN ('held', 'recognized')
+			  AND la.recognized_entry_id IS NOT NULL
+			ORDER BY la.loot_item_id, la.appraised_at DESC, la.created_at DESC, la.id DESC
+		`)
+		if err != nil {
+			return nil, fmt.Errorf("query loot browse recognized appraisals: %w", err)
+		}
+		defer recognizedRows.Close()
+
+		for recognizedRows.Next() {
+			var itemID string
+			var appraisedValue int64
+
+			if err := recognizedRows.Scan(&itemID, &appraisedValue); err != nil {
+				return nil, fmt.Errorf("scan loot browse recognized appraisal: %w", err)
+			}
+
+			index, ok := indexesByID[itemID]
+			if !ok || items[index].HasRecognizedAppraisal {
+				continue
+			}
+
+			items[index].HasRecognizedAppraisal = true
+			items[index].RecognizedAppraisalValue = appraisedValue
+		}
+
+		if err := recognizedRows.Err(); err != nil {
+			return nil, fmt.Errorf("iterate loot browse recognized appraisals: %w", err)
 		}
 
 		return items, nil

@@ -96,6 +96,12 @@ func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *test
 	if row.LatestAppraisal.RecognizedEntryID != entry.ID {
 		t.Fatalf("recognized entry id = %q, want %q", row.LatestAppraisal.RecognizedEntryID, entry.ID)
 	}
+	if !row.HasRecognizedAppraisal {
+		t.Fatal("expected recognized appraisal flag")
+	}
+	if row.RecognizedAppraisalValue != 800 {
+		t.Fatalf("recognized appraisal value = %d, want 800", row.RecognizedAppraisalValue)
+	}
 }
 
 func TestListBrowseItemsExcludesSoldItems(t *testing.T) {

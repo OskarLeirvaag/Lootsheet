@@ -65,7 +65,7 @@
 - [x] Add journal reversal and drill-down workflows in the TUI.
 - [x] Add quest collection/write-off workflows in the TUI.
 - [x] Add loot recognition workflows in the TUI.
-- [ ] Add loot sale workflows in the TUI.
+- [x] Add loot sale workflows in the TUI.
 - [ ] Add optional mouse support.
 
 ## Data and Rules

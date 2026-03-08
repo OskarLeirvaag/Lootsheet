@@ -6,7 +6,7 @@ The intent is to treat party finances like a small accounting system, but adapte
 
 ## Status
 
-LootSheet now has a working SQLite-backed CLI foundation plus an interactive multi-screen TUI slice. The TUI opens into a boxed dashboard, moves between Accounts, Journal, Quests, and Loot screens with keyboard navigation, keeps a selected row and detail pane on list screens, supports account activate/deactivate, journal reversal, full-balance quest collection/write-off, and latest-appraisal loot recognition through confirmation modals, and redraws cleanly on resize while staying backed by app-facing adapters; broader interactive workflows, packaging, backup/recovery flow, and sample-data polish are still in progress.
+LootSheet now has a working SQLite-backed CLI foundation plus an interactive multi-screen TUI slice. The TUI opens into a boxed dashboard, moves between Accounts, Journal, Quests, and Loot screens with keyboard navigation, keeps a selected row and detail pane on list screens, supports account activate/deactivate, journal reversal, full-balance quest collection/write-off, latest-appraisal loot recognition, and recognized-loot sale with amount entry, and redraws cleanly on resize while staying backed by app-facing adapters; broader interactive workflows, packaging, backup/recovery flow, and sample-data polish are still in progress.
 
 Implemented so far:
 
@@ -18,7 +18,7 @@ Implemented so far:
 - quest create/list/accept/complete/collect/writeoff lifecycle flows
 - loot create/list/appraise/recognize/sell lifecycle flows
 - reporting for trial balance, account ledger, quest receivables, promised quests, loot summary, and write-off candidates
-- interactive `tcell`-backed TUI shell with alternate-screen lifecycle, resize-aware boxed panels, contextual footer help, list selection/detail panes, an Accounts activate/deactivate workflow, a Journal line-detail/reversal workflow, Quest full-balance collect/write-off actions, and Loot latest-appraisal recognition backed by app/domain read models
+- interactive `tcell`-backed TUI shell with alternate-screen lifecycle, resize-aware boxed panels, contextual footer help, list selection/detail panes, an Accounts activate/deactivate workflow, a Journal line-detail/reversal workflow, Quest full-balance collect/write-off actions, and Loot recognition/sale actions backed by app/domain read models
 - installed-binary-style smoke coverage in `./testapp.sh`
 - structured application logging via stdlib `slog` with text levels `DBG`, `INFO`, `WARN`, `ERR`
 

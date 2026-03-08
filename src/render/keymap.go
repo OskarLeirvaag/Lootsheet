@@ -32,6 +32,7 @@ const (
 	ActionCollect       Action = "collect"
 	ActionWriteOff      Action = "write_off"
 	ActionRecognize     Action = "recognize"
+	ActionSell          Action = "sell"
 	ActionConfirm       Action = "confirm"
 )
 
@@ -156,6 +157,10 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionRecognize,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'n'},
+			},
+			{
+				Action: ActionSell,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 's'},
 			},
 			{
 				Action: ActionConfirm,

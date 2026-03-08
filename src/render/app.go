@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"errors"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -59,8 +60,7 @@ func Run(ctx context.Context, options *Options) error {
 		case nil:
 			return nil
 		case *tcell.EventKey:
-			action := keymap.Resolve(typed)
-			result := shell.HandleAction(action)
+			result := shell.HandleKeyEvent(typed, keymap)
 			if result.Quit {
 				return nil
 			}
@@ -82,10 +82,16 @@ func Run(ctx context.Context, options *Options) error {
 
 				data, status, err := options.CommandHandler(ctx, *result.Command)
 				if err != nil {
-					shell.SetStatus(StatusMessage{
-						Level: StatusError,
-						Text:  err.Error(),
-					})
+					var inputErr InputError
+					if errors.As(err, &inputErr) {
+						shell.ApplyInputError(inputErr.Error())
+					} else {
+						shell.CloseModal()
+						shell.SetStatus(StatusMessage{
+							Level: StatusError,
+							Text:  err.Error(),
+						})
+					}
 				} else {
 					shell.Reload(&data)
 					shell.SetStatus(status)

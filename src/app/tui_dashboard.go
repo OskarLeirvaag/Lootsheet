@@ -25,6 +25,7 @@ const (
 	tuiCommandQuestCollectFull  = "quest.collect_full"
 	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
 	tuiCommandLootRecognize     = "loot.recognize_latest"
+	tuiCommandLootSell          = "loot.sell"
 )
 
 var tuiNow = time.Now
@@ -94,11 +95,11 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Loot: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Unrealized loot register from %s.", databaseName),
-				"Select a loot item to inspect it. `n` recognizes the selected latest appraisal using today's date.",
+				"Select a loot item to inspect it. `n` recognizes the latest appraisal and `s` sells recognized loot using today's date.",
 			},
 			EmptyLines: []string{
 				"No loot tracked yet.",
-				"Recognition appears when a held item has a latest appraisal of at least 1 CP.",
+				"Recognition appears for held items with a latest appraisal of at least 1 CP. Sale appears for recognized items.",
 			},
 		},
 	}
@@ -333,6 +334,42 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Recognized loot item %q as entry #%d.", item.Name, result.EntryNumber),
+		}
+	case tuiCommandLootSell:
+		items, err := loot.ListBrowseItems(ctx, databasePath)
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		item, ok := findBrowseLootItem(items, command.ItemKey)
+		if !ok {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
+		}
+		if !lootSellable(&item) {
+			return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("loot item %q cannot be sold right now", command.ItemKey)
+		}
+
+		amountText := strings.TrimSpace(command.Args["amount"])
+		if amountText == "" {
+			return render.ShellData{}, render.StatusMessage{}, render.InputError{Message: "Sale amount is required."}
+		}
+
+		amount, err := tools.ParseAmount(amountText)
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+		if amount <= 0 {
+			return render.ShellData{}, render.StatusMessage{}, render.InputError{Message: "Sale amount must be positive."}
+		}
+
+		result, err := loot.SellLootItem(ctx, databasePath, command.ItemKey, amount, today, "")
+		if err != nil {
+			return render.ShellData{}, render.StatusMessage{}, err
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Sold loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	default:
 		return render.ShellData{}, render.StatusMessage{}, fmt.Errorf("unsupported TUI command %q", command.ID)
@@ -691,6 +728,12 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 			"Latest appraisal: " + lootLatestAppraisalText(row),
 			fmt.Sprintf("Appraisals tracked: %d", row.AppraisalCount),
 		}
+		if row.HasRecognizedAppraisal {
+			detailLines = append(detailLines, "Recognized value: "+lootRecognizedValueText(row))
+		}
+		if lootSellable(row) {
+			detailLines = append(detailLines, "Sale state: sellable from recognized basis")
+		}
 		if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedAt != "" {
 			detailLines = append(detailLines, "Appraised on: "+row.LatestAppraisal.AppraisedAt)
 		}
@@ -721,6 +764,7 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 				Trigger:      render.ActionRecognize,
 				ID:           tuiCommandLootRecognize,
 				Label:        "n recognize",
+				Mode:         render.ItemActionModeConfirm,
 				ConfirmTitle: fmt.Sprintf("Recognize %q?", row.Name),
 				ConfirmLines: []string{
 					"Latest appraisal: " + lootLatestAppraisalText(row),
@@ -730,6 +774,22 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 					"A new posted journal entry will be created.",
 					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Recognize loot appraisal: %s", row.LatestAppraisal.ID)),
 				},
+			}}
+		} else if lootSellable(row) {
+			actions = []render.ItemActionData{{
+				Trigger:     render.ActionSell,
+				ID:          tuiCommandLootSell,
+				Label:       "s sell",
+				Mode:        render.ItemActionModeInput,
+				InputTitle:  fmt.Sprintf("Sell %q?", row.Name),
+				InputPrompt: "Sale amount",
+				InputHelp: []string{
+					"Sale date: " + today,
+					"Recognized value: " + lootRecognizedValueText(row),
+					"Enter sale proceeds in GP/SP/CP format.",
+					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Sale of loot item: %s", row.ID)),
+				},
+				Placeholder: tools.FormatAmount(row.RecognizedAppraisalValue),
 			}}
 		}
 
@@ -802,6 +862,14 @@ func lootLatestAppraisalText(row *loot.BrowseItemRecord) string {
 	return tools.FormatAmount(row.LatestAppraisal.AppraisedValue)
 }
 
+func lootRecognizedValueText(row *loot.BrowseItemRecord) string {
+	if row == nil || !row.HasRecognizedAppraisal {
+		return "Unknown / none"
+	}
+
+	return tools.FormatAmount(row.RecognizedAppraisalValue)
+}
+
 func lootRowAppraisalLabel(row *loot.BrowseItemRecord) string {
 	if row == nil || row.LatestAppraisal == nil {
 		return "unknown"
@@ -820,6 +888,14 @@ func lootRecognizable(row *loot.BrowseItemRecord) bool {
 	}
 
 	return strings.TrimSpace(row.LatestAppraisal.RecognizedEntryID) == ""
+}
+
+func lootSellable(row *loot.BrowseItemRecord) bool {
+	if row == nil || row.Status != ledger.LootStatusRecognized {
+		return false
+	}
+
+	return row.HasRecognizedAppraisal
 }
 
 func loadTUIQuestRows(ctx context.Context, databasePath string) ([]tuiQuestRow, error) {

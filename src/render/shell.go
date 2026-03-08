@@ -3,12 +3,26 @@ package render
 import (
 	"fmt"
 	"strings"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 type confirmState struct {
 	Section Section
 	ItemKey string
 	Action  ItemActionData
+}
+
+type inputState struct {
+	Section     Section
+	ItemKey     string
+	Action      ItemActionData
+	Title       string
+	Prompt      string
+	Value       string
+	Placeholder string
+	ErrorText   string
+	HelpLines   []string
 }
 
 type handleResult struct {
@@ -28,6 +42,7 @@ type Shell struct {
 	viewHeights     map[Section]int
 	status          StatusMessage
 	confirm         *confirmState
+	input           *inputState
 }
 
 // NewShell constructs the interactive TUI shell state.
@@ -53,6 +68,7 @@ func (s *Shell) Reload(data *ShellData) {
 
 	s.Data = resolveShellData(data)
 	s.confirm = nil
+	s.input = nil
 	s.reconcileSelections()
 }
 
@@ -69,6 +85,10 @@ func (s *Shell) SetStatus(status StatusMessage) {
 func (s *Shell) HandleAction(action Action) handleResult {
 	if s == nil {
 		return handleResult{}
+	}
+
+	if s.input != nil {
+		return s.handleInputAction(action)
 	}
 
 	if s.confirm != nil {
@@ -133,13 +153,30 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.moveSelectionTo(1 << 30) {
 			return handleResult{Redraw: true}
 		}
-	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize:
+	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
 		}
 	}
 
 	return handleResult{}
+}
+
+// HandleKeyEvent updates shell state for raw key input when the shell needs more
+// than semantic action mapping, such as text entry inside a modal.
+func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResult {
+	if s == nil {
+		return handleResult{}
+	}
+
+	action := keymap.Resolve(event)
+	if s.input != nil {
+		if result, handled := s.handleInputKeyEvent(event, action); handled {
+			return result
+		}
+	}
+
+	return s.HandleAction(action)
 }
 
 func (s *Shell) handleConfirmAction(action Action) handleResult {
@@ -160,6 +197,89 @@ func (s *Shell) handleConfirmAction(action Action) handleResult {
 	default:
 		return handleResult{}
 	}
+}
+
+func (s *Shell) handleInputAction(action Action) handleResult {
+	switch action {
+	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
+		return handleResult{}
+	case ActionQuit:
+		s.input = nil
+		return handleResult{Redraw: true}
+	case ActionRedraw:
+		s.input = nil
+		return handleResult{Reload: true}
+	case ActionConfirm:
+		return handleResult{}
+	}
+
+	return handleResult{}
+}
+
+func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
+	if s.input == nil || event == nil {
+		return handleResult{}, false
+	}
+
+	switch action {
+	case ActionQuit, ActionRedraw:
+		return s.handleInputAction(action), true
+	case ActionConfirm:
+		if strings.TrimSpace(s.input.Value) == "" {
+			s.input.ErrorText = "Sale amount is required."
+			return handleResult{Redraw: true}, true
+		}
+
+		command := s.pendingCommand()
+		if command == nil {
+			return handleResult{Redraw: true}, true
+		}
+
+		return handleResult{Command: command}, true
+	default:
+	}
+
+	switch event.Key() {
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		runes := []rune(s.input.Value)
+		if len(runes) == 0 {
+			return handleResult{}, true
+		}
+		s.input.Value = string(runes[:len(runes)-1])
+		s.input.ErrorText = ""
+		return handleResult{Redraw: true}, true
+	case tcell.KeyCtrlU:
+		if s.input.Value == "" && s.input.ErrorText == "" {
+			return handleResult{}, true
+		}
+		s.input.Value = ""
+		s.input.ErrorText = ""
+		return handleResult{Redraw: true}, true
+	case tcell.KeyRune:
+		s.input.Value += string(event.Rune())
+		s.input.ErrorText = ""
+		return handleResult{Redraw: true}, true
+	default:
+		return handleResult{}, true
+	}
+}
+
+// ApplyInputError updates the open input modal with a validation message.
+func (s *Shell) ApplyInputError(message string) {
+	if s == nil || s.input == nil {
+		return
+	}
+	s.input.ErrorText = strings.TrimSpace(message)
+}
+
+// CloseModal closes any currently open modal.
+func (s *Shell) CloseModal() {
+	if s == nil {
+		return
+	}
+	s.confirm = nil
+	s.input = nil
 }
 
 // Render draws the full shell for the current section.
@@ -204,6 +324,9 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	drawStatusLine(buffer, statusRect, theme, s.status)
 	drawFooter(buffer, helpRect, theme, s.footerHelpText(keymap))
 
+	if s.input != nil {
+		s.renderInputModal(buffer, body, theme)
+	}
 	if s.confirm != nil {
 		s.renderConfirmModal(buffer, body, theme)
 	}
@@ -252,6 +375,10 @@ func (s *Shell) tabsLine() string {
 }
 
 func (s *Shell) footerHelpText(keymap KeyMap) string {
+	if s.input != nil {
+		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel  q cancel"
+	}
+
 	if s.confirm != nil {
 		return "Enter confirm  Esc cancel  q cancel"
 	}
@@ -275,7 +402,8 @@ func (s *Shell) currentActionLabels() string {
 	}
 
 	labels := make([]string, 0, len(item.Actions))
-	for _, action := range item.Actions {
+	for index := range item.Actions {
+		action := item.Actions[index]
 		if strings.TrimSpace(action.Label) == "" {
 			continue
 		}
@@ -441,6 +569,46 @@ func (s *Shell) renderConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
 	})
 }
 
+func (s *Shell) renderInputModal(buffer *Buffer, rect Rect, theme *Theme) {
+	if s.input == nil || rect.Empty() {
+		return
+	}
+
+	lines := make([]string, 0, len(s.input.HelpLines)+5)
+	if prompt := strings.TrimSpace(s.input.Prompt); prompt != "" {
+		lines = append(lines, prompt+": "+s.input.displayValue())
+	} else {
+		lines = append(lines, s.input.displayValue())
+	}
+
+	if strings.TrimSpace(s.input.ErrorText) != "" {
+		lines = append(lines, "Error: "+s.input.ErrorText)
+	}
+	if len(s.input.HelpLines) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, s.input.HelpLines...)
+	}
+	lines = append(lines, "", "Enter submit  Esc/q cancel")
+
+	width := 60
+	for _, line := range lines {
+		if candidate := len([]rune(line)) + 4; candidate > width {
+			width = candidate
+		}
+	}
+
+	width = clampInt(width, 40, minInt(70, rect.W))
+	height := clampInt(len(lines)+2, 6, rect.H)
+	x := rect.X + maxInt(0, (rect.W-width)/2)
+	y := rect.Y + maxInt(0, (rect.H-height)/2)
+	modal := Rect{X: x, Y: y, W: width, H: height}
+
+	DrawPanel(buffer, modal, theme, Panel{
+		Title: s.input.Title,
+		Lines: lines,
+	})
+}
+
 func (s *Shell) pageSize() int {
 	size := s.viewHeights[s.Section]
 	if size <= 1 {
@@ -452,7 +620,21 @@ func (s *Shell) pageSize() int {
 
 func (s *Shell) pendingCommand() *Command {
 	if s.confirm == nil {
-		return nil
+		if s.input == nil {
+			return nil
+		}
+
+		command := &Command{
+			ID:      s.input.Action.ID,
+			Section: s.input.Section,
+			ItemKey: s.input.ItemKey,
+		}
+		if strings.TrimSpace(s.input.Value) != "" {
+			command.Args = map[string]string{
+				"amount": s.input.Value,
+			}
+		}
+		return command
 	}
 
 	command := &Command{
@@ -513,15 +695,29 @@ func (s *Shell) openAction(trigger Action) bool {
 		return false
 	}
 
-	for _, action := range item.Actions {
+	for index := range item.Actions {
+		action := item.Actions[index]
 		if action.Trigger != trigger {
 			continue
 		}
 
-		s.confirm = &confirmState{
-			Section: s.Section,
-			ItemKey: item.Key,
-			Action:  action,
+		switch action.Mode {
+		case ItemActionModeInput:
+			s.input = &inputState{
+				Section:     s.Section,
+				ItemKey:     item.Key,
+				Action:      action,
+				Title:       action.InputTitle,
+				Prompt:      action.InputPrompt,
+				Placeholder: action.Placeholder,
+				HelpLines:   append([]string{}, action.InputHelp...),
+			}
+		default:
+			s.confirm = &confirmState{
+				Section: s.Section,
+				ItemKey: item.Key,
+				Action:  action,
+			}
 		}
 		return true
 	}
@@ -695,6 +891,19 @@ func drawStatusLine(buffer *Buffer, rect Rect, theme *Theme, status StatusMessag
 	}
 
 	buffer.WriteString(visible.X, visible.Y, style, clipText(status.Text, visible.W))
+}
+
+func (s *inputState) displayValue() string {
+	if s == nil {
+		return ""
+	}
+	if strings.TrimSpace(s.Value) != "" {
+		return s.Value
+	}
+	if strings.TrimSpace(s.Placeholder) != "" {
+		return "[" + s.Placeholder + "]"
+	}
+	return ""
 }
 
 func joinHelp(parts ...string) string {

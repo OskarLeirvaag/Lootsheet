@@ -732,6 +732,85 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 	}
 }
 
+func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
+	if err != nil {
+		t.Fatalf("appraise item: %v", err)
+	}
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-10", ""); err != nil {
+		t.Fatalf("recognize item: %v", err)
+	}
+
+	data, err := buildTUIShellData(ctx, databasePath, assets)
+	if err != nil {
+		t.Fatalf("build shell data: %v", err)
+	}
+
+	found := false
+	for _, row := range data.Loot.Items {
+		if row.Key != item.ID {
+			continue
+		}
+		found = true
+		if len(row.Actions) != 1 {
+			t.Fatalf("recognized loot row actions = %#v, want single sell action", row.Actions)
+		}
+		action := row.Actions[0]
+		if action.Trigger != render.ActionSell {
+			t.Fatalf("loot action trigger = %q, want %q", action.Trigger, render.ActionSell)
+		}
+		if action.ID != tuiCommandLootSell {
+			t.Fatalf("loot action id = %q, want %q", action.ID, tuiCommandLootSell)
+		}
+		if action.Mode != render.ItemActionModeInput {
+			t.Fatalf("loot action mode = %q, want input", action.Mode)
+		}
+		if action.Placeholder != "7 GP 5 SP" {
+			t.Fatalf("loot action placeholder = %q, want 7 GP 5 SP", action.Placeholder)
+		}
+		detail := strings.Join(row.DetailLines, "\n")
+		for _, token := range []string{
+			"Status: recognized",
+			"Recognized value: 7 GP 5 SP",
+			"Sale state: sellable from recognized basis",
+		} {
+			if !strings.Contains(detail, token) {
+				t.Fatalf("loot sell detail missing %q:\n%s", token, detail)
+			}
+		}
+		help := strings.Join(action.InputHelp, "\n")
+		for _, token := range []string{
+			"Sale date: 2026-03-10",
+			"Recognized value: 7 GP 5 SP",
+			"Enter sale proceeds in GP/SP/CP format.",
+		} {
+			if !strings.Contains(help, token) {
+				t.Fatalf("loot sale input help missing %q:\n%s", token, help)
+			}
+		}
+		break
+	}
+	if !found {
+		t.Fatalf("expected recognized loot row for %q", item.ID)
+	}
+}
+
 func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
@@ -847,11 +926,11 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(row.Actions) != 0 {
-			t.Fatalf("recognized loot should not expose actions after refresh: %#v", row)
+		if len(row.Actions) != 1 || row.Actions[0].ID != tuiCommandLootSell {
+			t.Fatalf("recognized loot should expose sell action after refresh: %#v", row)
 		}
 		detail := strings.Join(row.DetailLines, "\n")
-		for _, token := range []string{"Status: recognized", "Accounting state: on-ledger recognized inventory", "Latest appraisal: 7 GP 5 SP"} {
+		for _, token := range []string{"Status: recognized", "Accounting state: on-ledger recognized inventory", "Latest appraisal: 7 GP 5 SP", "Recognized value: 7 GP 5 SP"} {
 			if !strings.Contains(detail, token) {
 				t.Fatalf("recognized loot detail missing %q:\n%s", token, detail)
 			}
@@ -860,6 +939,112 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected recognized loot row after refresh")
+	}
+}
+
+func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "")
+	if err != nil {
+		t.Fatalf("appraise loot item: %v", err)
+	}
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-10", ""); err != nil {
+		t.Fatalf("recognize loot: %v", err)
+	}
+
+	_, _, err = handleTUICommand(ctx, render.Command{
+		ID:      tuiCommandLootSell,
+		Section: render.SectionLoot,
+		ItemKey: item.ID,
+		Args: map[string]string{
+			"amount": "banana",
+		},
+	}, databasePath, assets)
+	if err == nil {
+		t.Fatal("expected invalid sale amount error")
+	}
+
+	inputErr, ok := err.(render.InputError)
+	if !ok {
+		t.Fatalf("error type = %T, want render.InputError", err)
+	}
+	if !strings.Contains(inputErr.Error(), `Invalid amount "banana".`) {
+		t.Fatalf("input error = %q, want invalid amount message", inputErr.Error())
+	}
+}
+
+func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	originalNow := tuiNow
+	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
+	defer func() { tuiNow = originalNow }()
+
+	databasePath := ledger.InitTestDB(t)
+	ctx := context.Background()
+
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	if err != nil {
+		t.Fatalf("create loot item: %v", err)
+	}
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "")
+	if err != nil {
+		t.Fatalf("appraise loot item: %v", err)
+	}
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+		t.Fatalf("recognize loot: %v", err)
+	}
+
+	data, status, err := handleTUICommand(ctx, render.Command{
+		ID:      tuiCommandLootSell,
+		Section: render.SectionLoot,
+		ItemKey: item.ID,
+		Args: map[string]string{
+			"amount": "8 gp",
+		},
+	}, databasePath, assets)
+	if err != nil {
+		t.Fatalf("sell loot through tui command: %v", err)
+	}
+	if status.Level != render.StatusSuccess {
+		t.Fatalf("status level = %q, want %q", status.Level, render.StatusSuccess)
+	}
+	if !strings.Contains(status.Text, `Sold loot item "Gold Necklace" as entry #2.`) {
+		t.Fatalf("status text = %q, want sale summary", status.Text)
+	}
+
+	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	if err != nil {
+		t.Fatalf("list browse entries: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("entry count = %d, want 2", len(entries))
+	}
+	if entries[0].EntryDate != "2026-03-10" {
+		t.Fatalf("sale entry date = %q, want 2026-03-10", entries[0].EntryDate)
+	}
+	if entries[0].Description != "Sale of loot item: "+item.ID {
+		t.Fatalf("sale description = %q, want default sale description", entries[0].Description)
+	}
+
+	for _, row := range data.Loot.Items {
+		if row.Key == item.ID {
+			t.Fatalf("sold loot item should be absent from refreshed loot screen: %#v", row)
+		}
 	}
 }
 

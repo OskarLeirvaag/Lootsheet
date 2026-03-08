@@ -1,12 +1,25 @@
 package render
 
+// ItemActionMode determines how the shell should open an item action.
+type ItemActionMode string
+
+const (
+	ItemActionModeConfirm ItemActionMode = "confirm"
+	ItemActionModeInput   ItemActionMode = "input"
+)
+
 // ItemActionData describes the primary action available for a list item.
 type ItemActionData struct {
 	Trigger      Action
 	ID           string
 	Label        string
+	Mode         ItemActionMode
 	ConfirmTitle string
 	ConfirmLines []string
+	InputTitle   string
+	InputPrompt  string
+	InputHelp    []string
+	Placeholder  string
 }
 
 // ListItemData is a structured row plus detail content for list-style screens.
@@ -185,8 +198,8 @@ func defaultListScreenData(section Section) ListScreenData {
 				"Appraisals stay off-ledger until explicitly recognized.",
 			},
 			SummaryLines: []string{
-				"Recognition and sale flows remain in the domain layer.",
-				"The next interactive slice promotes recognition into the TUI.",
+				"Recognition and sale workflows are available from the Loot screen.",
+				"Held items can be recognized; recognized items can be sold.",
 			},
 			EmptyLines: []string{
 				"No loot rows loaded yet.",
