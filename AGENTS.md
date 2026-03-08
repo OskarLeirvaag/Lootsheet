@@ -104,7 +104,7 @@ Keep dependency flow one-way:
 ## Preferred Planned Stack
 
 - Go
-- explicit stdlib CLI parsing unless there is a strong reason to add a framework
+- Cobra for CLI command tree and flag parsing (owned by `src/app`)
 - `tcell`
 - SQLite
 
