@@ -13,18 +13,22 @@ import (
 //go:embed setup/migrations/*.sql setup/seed_accounts.json
 var initFS embed.FS
 
+// InitAssets bundles the embedded schema migrations and seed accounts required
+// to initialize or migrate a LootSheet database.
 type InitAssets struct {
 	Migrations    []InitMigration
 	SchemaVersion string
 	Accounts      []SeedAccount
 }
 
+// InitMigration represents a single SQL migration with a version identifier.
 type InitMigration struct {
 	Version string
 	Name    string
 	SQL     string
 }
 
+// SeedAccount represents a default account to be inserted during database initialization.
 type SeedAccount struct {
 	ID     string `json:"id"`
 	Code   string `json:"code"`
@@ -33,6 +37,8 @@ type SeedAccount struct {
 	Active bool   `json:"active"`
 }
 
+// LoadInitAssets reads the embedded migration SQL files and seed account data,
+// returning them sorted by version for use during database initialization and migration.
 func LoadInitAssets() (InitAssets, error) {
 	migrationEntries, err := initFS.ReadDir("setup/migrations")
 	if err != nil {

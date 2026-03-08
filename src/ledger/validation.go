@@ -6,12 +6,15 @@ import (
 	"time"
 )
 
+// JournalPostInput holds the raw, unvalidated fields for posting a journal entry.
 type JournalPostInput struct {
 	EntryDate   string
 	Description string
 	Lines       []JournalLineInput
 }
 
+// JournalLineInput represents a single line in a journal entry before validation.
+// Exactly one of DebitAmount or CreditAmount must be positive.
 type JournalLineInput struct {
 	AccountCode  string
 	Memo         string
@@ -19,11 +22,14 @@ type JournalLineInput struct {
 	CreditAmount int64
 }
 
+// JournalPostTotals holds the aggregate debit and credit amounts for a journal entry.
 type JournalPostTotals struct {
 	DebitAmount  int64
 	CreditAmount int64
 }
 
+// ValidatedJournalPost is the result of successfully validating a JournalPostInput.
+// It guarantees the entry is balanced and all fields are sanitized.
 type ValidatedJournalPost struct {
 	EntryDate   string
 	Description string
@@ -31,6 +37,9 @@ type ValidatedJournalPost struct {
 	Totals      JournalPostTotals
 }
 
+// ValidateJournalPostInput checks that the journal post input is well-formed:
+// the date is valid YYYY-MM-DD, a description is present, there are at least
+// two lines with both debit and credit sides, and the entry balances.
 func ValidateJournalPostInput(input JournalPostInput) (ValidatedJournalPost, error) {
 	entryDate := strings.TrimSpace(input.EntryDate)
 	if entryDate == "" {

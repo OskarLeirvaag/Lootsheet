@@ -1,3 +1,5 @@
+// Package account provides repository and CLI handler functions for managing
+// ledger accounts (create, list, rename, activate, deactivate, delete).
 package account
 
 import (

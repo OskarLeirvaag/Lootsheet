@@ -1,3 +1,6 @@
+// Package journal provides repository and CLI handler functions for journal
+// entries: posting balanced entries, reversing posted entries, mutability
+// checks, and per-account ledger reporting.
 package journal
 
 import (

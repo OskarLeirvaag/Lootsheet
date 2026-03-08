@@ -1,3 +1,6 @@
+// Package config handles configuration loading, resolution, and validation
+// for the LootSheet CLI. Configuration is resolved with the following
+// precedence: defaults, then config file, then environment variables.
 package config
 
 import (
@@ -11,18 +14,25 @@ import (
 )
 
 const (
-	AppName           = "lootsheet"
-	DefaultDatabase   = "lootsheet.db"
-	EnvConfigPath     = "LOOTSHEET_CONFIG"
-	EnvDataDir        = "LOOTSHEET_DATA_DIR"
+	// AppName is the application identifier used for directory naming.
+	AppName = "lootsheet"
+	// DefaultDatabase is the default SQLite database filename.
+	DefaultDatabase = "lootsheet.db"
+	// EnvConfigPath is the environment variable that overrides the config file location.
+	EnvConfigPath = "LOOTSHEET_CONFIG"
+	// EnvDataDir is the environment variable that overrides the data directory.
+	EnvDataDir = "LOOTSHEET_DATA_DIR"
+	// EnvDatabasePath is the environment variable that overrides the database file path.
 	EnvDatabasePath   = "LOOTSHEET_DATABASE_PATH"
 	defaultConfigFile = "config.json"
 )
 
+// Config holds the resolved application configuration.
 type Config struct {
 	Paths Paths `json:"paths"`
 }
 
+// Paths holds the resolved filesystem paths for configuration, data, and the database.
 type Paths struct {
 	ConfigFile   string `json:"-"`
 	DataDir      string `json:"data_dir"`
@@ -38,6 +48,7 @@ type filePaths struct {
 	DatabasePath string `json:"database_path"`
 }
 
+// Default returns a Config populated with OS-specific default paths.
 func Default() (Config, error) {
 	configPath, err := defaultConfigPath()
 	if err != nil {
@@ -58,6 +69,9 @@ func Default() (Config, error) {
 	}, nil
 }
 
+// Load returns a fully resolved Config by merging defaults, the config file
+// (if present), and environment variable overrides. All paths are normalized
+// to absolute form.
 func Load() (Config, error) {
 	cfg, err := Default()
 	if err != nil {
@@ -84,6 +98,8 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// Validate checks that all required path fields are set. It returns an error
+// describing the first missing field, if any.
 func (c Config) Validate() error {
 	switch {
 	case c.Paths.ConfigFile == "":
@@ -97,6 +113,8 @@ func (c Config) Validate() error {
 	}
 }
 
+// EnsureDirectories creates the config, data, and database parent directories
+// if they do not already exist.
 func (c Config) EnsureDirectories() error {
 	dirs := []string{
 		filepath.Dir(c.Paths.ConfigFile),

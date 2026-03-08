@@ -1,3 +1,5 @@
+// Package main is the entry point for the LootSheet CLI, a double-entry
+// bookkeeping tool for tabletop RPG parties.
 package main
 
 import (

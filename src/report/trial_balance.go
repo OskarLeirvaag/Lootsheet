@@ -1,3 +1,5 @@
+// Package report provides read-only reporting queries and CLI display handlers
+// for trial balance, quest receivables, and loot summary views.
 package report
 
 import (

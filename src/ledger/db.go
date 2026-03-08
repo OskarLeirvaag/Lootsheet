@@ -45,6 +45,10 @@ type databaseState struct {
 	UsesLegacyMetadata bool
 }
 
+// InspectSQLiteDatabase examines the database file at the given path and returns
+// its current state, including whether it exists, its user table count, schema
+// version, and applied migrations. It handles both legacy (settings-table) and
+// current (schema_migrations-table) metadata formats.
 func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseState, error) {
 	info, err := os.Stat(databasePath)
 	if errors.Is(err, os.ErrNotExist) {
