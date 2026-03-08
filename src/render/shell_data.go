@@ -2,6 +2,7 @@ package render
 
 // ItemActionData describes the primary action available for a list item.
 type ItemActionData struct {
+	Trigger      Action
 	ID           string
 	Label        string
 	ConfirmTitle string
@@ -10,11 +11,11 @@ type ItemActionData struct {
 
 // ListItemData is a structured row plus detail content for list-style screens.
 type ListItemData struct {
-	Key           string
-	Row           string
-	DetailTitle   string
-	DetailLines   []string
-	PrimaryAction *ItemActionData
+	Key         string
+	Row         string
+	DetailTitle string
+	DetailLines []string
+	Actions     []ItemActionData
 }
 
 // ListScreenData is the neutral view model for list-style TUI sections.
@@ -174,7 +175,7 @@ func defaultListScreenData(section Section) ListScreenData {
 			},
 			EmptyLines: []string{
 				"No quest rows loaded yet.",
-				"App-side adapters fill this screen with live quest data.",
+				"App-side adapters fill this screen with live quest data and actions.",
 			},
 		}
 	case SectionLoot:

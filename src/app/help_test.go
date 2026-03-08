@@ -113,6 +113,15 @@ func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
 	if !strings.Contains(output, "toggle the selected account active/inactive") {
 		t.Fatalf("tui help missing account toggle guidance: %q", output)
 	}
+	if !strings.Contains(output, "reverse the selected posted journal entry") {
+		t.Fatalf("tui help missing journal reverse guidance: %q", output)
+	}
+	if !strings.Contains(output, "collect the full outstanding balance") {
+		t.Fatalf("tui help missing quest collect guidance: %q", output)
+	}
+	if !strings.Contains(output, "write off the full outstanding balance") {
+		t.Fatalf("tui help missing quest write-off guidance: %q", output)
+	}
 	if !strings.Contains(output, "Enter                      confirm the open modal") {
 		t.Fatalf("tui help missing confirm guidance: %q", output)
 	}
