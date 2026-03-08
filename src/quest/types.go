@@ -1,3 +1,6 @@
+// Package quest provides repository and CLI handler functions for managing
+// quests and their lifecycle: creation, acceptance, completion, payment
+// collection, and write-off.
 package quest
 
 import "github.com/OskarLeirvaag/Lootsheet/src/ledger"

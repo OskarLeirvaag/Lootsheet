@@ -1,3 +1,5 @@
+// Package app wires together configuration, logging, and CLI command routing
+// for the LootSheet application.
 package app
 
 import (
@@ -16,12 +18,16 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/report"
 )
 
+// Application holds the runtime state for a single CLI invocation, including
+// resolved configuration, output destination, and structured logger.
 type Application struct {
 	config config.Config
 	stdout io.Writer
 	log    *appLogger
 }
 
+// Run is the top-level entry point that loads configuration, creates an
+// Application, and dispatches to the appropriate subcommand.
 func Run(ctx context.Context, args []string, stdout io.Writer) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -36,6 +42,9 @@ func Run(ctx context.Context, args []string, stdout io.Writer) error {
 	return application.Run(ctx, args)
 }
 
+// New creates a new Application with the given configuration, stdout destination,
+// and log output writer. It validates the configuration and initializes the
+// OTel-backed structured logger.
 func New(cfg config.Config, stdout io.Writer, logOutput io.Writer) (*Application, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -64,6 +73,8 @@ func (a *Application) handlerContext() ledger.HandlerContext {
 	}
 }
 
+// Run parses the top-level command from args and dispatches to the appropriate
+// subcommand handler. It shuts down the logger on return.
 func (a *Application) Run(ctx context.Context, args []string) error {
 	defer func() {
 		if a.log != nil && a.log.shutdown != nil {

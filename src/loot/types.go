@@ -1,3 +1,6 @@
+// Package loot provides repository and CLI handler functions for managing loot
+// items and their lifecycle: creation, appraisal (off-ledger), recognition
+// (on-ledger), and sale.
 package loot
 
 import "github.com/OskarLeirvaag/Lootsheet/src/ledger"

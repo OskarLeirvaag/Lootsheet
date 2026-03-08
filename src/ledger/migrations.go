@@ -8,6 +8,9 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 )
 
+// GetDatabaseStatusWithAssets returns the full database status including lifecycle
+// state and pending migrations computed by comparing the current schema version
+// against the provided init assets.
 func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, assets config.InitAssets) (DatabaseStatus, error) {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
@@ -44,6 +47,9 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 	return status, nil
 }
 
+// MigrateSQLiteDatabase applies any pending schema migrations to an existing
+// LootSheet database. It also repairs legacy metadata if the database uses
+// the old settings-only format. All changes are applied in a single transaction.
 func MigrateSQLiteDatabase(ctx context.Context, databasePath string, assets config.InitAssets) (MigrationResult, error) {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {

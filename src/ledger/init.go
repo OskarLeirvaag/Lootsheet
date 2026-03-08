@@ -9,6 +9,10 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 )
 
+// EnsureSQLiteInitialized creates and initializes a new LootSheet database if one
+// does not already exist at the given path. It applies all schema migrations and
+// seeds the default accounts within a single transaction. If the database is already
+// initialized, it returns a zero-value InitResult with Initialized=false.
 func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets config.InitAssets) (InitResult, error) {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
@@ -93,6 +97,9 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 	}, nil
 }
 
+// GetDatabaseStatus returns basic database status without comparing against
+// available migrations. For a status that includes pending migration info,
+// use GetDatabaseStatusWithAssets instead.
 func GetDatabaseStatus(ctx context.Context, databasePath string) (DatabaseStatus, error) {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {

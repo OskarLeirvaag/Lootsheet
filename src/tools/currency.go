@@ -1,3 +1,5 @@
+// Package tools provides shared utility functions for the LootSheet application,
+// including D&D 5e currency parsing and formatting.
 package tools
 
 import (
@@ -8,12 +10,17 @@ import (
 	"strings"
 )
 
-// Currency denominations and their CP values.
+// Currency denominations and their copper piece (CP) equivalents.
 const (
+	// CPPerCP is the number of copper pieces in one copper piece.
 	CPPerCP = 1
+	// CPPerSP is the number of copper pieces in one silver piece.
 	CPPerSP = 10
+	// CPPerEP is the number of copper pieces in one electrum piece.
 	CPPerEP = 50
+	// CPPerGP is the number of copper pieces in one gold piece.
 	CPPerGP = 100
+	// CPPerPP is the number of copper pieces in one platinum piece.
 	CPPerPP = 1000
 )
 
