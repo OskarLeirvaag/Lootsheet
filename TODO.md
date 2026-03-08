@@ -25,8 +25,8 @@
   - [x] database init
   - [x] database status
   - [x] list accounts
-  - [ ] create account
-  - [ ] rename account
+  - [x] create account
+  - [x] rename account
   - [x] post journal entry
   - [ ] reverse journal entry
   - [ ] create quest
@@ -34,7 +34,7 @@
   - [ ] collect quest payment
   - [ ] create loot appraisal
   - [ ] recognize loot appraisal
-- [ ] Add account deactivation.
+- [x] Add account deactivation.
 - [ ] Add account ledger output.
 - [ ] Add trial balance output.
 - [ ] Add loss-on-sale and bad-debt helper flows.

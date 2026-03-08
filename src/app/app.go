@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/repo"
+	"github.com/OskarLeirvaag/Lootsheet/src/service"
 )
 
 type Application struct {
@@ -136,41 +138,187 @@ func (a *Application) runAccount(ctx context.Context, args []string) error {
 
 	switch args[0] {
 	case "list":
-		a.log.logger.InfoContext(ctx, "listing accounts", slog.String("database_path", a.config.Paths.DatabasePath))
-
-		accounts, err := repo.ListAccounts(ctx, a.config.Paths.DatabasePath)
-		if err != nil {
-			a.log.logger.ErrorContext(ctx, "failed to list accounts", slog.String("error", err.Error()))
-			return err
-		}
-
-		if _, err := fmt.Fprintln(a.stdout, "CODE  TYPE       ACTIVE  NAME"); err != nil {
-			return fmt.Errorf("write accounts header: %w", err)
-		}
-
-		for _, account := range accounts {
-			activeLabel := "no"
-			if account.Active {
-				activeLabel = "yes"
-			}
-
-			if _, err := fmt.Fprintf(
-				a.stdout,
-				"%-4s  %-10s %-6s  %s\n",
-				account.Code,
-				string(account.Type),
-				activeLabel,
-				account.Name,
-			); err != nil {
-				return fmt.Errorf("write account row: %w", err)
-			}
-		}
-
-		a.log.logger.InfoContext(ctx, "listed accounts", slog.Int("count", len(accounts)))
-		return nil
+		return a.runAccountList(ctx)
+	case "create":
+		return a.runAccountCreate(ctx, args[1:])
+	case "rename":
+		return a.runAccountRename(ctx, args[1:])
+	case "deactivate":
+		return a.runAccountDeactivate(ctx, args[1:])
+	case "activate":
+		return a.runAccountActivate(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], usageText)
 	}
+}
+
+func (a *Application) runAccountList(ctx context.Context) error {
+	a.log.logger.InfoContext(ctx, "listing accounts", slog.String("database_path", a.config.Paths.DatabasePath))
+
+	accounts, err := repo.ListAccounts(ctx, a.config.Paths.DatabasePath)
+	if err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to list accounts", slog.String("error", err.Error()))
+		return err
+	}
+
+	if _, err := fmt.Fprintln(a.stdout, "CODE  TYPE       ACTIVE  NAME"); err != nil {
+		return fmt.Errorf("write accounts header: %w", err)
+	}
+
+	for _, account := range accounts {
+		activeLabel := "no"
+		if account.Active {
+			activeLabel = "yes"
+		}
+
+		if _, err := fmt.Fprintf(
+			a.stdout,
+			"%-4s  %-10s %-6s  %s\n",
+			account.Code,
+			string(account.Type),
+			activeLabel,
+			account.Name,
+		); err != nil {
+			return fmt.Errorf("write account row: %w", err)
+		}
+	}
+
+	a.log.logger.InfoContext(ctx, "listed accounts", slog.Int("count", len(accounts)))
+	return nil
+}
+
+func (a *Application) runAccountCreate(ctx context.Context, args []string) error {
+	var code, name, accountType string
+
+	flagSet := flag.NewFlagSet("account create", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&code, "code", "", "account code")
+	flagSet.StringVar(&name, "name", "", "account name")
+	flagSet.StringVar(&accountType, "type", "", "account type (asset, liability, equity, income, expense)")
+
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("%s\n\n%s", err, usageText)
+	}
+
+	a.log.logger.InfoContext(ctx, "creating account",
+		slog.String("database_path", a.config.Paths.DatabasePath),
+		slog.String("code", code),
+		slog.String("name", name),
+		slog.String("type", accountType),
+	)
+
+	result, err := repo.CreateAccount(ctx, a.config.Paths.DatabasePath, code, name, service.AccountType(accountType))
+	if err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to create account", slog.String("error", err.Error()))
+		return err
+	}
+
+	a.log.logger.InfoContext(ctx, "created account", slog.String("code", result.Code), slog.String("id", result.ID))
+
+	if _, err := fmt.Fprintf(
+		a.stdout,
+		"Created account %s\nCode: %s\nName: %s\nType: %s\n",
+		result.ID,
+		result.Code,
+		result.Name,
+		string(result.Type),
+	); err != nil {
+		return fmt.Errorf("write account output: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Application) runAccountRename(ctx context.Context, args []string) error {
+	var code, name string
+
+	flagSet := flag.NewFlagSet("account rename", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&code, "code", "", "account code")
+	flagSet.StringVar(&name, "name", "", "new account name")
+
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("%s\n\n%s", err, usageText)
+	}
+
+	a.log.logger.InfoContext(ctx, "renaming account",
+		slog.String("database_path", a.config.Paths.DatabasePath),
+		slog.String("code", code),
+		slog.String("name", name),
+	)
+
+	if err := repo.RenameAccount(ctx, a.config.Paths.DatabasePath, code, name); err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to rename account", slog.String("error", err.Error()))
+		return err
+	}
+
+	a.log.logger.InfoContext(ctx, "renamed account", slog.String("code", code), slog.String("name", name))
+
+	if _, err := fmt.Fprintf(a.stdout, "Renamed account %s to %q\n", code, name); err != nil {
+		return fmt.Errorf("write rename output: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Application) runAccountDeactivate(ctx context.Context, args []string) error {
+	var code string
+
+	flagSet := flag.NewFlagSet("account deactivate", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&code, "code", "", "account code")
+
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("%s\n\n%s", err, usageText)
+	}
+
+	a.log.logger.InfoContext(ctx, "deactivating account",
+		slog.String("database_path", a.config.Paths.DatabasePath),
+		slog.String("code", code),
+	)
+
+	if err := repo.DeactivateAccount(ctx, a.config.Paths.DatabasePath, code); err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to deactivate account", slog.String("error", err.Error()))
+		return err
+	}
+
+	a.log.logger.InfoContext(ctx, "deactivated account", slog.String("code", code))
+
+	if _, err := fmt.Fprintf(a.stdout, "Deactivated account %s\n", code); err != nil {
+		return fmt.Errorf("write deactivate output: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Application) runAccountActivate(ctx context.Context, args []string) error {
+	var code string
+
+	flagSet := flag.NewFlagSet("account activate", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&code, "code", "", "account code")
+
+	if err := flagSet.Parse(args); err != nil {
+		return fmt.Errorf("%s\n\n%s", err, usageText)
+	}
+
+	a.log.logger.InfoContext(ctx, "activating account",
+		slog.String("database_path", a.config.Paths.DatabasePath),
+		slog.String("code", code),
+	)
+
+	if err := repo.ActivateAccount(ctx, a.config.Paths.DatabasePath, code); err != nil {
+		a.log.logger.ErrorContext(ctx, "failed to activate account", slog.String("error", err.Error()))
+		return err
+	}
+
+	a.log.logger.InfoContext(ctx, "activated account", slog.String("code", code))
+
+	if _, err := fmt.Fprintf(a.stdout, "Activated account %s\n", code); err != nil {
+		return fmt.Errorf("write activate output: %w", err)
+	}
+
+	return nil
 }
 
 func (a *Application) printUsage() error {
@@ -185,6 +333,10 @@ Usage:
   lootsheet db migrate
   lootsheet init
   lootsheet account list
+  lootsheet account create --code CODE --name NAME --type TYPE
+  lootsheet account rename --code CODE --name NAME
+  lootsheet account deactivate --code CODE
+  lootsheet account activate --code CODE
   lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
   lootsheet help
 `
