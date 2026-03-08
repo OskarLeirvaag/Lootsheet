@@ -110,4 +110,10 @@ func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
 	if !strings.Contains(output, "Ctrl+L") {
 		t.Fatalf("tui help missing redraw key: %q", output)
 	}
+	if !strings.Contains(output, "toggle the selected account active/inactive") {
+		t.Fatalf("tui help missing account toggle guidance: %q", output)
+	}
+	if !strings.Contains(output, "Enter                      confirm the open modal") {
+		t.Fatalf("tui help missing confirm guidance: %q", output)
+	}
 }

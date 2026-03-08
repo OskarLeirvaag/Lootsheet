@@ -21,12 +21,14 @@ const (
 	ActionShowJournal   Action = "show_journal"
 	ActionShowQuests    Action = "show_quests"
 	ActionShowLoot      Action = "show_loot"
-	ActionScrollUp      Action = "scroll_up"
-	ActionScrollDown    Action = "scroll_down"
+	ActionMoveUp        Action = "move_up"
+	ActionMoveDown      Action = "move_down"
 	ActionPageUp        Action = "page_up"
 	ActionPageDown      Action = "page_down"
-	ActionScrollTop     Action = "scroll_top"
-	ActionScrollBottom  Action = "scroll_bottom"
+	ActionMoveTop       Action = "move_top"
+	ActionMoveBottom    Action = "move_bottom"
+	ActionPrimary       Action = "primary"
+	ActionConfirm       Action = "confirm"
 )
 
 // KeyStroke matches a specific tcell key event.
@@ -48,7 +50,7 @@ type KeyMap struct {
 	Bindings []Binding
 }
 
-// DefaultKeyMap returns the first-slice keyboard controls.
+// DefaultKeyMap returns the interactive keyboard controls.
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Bindings: []Binding{
@@ -78,20 +80,20 @@ func DefaultKeyMap() KeyMap {
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'h'},
 			},
 			{
-				Action: ActionScrollDown,
+				Action: ActionMoveDown,
 				Stroke: KeyStroke{Key: tcell.KeyDown},
-				Label:  "↑↓ scroll",
+				Label:  "↑↓ select",
 			},
 			{
-				Action: ActionScrollUp,
+				Action: ActionMoveUp,
 				Stroke: KeyStroke{Key: tcell.KeyUp},
 			},
 			{
-				Action: ActionScrollDown,
+				Action: ActionMoveDown,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'j'},
 			},
 			{
-				Action: ActionScrollUp,
+				Action: ActionMoveUp,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'k'},
 			},
 			{
@@ -103,11 +105,11 @@ func DefaultKeyMap() KeyMap {
 				Stroke: KeyStroke{Key: tcell.KeyPgUp},
 			},
 			{
-				Action: ActionScrollTop,
+				Action: ActionMoveTop,
 				Stroke: KeyStroke{Key: tcell.KeyHome},
 			},
 			{
-				Action: ActionScrollBottom,
+				Action: ActionMoveBottom,
 				Stroke: KeyStroke{Key: tcell.KeyEnd},
 			},
 			{
@@ -130,6 +132,14 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionShowLoot,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
+			},
+			{
+				Action: ActionPrimary,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 't'},
+			},
+			{
+				Action: ActionConfirm,
+				Stroke: KeyStroke{Key: tcell.KeyEnter},
 			},
 			{
 				Action: ActionQuit,

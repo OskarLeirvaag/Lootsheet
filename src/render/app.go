@@ -6,18 +6,19 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// Options configures the read-only TUI shell.
+// Options configures the interactive TUI shell.
 type Options struct {
 	ScreenFactory   ScreenFactory
 	DashboardLoader DashboardLoader
 	ShellLoader     ShellLoader
+	CommandHandler  CommandHandler
 	Theme           Theme
 	KeyMap          KeyMap
 }
 
 type cancelInterrupt struct{}
 
-// Run opens the read-only boxed TUI shell and blocks until exit.
+// Run opens the interactive boxed TUI shell and blocks until exit.
 func Run(ctx context.Context, options *Options) error {
 	theme := resolveTheme(nil)
 	keymap := DefaultKeyMap()
@@ -59,18 +60,41 @@ func Run(ctx context.Context, options *Options) error {
 			return nil
 		case *tcell.EventKey:
 			action := keymap.Resolve(typed)
-			switch action {
-			case ActionQuit:
+			result := shell.HandleAction(action)
+			if result.Quit {
 				return nil
-			case ActionRedraw:
+			}
+			if result.Reload {
 				data := loadShellData(ctx, options)
 				shell.Reload(&data)
 				drawFrame(terminal, shell, &theme, keymap, true)
-			case ActionNone:
-			default:
-				if shell.HandleAction(action) {
+				continue
+			}
+			if result.Command != nil {
+				if options == nil || options.CommandHandler == nil {
+					shell.SetStatus(StatusMessage{
+						Level: StatusError,
+						Text:  "TUI action handler unavailable.",
+					})
 					drawFrame(terminal, shell, &theme, keymap, true)
+					continue
 				}
+
+				data, status, err := options.CommandHandler(ctx, *result.Command)
+				if err != nil {
+					shell.SetStatus(StatusMessage{
+						Level: StatusError,
+						Text:  err.Error(),
+					})
+				} else {
+					shell.Reload(&data)
+					shell.SetStatus(status)
+				}
+				drawFrame(terminal, shell, &theme, keymap, true)
+				continue
+			}
+			if result.Redraw {
+				drawFrame(terminal, shell, &theme, keymap, true)
 			}
 		case *tcell.EventResize:
 			drawFrame(terminal, shell, &theme, keymap, true)
@@ -83,10 +107,10 @@ func Run(ctx context.Context, options *Options) error {
 	}
 }
 
-// DashboardLoader produces the read-only dashboard snapshot shown in the TUI.
+// DashboardLoader produces the dashboard snapshot shown in the TUI.
 type DashboardLoader func(context.Context) (DashboardData, error)
 
-// ShellLoader produces the full read-only TUI snapshot shown in the TUI.
+// ShellLoader produces the full TUI snapshot shown in the TUI.
 type ShellLoader func(context.Context) (ShellData, error)
 
 func loadDashboardData(ctx context.Context, options *Options) DashboardData {
@@ -118,6 +142,10 @@ func loadShellData(ctx context.Context, options *Options) ShellData {
 }
 
 func drawFrame(terminal *Terminal, shell *Shell, theme *Theme, keymap KeyMap, full bool) {
+	if shell == nil {
+		return
+	}
+
 	bounds := terminal.Bounds()
 	buffer := NewBuffer(bounds.W, bounds.H, theme.Base)
 	shell.Render(buffer, theme, keymap)
