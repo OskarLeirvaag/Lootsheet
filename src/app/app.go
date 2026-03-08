@@ -9,13 +9,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/loot"
-	"github.com/OskarLeirvaag/Lootsheet/src/quest"
-	"github.com/OskarLeirvaag/Lootsheet/src/report"
 )
 
 // Application holds the runtime state for a single CLI invocation, including
@@ -137,102 +132,4 @@ func (a *Application) runInit(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (a *Application) runAccount(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("missing account subcommand\n\n%s", accountHelpText)
-	}
-
-	hctx := a.handlerContext()
-
-	switch args[0] {
-	case "list":
-		return account.HandleList(ctx, hctx)
-	case "create":
-		return account.HandleCreate(ctx, hctx, args[1:])
-	case "rename":
-		return account.HandleRename(ctx, hctx, args[1:])
-	case "deactivate":
-		return account.HandleDeactivate(ctx, hctx, args[1:])
-	case "activate":
-		return account.HandleActivate(ctx, hctx, args[1:])
-	case "ledger":
-		return journal.HandleAccountLedger(ctx, hctx, args[1:])
-	case "delete":
-		return account.HandleDelete(ctx, hctx, args[1:])
-	default:
-		return fmt.Errorf("unknown account subcommand %q\n\n%s", args[0], accountHelpText)
-	}
-}
-
-func (a *Application) runQuest(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("missing quest subcommand\n\n%s", questHelpText)
-	}
-
-	hctx := a.handlerContext()
-
-	switch args[0] {
-	case "create":
-		return quest.HandleCreate(ctx, hctx, args[1:])
-	case "list":
-		return quest.HandleList(ctx, hctx)
-	case "accept":
-		return quest.HandleAccept(ctx, hctx, args[1:])
-	case "complete":
-		return quest.HandleComplete(ctx, hctx, args[1:])
-	case "collect":
-		return quest.HandleCollect(ctx, hctx, args[1:])
-	case "writeoff":
-		return quest.HandleWriteoff(ctx, hctx, args[1:])
-	default:
-		return fmt.Errorf("unknown quest subcommand %q\n\n%s", args[0], questHelpText)
-	}
-}
-
-func (a *Application) runLoot(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("missing loot subcommand\n\n%s", lootHelpText)
-	}
-
-	hctx := a.handlerContext()
-
-	switch args[0] {
-	case "create":
-		return loot.HandleCreate(ctx, hctx, args[1:])
-	case "list":
-		return loot.HandleList(ctx, hctx)
-	case "appraise":
-		return loot.HandleAppraise(ctx, hctx, args[1:])
-	case "recognize":
-		return loot.HandleRecognize(ctx, hctx, args[1:])
-	case "sell":
-		return loot.HandleSell(ctx, hctx, args[1:])
-	default:
-		return fmt.Errorf("unknown loot subcommand %q\n\n%s", args[0], lootHelpText)
-	}
-}
-
-func (a *Application) runReport(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("missing report subcommand\n\n%s", reportHelpText)
-	}
-
-	hctx := a.handlerContext()
-
-	switch args[0] {
-	case "trial-balance":
-		return report.HandleTrialBalance(ctx, hctx)
-	case "quest-receivables":
-		return report.HandleQuestReceivables(ctx, hctx)
-	case "promised-quests":
-		return report.HandlePromisedQuests(ctx, hctx)
-	case "loot-summary":
-		return report.HandleLootSummary(ctx, hctx)
-	case "writeoff-candidates":
-		return report.HandleWriteOffCandidates(ctx, hctx, args[1:])
-	default:
-		return fmt.Errorf("unknown report subcommand %q\n\n%s", args[0], reportHelpText)
-	}
 }
