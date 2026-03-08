@@ -36,6 +36,67 @@ The dependency direction should stay simple:
 
 This is intentionally straightforward DI rather than framework-driven wiring.
 
+## Install and Runtime Model
+
+LootSheet should be designed as a compiled local application for proper desktop/server-style operating systems rather than as a development-only tool.
+
+Initial supported platforms:
+
+- Linux
+- macOS
+
+Later if the maintenance burden stays reasonable:
+
+- Windows
+
+The operational model should be:
+
+- a single local binary the user installs and runs directly
+- no required background daemon
+- no required network service
+- no auth or login-user model
+- one local SQLite database as the system of record for the party books
+
+### Filesystem Layout
+
+The application should keep long-term files in stable per-user locations:
+
+- config in the user config directory
+- SQLite database in the user data directory
+- backups in a predictable application-owned backup location under user data or state
+- optional exports in user-chosen locations
+
+These locations should remain stable across upgrades unless the user explicitly changes them.
+
+### Upgrade and Migration Model
+
+Long-term use requires a conservative storage policy:
+
+- every database schema change must be versioned
+- startup must detect whether the database is uninitialized, current, upgradeable, foreign, or damaged
+- migrations should be forward-only and explicit
+- risky migrations should create or require a backup first
+- failures should stop with a recovery message rather than partially mutating data silently
+
+### Logging and Diagnostics
+
+The default operational logging should be human-readable and predictable:
+
+- logs to stderr by default
+- level names normalized to `DBG`, `INFO`, `WARN`, `ERR`
+- structured enough to support machine verification in smoke scripts
+- future support for log-file output only if it is justified by real operational needs
+
+### Distribution
+
+The preferred release path for v1 should be simple:
+
+- publish versioned binaries for Linux and macOS
+- support archive-based installation first
+- add package-manager integrations later only if they reduce real friction
+
+The application should remain usable for years even if package-manager integration changes, which means direct binary installs and stable on-disk data layout matter more than fancy installers.
+
 ## Core Model
 
 LootSheet has two main layers:

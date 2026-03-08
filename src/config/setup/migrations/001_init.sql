@@ -6,6 +6,12 @@ CREATE TABLE settings (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE schema_migrations (
+    version TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE accounts (
     id TEXT PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
