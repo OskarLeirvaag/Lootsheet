@@ -2,26 +2,27 @@
 
 ## Now
 
-- [ ] Align the repository to the `main.go + src/...` structure.
-- [ ] Initialize the Go module.
-- [ ] Pick the local database file location strategy.
-- [ ] Implement config file loading in `src/config`.
-- [ ] Set up application wiring in `src/app`.
-- [ ] Define the core enum sets:
-  - [ ] account types
-  - [ ] journal entry status
-  - [ ] quest status
-  - [ ] loot status
-- [ ] Write the first SQLite schema.
-- [ ] Seed a default chart of accounts for a D&D party.
+- [x] Align the repository to the `main.go + src/...` structure.
+- [x] Initialize the Go module.
+- [x] Pick the local database file location strategy.
+- [x] Implement config file loading in `src/config`.
+- [x] Set up application wiring in `src/app`.
+- [x] Define the core enum sets:
+  - [x] account types
+  - [x] journal entry status
+  - [x] quest status
+  - [x] loot status
+- [x] Write the first SQLite schema.
+- [x] Seed a default chart of accounts for a D&D party.
 - [ ] Implement journal balancing validation.
 - [ ] Implement the rule that posted entries cannot be edited or deleted.
+- [ ] Expand structured logging configuration beyond the default OTel-backed text logger if needed.
 
 ## Next
 
-- [ ] Build CLI commands for:
-  - [ ] database init
-  - [ ] list accounts
+- [x] Build CLI commands for:
+  - [x] database init
+  - [x] list accounts
   - [ ] create account
   - [ ] rename account
   - [ ] post journal entry
