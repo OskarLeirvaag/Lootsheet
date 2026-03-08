@@ -75,7 +75,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 		return
 	}
 
-	heroHeight := clampInt(body.H/2, 7, 9)
+	heroHeight := clampInt(body.H/2, 7, 14)
 	heroHeight = minInt(heroHeight, maxInt(0, body.H-8))
 	hero, lower := body.SplitHorizontal(heroHeight, 1)
 	if lower.H < 4 {
@@ -168,41 +168,91 @@ func drawHoardPanel(buffer *Buffer, rect Rect, theme *Theme, data *DashboardData
 	}
 
 	art := [][]hoardSegment{
+		// Dragon with horns and spread wings (trimmed first on small terminals)
 		{
-			{Text: "                         __                         ", Style: theme.HoardBag},
+			{Text: "                                    /\\  /\\                          ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "                       .-''-.                      ", Style: theme.HoardBag},
+			{Text: "                                   {  ''  }                         ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "                      / .--. \\\\                     ", Style: theme.HoardBag},
+			{Text: "                                   { O  O }                         ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "                     / /    \\\\ \\\\                    ", Style: theme.HoardBag},
+			{Text: "                                    \\ -- /                          ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "                     | | $$ | |                    ", Style: theme.HoardBag},
+			{Text: "                              /\\     '--'     /\\                    ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "               <>    | |____| |    <>              ", Style: theme.HoardGem},
+			{Text: "                             /  \\___/    \\___/  \\                   ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "         o o o o o  /________\\\\  o o o o o         ", Style: theme.HoardGold},
+			{Text: "                            /       \\    /       \\                  ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "      o <> o o o o <> o o o o <> o o o o <> o      ", Style: theme.HoardGold},
+			{Text: "                           /    /\\   \\||/   /\\    \\                 ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: "   o o o o <> o o o o o <> o o o o o <> o o o o    ", Style: theme.HoardGold},
+			{Text: "                          /    /  \\   \\/   /  \\    \\                ", Style: theme.HoardDragon},
 		},
 		{
-			{Text: " o <> o o o o o <> o o o o o <> o o o o <> o o o o ", Style: theme.HoardGold},
+			{Text: "                         /____/    \\________/    \\____\\              ", Style: theme.HoardDragon},
 		},
+		// Sparkle transition
+		{
+			{Text: "      *    <>    *    <>    *    <>    *    <>    *    <>    *       ", Style: theme.HoardGem},
+		},
+		// Gold pile (grows wider toward the bottom)
+		{
+			{Text: "            o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o      ", Style: theme.HoardGold},
+		},
+		{
+			{Text: "         o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  o        ", Style: theme.HoardGold},
+		},
+		{
+			{Text: "       o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  ", Style: theme.HoardGold},
+		},
+		{
+			{Text: "     o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o       ", Style: theme.HoardGold},
+		},
+		{
+			{Text: "   o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o", Style: theme.HoardGold},
+		},
+		{
+			{Text: " o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o  o  o  ", Style: theme.HoardGold},
+			{Text: "<>  <>", Style: theme.HoardGem},
+			{Text: "  o  o", Style: theme.HoardGold},
+		},
+		{
+			{Text: "o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o  o", Style: theme.HoardGold},
+		},
+		// Ground with embedded gems
 		{
 			{Text: "^^^^^^^", Style: theme.HoardGold},
-			{Text: " <> <> <> <>", Style: theme.HoardGem},
-			{Text: " ^^^^^ ", Style: theme.HoardGold},
-			{Text: "<> <> <>", Style: theme.HoardGem},
+			{Text: " <> <> <>", Style: theme.HoardGem},
+			{Text: " ^^^^^^^", Style: theme.HoardGold},
+			{Text: " <> <>", Style: theme.HoardGem},
+			{Text: " ^^^^^^^^", Style: theme.HoardGold},
+			{Text: " <> <> <>", Style: theme.HoardGem},
+			{Text: " ^^^^^^^^", Style: theme.HoardGold},
+			{Text: " <> <>", Style: theme.HoardGem},
 			{Text: " ^^^^^^^", Style: theme.HoardGold},
 		},
 	}
