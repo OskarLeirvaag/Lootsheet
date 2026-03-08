@@ -6,7 +6,18 @@ The intent is to treat party finances like a small accounting system, but adapte
 
 ## Status
 
-This repository is currently in the design stage.
+This repository is in the initial bootstrap stage.
+
+Implemented so far:
+
+- Go module initialization
+- `main.go -> src/app -> src/config` application bootstrap
+- local config loading with environment variable overrides
+- core enum definitions for accounts, journal entries, quests, and loot
+- embedded setup files for SQLite schema and default account seeds
+- CLI commands for `init` and `account list`
+- first-time SQLite initialization that uses setup assets once and then keeps SQLite as the source of truth
+- structured application logging with OTel-backed instrumentation and text levels `DBG`, `INFO`, `WARN`, `ERR`
 
 The first implementation target is:
 
@@ -66,6 +77,9 @@ The app must support custom accounts such as:
 - `Bardic Legal Exposure`
 
 Accounts may be renamed. Their internal IDs must remain stable.
+
+These are bookkeeping accounts in the chart of accounts, not login identities.
+LootSheet does not have a user-account or auth model in v1.
 
 ## Planned Feature Set
 
@@ -145,6 +159,49 @@ The expected local checks are:
 - `go vet ./...`
 - `golangci-lint run`
 
+## Configuration
+
+LootSheet currently loads an optional JSON config file from:
+
+- Linux and other XDG-style systems: `$XDG_CONFIG_HOME/lootsheet/config.json` or `~/.config/lootsheet/config.json`
+- macOS: `~/Library/Application Support/lootsheet/config.json`
+- Windows: the OS user config directory for `lootsheet`
+
+The default database path is:
+
+- Linux and other XDG-style systems: `$XDG_DATA_HOME/lootsheet/lootsheet.db` or `~/.local/share/lootsheet/lootsheet.db`
+- macOS: `~/Library/Application Support/lootsheet/lootsheet.db`
+- Windows: `%LOCALAPPDATA%\\lootsheet\\lootsheet.db` when available
+
+Environment overrides:
+
+- `LOOTSHEET_CONFIG`
+- `LOOTSHEET_DATA_DIR`
+- `LOOTSHEET_DATABASE_PATH`
+- `LOOTSHEET_LOG_LEVEL`
+
+## Database Initialization
+
+LootSheet stores init-time setup assets in:
+
+- [schema.sql](src/config/setup/schema.sql)
+- [seed_accounts.json](src/config/setup/seed_accounts.json)
+
+Those files are used only by `lootsheet init` when bootstrapping a fresh SQLite database.
+
+After initialization:
+
+- SQLite is the source of truth for accounts and other stored records
+- startup and account listing read from SQLite, not from config seed files
+- rerunning `lootsheet init` against an initialized LootSheet database does not reseed it
+
+## CLI
+
+Current commands:
+
+- `lootsheet init`
+- `lootsheet account list`
+
 ## Accounting Examples
 
 ### Sell loot below appraisal
@@ -185,11 +242,11 @@ Cr Quest Receivable          100
 
 ## Next Step
 
-The next implementation milestone is to build the core domain model and storage layer for:
+The next implementation milestone is to expand the CLI workflows around the new SQLite storage layer:
 
-- accounts
-- journal entries
-- quests
+- account create and rename
+- journal entry posting and balancing validation
+- quest and loot register commands
 - loot appraisals
 
 See [PLAN.md](PLAN.md), [TODO.md](TODO.md), and [DESIGN.md](DESIGN.md) for the working project plan.

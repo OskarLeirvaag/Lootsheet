@@ -1,0 +1,114 @@
+[
+  {
+    "id": "party_cash",
+    "code": "1000",
+    "name": "Party Cash",
+    "type": "asset",
+    "active": true
+  },
+  {
+    "id": "quest_receivable",
+    "code": "1100",
+    "name": "Quest Receivable",
+    "type": "asset",
+    "active": true
+  },
+  {
+    "id": "loot_inventory",
+    "code": "1200",
+    "name": "Loot Inventory",
+    "type": "asset",
+    "active": true
+  },
+  {
+    "id": "gear_inventory",
+    "code": "1300",
+    "name": "Gear Inventory",
+    "type": "asset",
+    "active": true
+  },
+  {
+    "id": "unearned_quest_revenue",
+    "code": "2000",
+    "name": "Unearned Quest Revenue",
+    "type": "liability",
+    "active": true
+  },
+  {
+    "id": "party_equity",
+    "code": "3000",
+    "name": "Party Equity",
+    "type": "equity",
+    "active": true
+  },
+  {
+    "id": "quest_income",
+    "code": "4000",
+    "name": "Quest Income",
+    "type": "income",
+    "active": true
+  },
+  {
+    "id": "bonus_quest_income",
+    "code": "4100",
+    "name": "Bonus Quest Income",
+    "type": "income",
+    "active": true
+  },
+  {
+    "id": "unrealized_loot_gain",
+    "code": "4200",
+    "name": "Unrealized Loot Gain",
+    "type": "income",
+    "active": true
+  },
+  {
+    "id": "gain_on_sale_of_loot",
+    "code": "4300",
+    "name": "Gain on Sale of Loot",
+    "type": "income",
+    "active": true
+  },
+  {
+    "id": "adventuring_supplies",
+    "code": "5000",
+    "name": "Adventuring Supplies",
+    "type": "expense",
+    "active": true
+  },
+  {
+    "id": "arrows_and_ammunition",
+    "code": "5100",
+    "name": "Arrows & Ammunition",
+    "type": "expense",
+    "active": true
+  },
+  {
+    "id": "wizard_magic_ink",
+    "code": "5200",
+    "name": "Wizard Magic Ink",
+    "type": "expense",
+    "active": true
+  },
+  {
+    "id": "inn_and_travel",
+    "code": "5300",
+    "name": "Inn & Travel",
+    "type": "expense",
+    "active": true
+  },
+  {
+    "id": "loss_on_sale_of_loot",
+    "code": "5400",
+    "name": "Loss on Sale of Loot",
+    "type": "expense",
+    "active": true
+  },
+  {
+    "id": "failed_patron_loss",
+    "code": "5500",
+    "name": "Failed Patron Loss",
+    "type": "expense",
+    "active": true
+  }
+]

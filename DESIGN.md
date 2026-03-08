@@ -143,6 +143,11 @@ Expenses:
 
 The seed chart is a starting point only. Users must be able to add custom accounts.
 
+The seed chart should live in init-time setup files rather than long-lived in-memory defaults.
+Those setup files are used to populate a fresh SQLite database, and after that the database is the source of truth.
+
+These accounts are ledger accounts. They are not user/login accounts, and v1 should not introduce an auth model.
+
 ## Quest Register
 
 The quest register tracks work that may or may not produce income.
@@ -428,6 +433,13 @@ Reasons:
 - zero external infrastructure
 - sufficient for single-user campaign bookkeeping
 - easy backup and export behavior
+
+Initialization data should be stored under `src/config` as setup assets:
+
+- schema SQL for creating the first tables
+- default seed data such as the initial chart of accounts
+
+Those setup assets are consumed only during initialization of an empty database. They must not overwrite an existing LootSheet database on later runs.
 
 ### Accounts
 
