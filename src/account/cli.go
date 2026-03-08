@@ -2,15 +2,13 @@ package account
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
-// HandleList writes the account listing to the handler context stdout.
-func HandleList(ctx context.Context, hctx ledger.HandlerContext) error {
+// RunList writes the account listing to the handler context stdout.
+func RunList(ctx context.Context, hctx ledger.HandlerContext) error {
 	accounts, err := ListAccounts(ctx, hctx.DatabasePath)
 	if err != nil {
 		return err
@@ -41,23 +39,6 @@ func HandleList(ctx context.Context, hctx ledger.HandlerContext) error {
 	return nil
 }
 
-// HandleCreate parses flags and creates a new account.
-func HandleCreate(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var code, name, accountType string
-
-	flagSet := flag.NewFlagSet("account create", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-	flagSet.StringVar(&name, "name", "", "account name")
-	flagSet.StringVar(&accountType, "type", "", "account type (asset, liability, equity, income, expense)")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	return RunCreate(ctx, hctx, code, name, ledger.AccountType(accountType))
-}
-
 // RunCreate creates a new account and writes the CLI output.
 func RunCreate(ctx context.Context, hctx ledger.HandlerContext, code string, name string, accountType ledger.AccountType) error {
 	result, err := CreateAccount(ctx, hctx.DatabasePath, code, name, accountType)
@@ -79,22 +60,6 @@ func RunCreate(ctx context.Context, hctx ledger.HandlerContext, code string, nam
 	return nil
 }
 
-// HandleRename parses flags and renames an account.
-func HandleRename(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var code, name string
-
-	flagSet := flag.NewFlagSet("account rename", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-	flagSet.StringVar(&name, "name", "", "new account name")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	return RunRename(ctx, hctx, code, name)
-}
-
 // RunRename renames an account and writes the CLI output.
 func RunRename(ctx context.Context, hctx ledger.HandlerContext, code string, name string) error {
 	if err := RenameAccount(ctx, hctx.DatabasePath, code, name); err != nil {
@@ -106,21 +71,6 @@ func RunRename(ctx context.Context, hctx ledger.HandlerContext, code string, nam
 	}
 
 	return nil
-}
-
-// HandleDeactivate parses flags and deactivates an account.
-func HandleDeactivate(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var code string
-
-	flagSet := flag.NewFlagSet("account deactivate", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	return RunDeactivate(ctx, hctx, code)
 }
 
 // RunDeactivate deactivates an account and writes the CLI output.
@@ -136,21 +86,6 @@ func RunDeactivate(ctx context.Context, hctx ledger.HandlerContext, code string)
 	return nil
 }
 
-// HandleActivate parses flags and activates an account.
-func HandleActivate(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var code string
-
-	flagSet := flag.NewFlagSet("account activate", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	return RunActivate(ctx, hctx, code)
-}
-
 // RunActivate activates an account and writes the CLI output.
 func RunActivate(ctx context.Context, hctx ledger.HandlerContext, code string) error {
 	if err := ActivateAccount(ctx, hctx.DatabasePath, code); err != nil {
@@ -162,21 +97,6 @@ func RunActivate(ctx context.Context, hctx ledger.HandlerContext, code string) e
 	}
 
 	return nil
-}
-
-// HandleDelete parses flags and deletes an account.
-func HandleDelete(ctx context.Context, hctx ledger.HandlerContext, args []string) error {
-	var code string
-
-	flagSet := flag.NewFlagSet("account delete", flag.ContinueOnError)
-	flagSet.SetOutput(io.Discard)
-	flagSet.StringVar(&code, "code", "", "account code")
-
-	if err := flagSet.Parse(args); err != nil {
-		return err
-	}
-
-	return RunDelete(ctx, hctx, code)
 }
 
 // RunDelete deletes an unused account and writes the CLI output.

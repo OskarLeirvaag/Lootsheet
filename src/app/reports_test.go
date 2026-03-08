@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +13,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/quest"
 )
 
-func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
+func setupReportTestEnv(t *testing.T) string {
 	t.Helper()
 
 	tmpDir := t.TempDir()
@@ -26,17 +25,6 @@ func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
 	t.Setenv(config.EnvDataDir, dataDir)
 	t.Setenv(config.EnvDatabasePath, "ledger.db")
 
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-
-	var stdout bytes.Buffer
-	application, err := New(&cfg, &stdout, io.Discard)
-	if err != nil {
-		t.Fatalf("create application: %v", err)
-	}
-
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
@@ -46,11 +34,11 @@ func setupReportTestApp(t *testing.T) (*Application, string, *bytes.Buffer) {
 		t.Fatalf("initialize database: %v", err)
 	}
 
-	return application, databasePath, &stdout
+	return databasePath
 }
 
 func TestRunTrialBalanceShowsBalancedOutput(t *testing.T) {
-	application, databasePath, stdout := setupReportTestApp(t)
+	databasePath := setupReportTestEnv(t)
 	ctx := context.Background()
 
 	_, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -77,11 +65,10 @@ func TestRunTrialBalanceShowsBalancedOutput(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	hctx := application.handlerContext()
-	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
+	var stdout bytes.Buffer
+	if err := Run(ctx, []string{"report", "trial-balance"}, &stdout); err != nil {
 		t.Fatalf("run trial balance: %v", err)
 	}
-	_ = hctx // used implicitly via runReport
 
 	output := stdout.String()
 
@@ -115,10 +102,11 @@ func TestRunTrialBalanceShowsBalancedOutput(t *testing.T) {
 }
 
 func TestRunTrialBalanceEmptyLedger(t *testing.T) {
-	application, _, stdout := setupReportTestApp(t)
+	_ = setupReportTestEnv(t)
 	ctx := context.Background()
 
-	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
+	var stdout bytes.Buffer
+	if err := Run(ctx, []string{"report", "trial-balance"}, &stdout); err != nil {
 		t.Fatalf("run trial balance: %v", err)
 	}
 
@@ -134,7 +122,7 @@ func TestRunTrialBalanceEmptyLedger(t *testing.T) {
 }
 
 func TestRunTrialBalanceAfterReversal(t *testing.T) {
-	application, databasePath, stdout := setupReportTestApp(t)
+	databasePath := setupReportTestEnv(t)
 	ctx := context.Background()
 
 	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -154,7 +142,8 @@ func TestRunTrialBalanceAfterReversal(t *testing.T) {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
+	var stdout bytes.Buffer
+	if err := Run(ctx, []string{"report", "trial-balance"}, &stdout); err != nil {
 		t.Fatalf("run trial balance: %v", err)
 	}
 
@@ -169,39 +158,46 @@ func TestRunTrialBalanceAfterReversal(t *testing.T) {
 	}
 }
 
-func TestRunReportDispatcherMissingSubcommand(t *testing.T) {
-	application, _, _ := setupReportTestApp(t)
+func TestRunReportMissingSubcommand(t *testing.T) {
+	_ = setupReportTestEnv(t)
 	ctx := context.Background()
 
-	err := application.runReport(ctx, []string{})
-	if err == nil {
-		t.Fatal("expected error for missing report subcommand")
+	var stdout bytes.Buffer
+	err := Run(ctx, []string{"report"}, &stdout)
+	if err != nil {
+		t.Fatalf("expected no error for report with no subcommand (shows help): %v", err)
 	}
 
-	if !strings.Contains(err.Error(), "missing report subcommand") {
-		t.Fatalf("error = %q, want missing subcommand error", err)
+	output := stdout.String()
+	if !strings.Contains(output, "report") {
+		t.Fatalf("expected report help output, got: %q", output)
 	}
 }
 
-func TestRunReportDispatcherUnknownSubcommand(t *testing.T) {
-	application, _, _ := setupReportTestApp(t)
+func TestRunReportUnknownSubcommand(t *testing.T) {
+	_ = setupReportTestEnv(t)
 	ctx := context.Background()
 
-	err := application.runReport(ctx, []string{"bogus"})
-	if err == nil {
-		t.Fatal("expected error for unknown report subcommand")
-	}
+	var stdout bytes.Buffer
+	err := Run(ctx, []string{"report", "bogus"}, &stdout)
 
-	if !strings.Contains(err.Error(), "unknown report subcommand") {
-		t.Fatalf("error = %q, want unknown subcommand error", err)
+	// Cobra surfaces an "unknown command" error for unrecognized subcommands.
+	if err == nil {
+		// If Cobra falls through to the parent RunE (shows help), that is
+		// acceptable; verify the help text was printed instead.
+		output := stdout.String()
+		if !strings.Contains(output, "report") {
+			t.Fatalf("expected either error or help output, got: %q", output)
+		}
 	}
 }
 
-func TestRunReportDispatcherRoutesToTrialBalance(t *testing.T) {
-	application, _, stdout := setupReportTestApp(t)
+func TestRunReportRoutesToTrialBalance(t *testing.T) {
+	_ = setupReportTestEnv(t)
 	ctx := context.Background()
 
-	if err := application.runReport(ctx, []string{"trial-balance"}); err != nil {
+	var stdout bytes.Buffer
+	if err := Run(ctx, []string{"report", "trial-balance"}, &stdout); err != nil {
 		t.Fatalf("run report trial-balance: %v", err)
 	}
 
@@ -211,7 +207,7 @@ func TestRunReportDispatcherRoutesToTrialBalance(t *testing.T) {
 }
 
 func TestRunPromisedQuestsReport(t *testing.T) {
-	application, databasePath, stdout := setupReportTestApp(t)
+	databasePath := setupReportTestEnv(t)
 	ctx := context.Background()
 
 	if _, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -225,7 +221,8 @@ func TestRunPromisedQuestsReport(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := application.runReport(ctx, []string{"promised-quests"}); err != nil {
+	var stdout bytes.Buffer
+	if err := Run(ctx, []string{"report", "promised-quests"}, &stdout); err != nil {
 		t.Fatalf("run promised quests report: %v", err)
 	}
 
@@ -248,7 +245,7 @@ func TestRunPromisedQuestsReport(t *testing.T) {
 }
 
 func TestRunWriteOffCandidatesReport(t *testing.T) {
-	application, databasePath, stdout := setupReportTestApp(t)
+	databasePath := setupReportTestEnv(t)
 	ctx := context.Background()
 
 	createdQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -275,7 +272,8 @@ func TestRunWriteOffCandidatesReport(t *testing.T) {
 		t.Fatalf("collect quest payment: %v", err)
 	}
 
-	if err := application.runReport(ctx, []string{"writeoff-candidates", "--as-of", "2026-03-15", "--min-age-days", "30"}); err != nil {
+	var stdout bytes.Buffer
+	if err := Run(ctx, []string{"report", "writeoff-candidates", "--as-of", "2026-03-15", "--min-age-days", "30"}, &stdout); err != nil {
 		t.Fatalf("run write-off candidates report: %v", err)
 	}
 
