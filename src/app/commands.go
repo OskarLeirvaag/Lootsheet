@@ -24,7 +24,7 @@ func (a *Application) executeRootCommand(ctx context.Context, args []string) err
 func (a *Application) newRootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:               "lootsheet",
-		Short:             "Local-first D&D 5e double-entry bookkeeping CLI",
+		Short:             "Local-first D&D 5e double-entry bookkeeping CLI/TUI",
 		Long:              rootHelpText,
 		SilenceErrors:     true,
 		SilenceUsage:      true,
@@ -41,6 +41,7 @@ func (a *Application) newRootCommand() *cobra.Command {
 	root.AddCommand(
 		a.newDatabaseCommand(),
 		a.newInitCommand(),
+		a.newTUICommand(),
 		a.newAccountCommand(),
 		a.newJournalCommand(),
 		a.newQuestCommand(),

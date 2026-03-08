@@ -17,6 +17,9 @@ func TestRunHelpShowsTopLevelTopics(t *testing.T) {
 	if !strings.Contains(output, "Command groups:") {
 		t.Fatalf("top-level help missing command groups: %q", output)
 	}
+	if !strings.Contains(output, "tui        open the full-screen dashboard shell") {
+		t.Fatalf("top-level help missing tui command: %q", output)
+	}
 	if !strings.Contains(output, "lootsheet account help") {
 		t.Fatalf("top-level help missing nested help example: %q", output)
 	}
@@ -91,5 +94,20 @@ func TestRunHelpSupportsNestedHelpCommandPath(t *testing.T) {
 	}
 	if !strings.Contains(output, "--min-age-days  30") {
 		t.Fatalf("writeoff-candidates help missing defaults: %q", output)
+	}
+}
+
+func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
+	var stdout bytes.Buffer
+	if err := Run(context.Background(), []string{"tui", "help"}, &stdout); err != nil {
+		t.Fatalf("run tui help: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "lootsheet tui") {
+		t.Fatalf("tui help missing usage: %q", output)
+	}
+	if !strings.Contains(output, "Ctrl+L") {
+		t.Fatalf("tui help missing redraw key: %q", output)
 	}
 }

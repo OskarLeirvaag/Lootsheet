@@ -1,0 +1,24 @@
+.TH LOOTSHEET-TUI 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-tui \\- Open the full-screen terminal dashboard shell
+.SH SYNOPSIS
+lootsheet tui [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet tui
+
+Opens the first full-screen LootSheet dashboard shell using tcell.
+This slice is read-only and currently focuses on screen lifecycle, resize-safe boxed panels, theme groundwork, and footer help.
+
+Keys:
+  q       quit the dashboard
+  Esc     quit the dashboard
+  Ctrl+L  force a full redraw
+.SH OPTIONS
+.TP
+-h, --help
+help for tui
+.SH SEE ALSO
+lootsheet(1)

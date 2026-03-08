@@ -1,6 +1,6 @@
 .TH LOOTSHEET 1 "Mar 2026" "LootSheet" "LootSheet Manual"
 .SH NAME
-lootsheet \\- Local-first D&D 5e double-entry bookkeeping CLI
+lootsheet \\- Local-first D&D 5e double-entry bookkeeping CLI/TUI
 .SH SYNOPSIS
 lootsheet [flags]
 .SH DESCRIPTION
@@ -16,6 +16,7 @@ Usage:
 Command groups:
   db         inspect database state and run schema migrations
   init       initialize a fresh LootSheet database
+  tui        open the full-screen dashboard shell
   account    create, rename, activate, deactivate, delete, and inspect accounts
   journal    post and reverse balanced journal entries
   quest      track promised, earned, collected, and written-off quest rewards
@@ -24,6 +25,7 @@ Command groups:
 
 Examples:
   lootsheet init
+  lootsheet tui
   lootsheet account list
   lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
   lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
@@ -46,3 +48,4 @@ lootsheet-journal(1)
 lootsheet-loot(1)
 lootsheet-quest(1)
 lootsheet-report(1)
+lootsheet-tui(1)

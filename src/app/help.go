@@ -12,6 +12,7 @@ Usage:
 Command groups:
   db         inspect database state and run schema migrations
   init       initialize a fresh LootSheet database
+  tui        open the full-screen dashboard shell
   account    create, rename, activate, deactivate, delete, and inspect accounts
   journal    post and reverse balanced journal entries
   quest      track promised, earned, collected, and written-off quest rewards
@@ -20,6 +21,7 @@ Command groups:
 
 Examples:
   lootsheet init
+  lootsheet tui
   lootsheet account list
   lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
   lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
@@ -79,6 +81,20 @@ Usage:
 
 Bootstraps a fresh SQLite database from the embedded schema and seed accounts.
 If the configured database already contains LootSheet metadata, init reports that it is already initialized and does not reseed it.
+`
+
+const tuiHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet tui
+
+Opens the first full-screen LootSheet dashboard shell using tcell.
+This slice is read-only and currently focuses on screen lifecycle, resize-safe boxed panels, theme groundwork, and footer help.
+
+Keys:
+  q       quit the dashboard
+  Esc     quit the dashboard
+  Ctrl+L  force a full redraw
 `
 
 const accountHelpText = `LootSheet CLI
