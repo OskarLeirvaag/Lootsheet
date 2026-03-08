@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,7 +11,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
-func newLootTestApp(t *testing.T) (*Application, string) {
+func newLootTestEnv(t *testing.T) string {
 	t.Helper()
 
 	tmpDir := t.TempDir()
@@ -30,42 +29,30 @@ func newLootTestApp(t *testing.T) (*Application, string) {
 		t.Fatalf("run init: %v", err)
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-
-	app, err := New(&cfg, &bytes.Buffer{}, io.Discard)
-	if err != nil {
-		t.Fatalf("new app: %v", err)
-	}
-
-	return app, databasePath
+	return databasePath
 }
 
-func runLootCmd(t *testing.T, app *Application, args []string) string {
+func runLootCmd(t *testing.T, args []string) string {
 	t.Helper()
 	var stdout bytes.Buffer
-	app.stdout = &stdout
-	if err := app.runLoot(context.Background(), args); err != nil {
-		t.Fatalf("runLoot(%v): %v", args, err)
+	if err := Run(context.Background(), args, &stdout); err != nil {
+		t.Fatalf("Run(%v): %v", args, err)
 	}
 	return stdout.String()
 }
 
-func runLootCmdExpectError(t *testing.T, app *Application, args []string) error {
+func runLootCmdExpectError(t *testing.T, args []string) error {
 	t.Helper()
 	var stdout bytes.Buffer
-	app.stdout = &stdout
-	return app.runLoot(context.Background(), args)
+	return Run(context.Background(), args, &stdout)
 }
 
 func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
-	app, databasePath := newLootTestApp(t)
+	databasePath := newLootTestEnv(t)
 
 	// Create a loot item.
-	createOutput := runLootCmd(t, app, []string{
-		"create", "--name", "Ruby Gemstone", "--source", "Dragon Hoard", "--quantity", "1",
+	createOutput := runLootCmd(t, []string{
+		"loot", "create", "--name", "Ruby Gemstone", "--source", "Dragon Hoard", "--quantity", "1",
 	})
 
 	if !strings.Contains(createOutput, "Created loot item") {
@@ -79,7 +66,7 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	}
 
 	// List loot items.
-	listOutput := runLootCmd(t, app, []string{"list"})
+	listOutput := runLootCmd(t, []string{"loot", "list"})
 	if !strings.Contains(listOutput, "Ruby Gemstone") {
 		t.Fatalf("loot list missing item: %q", listOutput)
 	}
@@ -91,8 +78,8 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	lootItemID := getFirstLootItemID(t, databasePath)
 
 	// Appraise.
-	appraiseOutput := runLootCmd(t, app, []string{
-		"appraise", "--id", lootItemID, "--value", "500", "--date", "2026-03-08", "--appraiser", "Jeweler",
+	appraiseOutput := runLootCmd(t, []string{
+		"loot", "appraise", "--id", lootItemID, "--value", "500", "--date", "2026-03-08", "--appraiser", "Jeweler",
 	})
 	if !strings.Contains(appraiseOutput, "Appraised loot item") {
 		t.Fatalf("appraise output missing confirmation: %q", appraiseOutput)
@@ -104,8 +91,8 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	appraisalID := getFirstLootAppraisalID(t, databasePath)
 
 	// Recognize.
-	recognizeOutput := runLootCmd(t, app, []string{
-		"recognize", "--appraisal-id", appraisalID, "--date", "2026-03-09", "--description", "Recognize ruby gemstone",
+	recognizeOutput := runLootCmd(t, []string{
+		"loot", "recognize", "--appraisal-id", appraisalID, "--date", "2026-03-09", "--description", "Recognize ruby gemstone",
 	})
 	if !strings.Contains(recognizeOutput, "Recognized loot appraisal as journal entry #1") {
 		t.Fatalf("recognize output missing entry number: %q", recognizeOutput)
@@ -115,14 +102,14 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	}
 
 	// Verify recognized status.
-	listOutput2 := runLootCmd(t, app, []string{"list"})
+	listOutput2 := runLootCmd(t, []string{"loot", "list"})
 	if !strings.Contains(listOutput2, "recognized") {
 		t.Fatalf("loot list missing recognized status: %q", listOutput2)
 	}
 
 	// Sell above appraisal.
-	sellOutput := runLootCmd(t, app, []string{
-		"sell", "--id", lootItemID, "--amount", "600", "--date", "2026-03-10", "--description", "Sold ruby to merchant",
+	sellOutput := runLootCmd(t, []string{
+		"loot", "sell", "--id", lootItemID, "--amount", "600", "--date", "2026-03-10", "--description", "Sold ruby to merchant",
 	})
 	if !strings.Contains(sellOutput, "Sold loot item as journal entry #2") {
 		t.Fatalf("sell output missing entry number: %q", sellOutput)
@@ -132,27 +119,27 @@ func TestRunLootCreateAppraiseRecognizeSell(t *testing.T) {
 	}
 
 	// Verify sold status.
-	listOutput3 := runLootCmd(t, app, []string{"list"})
+	listOutput3 := runLootCmd(t, []string{"loot", "list"})
 	if !strings.Contains(listOutput3, "sold") {
 		t.Fatalf("loot list missing sold status: %q", listOutput3)
 	}
 }
 
 func TestRunLootSellBelowAppraisal(t *testing.T) {
-	app, databasePath := newLootTestApp(t)
+	databasePath := newLootTestEnv(t)
 
-	runLootCmd(t, app, []string{"create", "--name", "Chipped Diamond", "--source", "Ruins"})
+	runLootCmd(t, []string{"loot", "create", "--name", "Chipped Diamond", "--source", "Ruins"})
 
 	lootItemID := getFirstLootItemID(t, databasePath)
 
-	runLootCmd(t, app, []string{"appraise", "--id", lootItemID, "--value", "500", "--date", "2026-03-08"})
+	runLootCmd(t, []string{"loot", "appraise", "--id", lootItemID, "--value", "500", "--date", "2026-03-08"})
 
 	appraisalID := getFirstLootAppraisalID(t, databasePath)
 
-	runLootCmd(t, app, []string{"recognize", "--appraisal-id", appraisalID, "--date", "2026-03-09"})
+	runLootCmd(t, []string{"loot", "recognize", "--appraisal-id", appraisalID, "--date", "2026-03-09"})
 
-	sellOutput := runLootCmd(t, app, []string{
-		"sell", "--id", lootItemID, "--amount", "300", "--date", "2026-03-10",
+	sellOutput := runLootCmd(t, []string{
+		"loot", "sell", "--id", lootItemID, "--amount", "300", "--date", "2026-03-10",
 	})
 
 	// Debits: 300 (cash) + 200 (loss) = 500; Credits: 500 (inventory).
@@ -162,9 +149,9 @@ func TestRunLootSellBelowAppraisal(t *testing.T) {
 }
 
 func TestRunLootCreateMissingName(t *testing.T) {
-	app, _ := newLootTestApp(t)
+	_ = newLootTestEnv(t)
 
-	err := runLootCmdExpectError(t, app, []string{"create"})
+	err := runLootCmdExpectError(t, []string{"loot", "create"})
 	if err == nil {
 		t.Fatal("expected error for missing name")
 	}
