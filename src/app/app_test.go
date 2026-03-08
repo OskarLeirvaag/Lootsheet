@@ -608,6 +608,236 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 	}
 }
 
+func TestRunQuestCreateListAcceptCompleteCollect(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	// Create a quest.
+	var createStdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"quest", "create",
+		"--title", "Clear the Goblin Cave",
+		"--patron", "Mayor Thornton",
+		"--reward", "500",
+		"--status", "offered",
+	}, &createStdout)
+	if err != nil {
+		t.Fatalf("run quest create: %v", err)
+	}
+
+	createOutput := createStdout.String()
+	if !strings.Contains(createOutput, "Created quest") {
+		t.Fatalf("quest create output missing confirmation: %q", createOutput)
+	}
+	if !strings.Contains(createOutput, "Clear the Goblin Cave") {
+		t.Fatalf("quest create output missing title: %q", createOutput)
+	}
+	if !strings.Contains(createOutput, "Reward: 500") {
+		t.Fatalf("quest create output missing reward: %q", createOutput)
+	}
+
+	// List quests.
+	var listStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"quest", "list"}, &listStdout); err != nil {
+		t.Fatalf("run quest list: %v", err)
+	}
+
+	listOutput := listStdout.String()
+	if !strings.Contains(listOutput, "Clear the Goblin Cave") {
+		t.Fatalf("quest list missing quest: %q", listOutput)
+	}
+	if !strings.Contains(listOutput, "offered") {
+		t.Fatalf("quest list missing status: %q", listOutput)
+	}
+
+	// Get quest ID from database.
+	questID := getFirstQuestID(t, databasePath)
+
+	// Accept the quest.
+	var acceptStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"quest", "accept",
+		"--id", questID,
+		"--date", "2026-03-05",
+	}, &acceptStdout)
+	if err != nil {
+		t.Fatalf("run quest accept: %v", err)
+	}
+
+	if !strings.Contains(acceptStdout.String(), "Accepted quest") {
+		t.Fatalf("accept output missing confirmation: %q", acceptStdout.String())
+	}
+
+	// Complete the quest.
+	var completeStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"quest", "complete",
+		"--id", questID,
+		"--date", "2026-03-10",
+	}, &completeStdout)
+	if err != nil {
+		t.Fatalf("run quest complete: %v", err)
+	}
+
+	if !strings.Contains(completeStdout.String(), "Completed quest") {
+		t.Fatalf("complete output missing confirmation: %q", completeStdout.String())
+	}
+
+	// Collect full payment.
+	var collectStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"quest", "collect",
+		"--id", questID,
+		"--amount", "500",
+		"--date", "2026-03-12",
+	}, &collectStdout)
+	if err != nil {
+		t.Fatalf("run quest collect: %v", err)
+	}
+
+	collectOutput := collectStdout.String()
+	if !strings.Contains(collectOutput, "Collected quest payment as journal entry #1") {
+		t.Fatalf("collect output missing entry number: %q", collectOutput)
+	}
+	if !strings.Contains(collectOutput, "Amount: 500") {
+		t.Fatalf("collect output missing amount: %q", collectOutput)
+	}
+	if !strings.Contains(collectOutput, "Debits: 500") || !strings.Contains(collectOutput, "Credits: 500") {
+		t.Fatalf("collect output missing totals: %q", collectOutput)
+	}
+
+	// Verify quest is now paid in the list.
+	var listStdout2 bytes.Buffer
+	if err := Run(context.Background(), []string{"quest", "list"}, &listStdout2); err != nil {
+		t.Fatalf("run quest list: %v", err)
+	}
+
+	if !strings.Contains(listStdout2.String(), "paid") {
+		t.Fatalf("quest list missing paid status: %q", listStdout2.String())
+	}
+}
+
+func TestRunQuestCreateWithAcceptedStatus(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"quest", "create",
+		"--title", "Escort Mission",
+		"--reward", "200",
+		"--status", "accepted",
+		"--accepted-on", "2026-03-01",
+	}, &stdout)
+	if err != nil {
+		t.Fatalf("run quest create accepted: %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "Status: accepted") {
+		t.Fatalf("quest create output missing accepted status: %q", stdout.String())
+	}
+}
+
+func TestRunQuestCollectPartialPayment(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+	databasePath := filepath.Join(dataDir, "ledger.db")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	// Create an accepted quest, complete it, then partial collect.
+	var createStdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"quest", "create",
+		"--title", "Long Quest",
+		"--reward", "1000",
+		"--status", "accepted",
+		"--accepted-on", "2026-03-01",
+	}, &createStdout)
+	if err != nil {
+		t.Fatalf("run quest create: %v", err)
+	}
+
+	questID := getFirstQuestID(t, databasePath)
+
+	err = Run(context.Background(), []string{
+		"quest", "complete",
+		"--id", questID,
+		"--date", "2026-03-10",
+	}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("run quest complete: %v", err)
+	}
+
+	// Partial payment.
+	var collectStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"quest", "collect",
+		"--id", questID,
+		"--amount", "400",
+		"--date", "2026-03-12",
+	}, &collectStdout)
+	if err != nil {
+		t.Fatalf("run quest collect partial: %v", err)
+	}
+
+	// Verify quest is partially_paid.
+	var listStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"quest", "list"}, &listStdout); err != nil {
+		t.Fatalf("run quest list: %v", err)
+	}
+
+	if !strings.Contains(listStdout.String(), "partially_paid") {
+		t.Fatalf("quest list missing partially_paid status: %q", listStdout.String())
+	}
+}
+
+func getFirstQuestID(t *testing.T, databasePath string) string {
+	t.Helper()
+
+	db, err := repo.OpenDBForTest(databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	var questID string
+	if err := db.QueryRow("SELECT id FROM quests ORDER BY created_at LIMIT 1").Scan(&questID); err != nil {
+		t.Fatalf("query first quest ID: %v", err)
+	}
+
+	return questID
+}
+
 func loadMigrationAssetsForAppTest(t *testing.T) (config.InitAssets, config.InitAssets) {
 	t.Helper()
 

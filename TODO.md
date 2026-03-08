@@ -29,9 +29,9 @@
   - [x] rename account
   - [x] post journal entry
   - [x] reverse journal entry
-  - [ ] create quest
-  - [ ] mark quest completed
-  - [ ] collect quest payment
+  - [x] create quest
+  - [x] mark quest completed
+  - [x] collect quest payment
   - [ ] create loot appraisal
   - [ ] recognize loot appraisal
 - [x] Add account deactivation.
@@ -58,9 +58,9 @@
 - [ ] Ensure account IDs are immutable even when names change.
 - [ ] Prevent deletion of accounts that have postings.
 - [ ] Allow used accounts to be marked inactive.
-- [ ] Keep quest promises off-ledger until earned.
+- [x] Keep quest promises off-ledger until earned.
 - [ ] Keep unrealized loot appraisals off-ledger until explicitly recognized.
-- [ ] Support partial quest payments, advances, and bonuses.
+- [x] Support partial quest payments, advances, and bonuses.
 - [ ] Support custom accounts like `Wizard Magic Ink`.
 
 ## Reports
@@ -81,7 +81,7 @@
 - [ ] Run `golangci-lint run` as a standard check.
 - [x] Add unit tests for journal balancing.
 - [x] Add tests for reversal and correction flows.
-- [ ] Add tests for quest completion and collection flows.
+- [x] Add tests for quest completion and collection flows.
 - [ ] Add tests for loot appraisal recognition and sale flows.
 - [ ] Add fixtures with a sample campaign ledger.
 - [ ] Add `testapp.sh` end-to-end smoke coverage for installed-binary style runs in a temporary workspace.
