@@ -149,7 +149,7 @@ func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
 	if !strings.Contains(output, "Enter                      confirm the open modal") {
 		t.Fatalf("tui help missing confirm guidance: %q", output)
 	}
-	if !strings.Contains(output, "Ctrl+S                     submit the guided entry composer") {
+	if !strings.Contains(output, "Enter                      submit the guided entry composer when a guided entry form is open") {
 		t.Fatalf("tui help missing compose submit guidance: %q", output)
 	}
 }

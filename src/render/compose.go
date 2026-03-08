@@ -186,7 +186,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 	case ActionRedraw:
 		s.compose = nil
 		return handleResult{Reload: true}, true
-	case ActionSubmitCompose:
+	case ActionSubmitCompose, ActionConfirm:
 		if command, ok := s.composeCommand(); ok {
 			return handleResult{Command: command}, true
 		}
@@ -194,7 +194,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
-		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionConfirm:
+		ActionNewExpense, ActionNewIncome, ActionNewCustom:
 		return handleResult{}, false
 	}
 
@@ -575,9 +575,9 @@ func (s *Shell) composeFormLines() []string {
 
 func (s *Shell) composeHelpText() string {
 	if s.compose.Mode == composeModeCustom {
-		return "Tab move  Ctrl+S submit  Ctrl+N add line  Ctrl+D delete line  Space toggle side  Esc cancel"
+		return "Tab move  Enter submit  Ctrl+N add line  Ctrl+D delete line  Space toggle side  Esc cancel"
 	}
-	return "Tab move  Ctrl+S submit  Esc cancel"
+	return "Tab move  Enter submit  Esc cancel"
 }
 
 func (s *Shell) composePreviewLines() []string {

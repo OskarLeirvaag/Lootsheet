@@ -497,7 +497,7 @@ func TestShellExpenseComposeOpensAndEmitsCommand(t *testing.T) {
 		shell.handleComposeKeyEvent(event, DefaultKeyMap().Resolve(event))
 	}
 
-	result, handled := shell.handleComposeKeyEvent(tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModNone), ActionSubmitCompose)
+	result, handled := shell.handleComposeKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
 	if !handled || result.Command == nil {
 		t.Fatalf("submit did not emit expense command: %#v handled=%v", result, handled)
 	}
