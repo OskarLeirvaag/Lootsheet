@@ -20,13 +20,36 @@ func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	for _, token := range []string{
 		"LootSheet TUI",
 		"Section: Dashboard",
-		"Sections: [Dashboard]  Accounts  Journal  Quests  Loot",
+		"Sections: [Dashboard]   Accounts     Journal      Quests       Loot",
 		"1-5 jump",
+		"e/i/a entry",
+		"? terms",
 		"q quit",
 		"Ctrl+L refresh",
 	} {
 		if !strings.Contains(output, token) {
 			t.Fatalf("shell output missing %q:\n%s", token, output)
+		}
+	}
+}
+
+func TestShellTabsLineKeepsStableWidthAcrossSections(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+
+	dashboardTabs := shell.tabsLine()
+	shell.Section = SectionAccounts
+	accountsTabs := shell.tabsLine()
+	shell.Section = SectionLoot
+	lootTabs := shell.tabsLine()
+
+	if len(dashboardTabs) != len(accountsTabs) || len(accountsTabs) != len(lootTabs) {
+		t.Fatalf("tab widths changed across sections: dashboard=%d accounts=%d loot=%d", len(dashboardTabs), len(accountsTabs), len(lootTabs))
+	}
+
+	for _, token := range []string{"[Dashboard]", "[Accounts]", "[Loot]"} {
+		if !strings.Contains(dashboardTabs+accountsTabs+lootTabs, token) {
+			t.Fatalf("tabs output missing active marker %q", token)
 		}
 	}
 }
@@ -236,6 +259,25 @@ func TestShellQuestActionsShowCombinedFooterAndMatchTriggers(t *testing.T) {
 					DetailLines: []string{"Outstanding: 25 GP", "Collected so far: 0 CP"},
 					Actions: []ItemActionData{
 						{
+							Trigger:      ActionEdit,
+							ID:           "quest.update",
+							Label:        "u edit",
+							Mode:         ItemActionModeCompose,
+							ComposeMode:  "quest",
+							ComposeTitle: "Edit Quest",
+							ComposeFields: map[string]string{
+								"title":       "Goblin Bounty",
+								"patron":      "Mayor Rowan",
+								"description": "",
+								"reward":      "25 GP",
+								"advance":     "0 CP",
+								"bonus":       "",
+								"notes":       "",
+								"status":      "collectible",
+								"accepted_on": "2026-03-08",
+							},
+						},
+						{
 							Trigger:      ActionCollect,
 							ID:           "quest.collect_full",
 							Label:        "c collect",
@@ -257,8 +299,8 @@ func TestShellQuestActionsShowCombinedFooterAndMatchTriggers(t *testing.T) {
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowQuests)
 
-	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "c collect") || !strings.Contains(help, "w write off") {
-		t.Fatalf("quest footer help = %q, want collect and write off labels", help)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "u edit") || !strings.Contains(help, "c collect") || !strings.Contains(help, "w write off") {
+		t.Fatalf("quest footer help = %q, want edit, collect, and write off labels", help)
 	}
 
 	if result := shell.HandleAction(ActionToggle); result.Redraw || shell.confirm != nil {
@@ -272,6 +314,58 @@ func TestShellQuestActionsShowCombinedFooterAndMatchTriggers(t *testing.T) {
 
 	if result := shell.HandleAction(ActionWriteOff); !result.Redraw || shell.confirm == nil || shell.confirm.Action.ID != "quest.writeoff_full" {
 		t.Fatalf("write-off action did not open write-off modal: %#v %#v", result, shell.confirm)
+	}
+}
+
+func TestShellEditActionOpensPrefilledCompose(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Quests: ListScreenData{
+			Items: []ListItemData{
+				{
+					Key:         "quest-1",
+					Row:         "25 GP collectible 25 GP due Goblin Bounty (Mayor Rowan)",
+					DetailTitle: "Goblin Bounty",
+					DetailLines: []string{"Outstanding: 25 GP"},
+					Actions: []ItemActionData{{
+						Trigger:      ActionEdit,
+						ID:           "quest.update",
+						Label:        "u edit",
+						Mode:         ItemActionModeCompose,
+						ComposeMode:  "quest",
+						ComposeTitle: "Edit Quest",
+						ComposeFields: map[string]string{
+							"title":       "Goblin Bounty",
+							"patron":      "Mayor Rowan",
+							"description": "Clear the cave",
+							"reward":      "25 GP",
+							"advance":     "0 CP",
+							"bonus":       "",
+							"notes":       "Bring proof",
+							"status":      "collectible",
+							"accepted_on": "2026-03-08",
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	shell := NewShell(&data)
+	shell.HandleAction(ActionShowQuests)
+
+	result := shell.HandleAction(ActionEdit)
+	if !result.Redraw || shell.compose == nil {
+		t.Fatalf("edit action did not open compose: %#v %#v", result, shell.compose)
+	}
+	if shell.compose.CommandID != "quest.update" {
+		t.Fatalf("compose command id = %q, want quest.update", shell.compose.CommandID)
+	}
+	if shell.compose.Fields["title"] != "Goblin Bounty" {
+		t.Fatalf("compose title field = %q, want Goblin Bounty", shell.compose.Fields["title"])
+	}
+	if shell.compose.Fields["status"] != "collectible" {
+		t.Fatalf("compose status field = %q, want collectible", shell.compose.Fields["status"])
 	}
 }
 
@@ -515,5 +609,185 @@ func TestShellExpenseComposeOpensAndEmitsCommand(t *testing.T) {
 	}
 	if result.Command.Fields["account_code"] != "5100" {
 		t.Fatalf("command account code = %q, want typed account code", result.Command.Fields["account_code"])
+	}
+}
+
+func TestShellExpenseComposeAcceptsArrowKeyNavigation(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		EntryCatalog: EntryCatalog{
+			DefaultDate: "2026-03-10",
+			ExpenseAccounts: []AccountOption{
+				{Code: "5100", Name: "Arrows & Ammunition", Type: "expense"},
+			},
+			FundingAccounts: []AccountOption{
+				{Code: "1000", Name: "Party Cash", Type: "asset"},
+			},
+		},
+	}
+
+	shell := NewShell(&data)
+	if result := shell.HandleAction(ActionNewExpense); !result.Redraw || shell.compose == nil {
+		t.Fatalf("expected expense compose to open: %#v %#v", result, shell.compose)
+	}
+
+	for _, event := range []*tcell.EventKey{
+		tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'A', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'o', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'w', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 's', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '2', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '5', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '5', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '1', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '0', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, '0', tcell.ModNone),
+	} {
+		shell.handleComposeKeyEvent(event, DefaultKeyMap().Resolve(event))
+	}
+
+	result, handled := shell.handleComposeKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || result.Command == nil {
+		t.Fatalf("submit did not emit expense command: %#v handled=%v", result, handled)
+	}
+	if result.Command.Fields["description"] != "Arrows" {
+		t.Fatalf("command description = %q, want Arrows", result.Command.Fields["description"])
+	}
+	if result.Command.Fields["amount"] != "25" {
+		t.Fatalf("command amount = %q, want 25", result.Command.Fields["amount"])
+	}
+	if result.Command.Fields["account_code"] != "5100" {
+		t.Fatalf("command account code = %q, want 5100", result.Command.Fields["account_code"])
+	}
+}
+
+func TestShellSectionLaunchersFollowCurrentScreen(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Accounts: ListScreenData{
+			Items: []ListItemData{{
+				Key: "1000",
+				Row: "1000 asset active Party Cash",
+				Actions: []ItemActionData{
+					{Trigger: ActionDelete, ID: "account.delete", Label: "d remove"},
+					{Trigger: ActionToggle, ID: "account.deactivate", Label: "t deactivate"},
+				},
+			}},
+		},
+		Journal: ListScreenData{
+			Items: []ListItemData{{
+				Key:     "entry-1",
+				Row:     "#1 2026-03-10 posted Restock",
+				Actions: []ItemActionData{{Trigger: ActionReverse, ID: "journal.reverse", Label: "r reverse"}},
+			}},
+		},
+		Quests: ListScreenData{
+			Items: []ListItemData{{
+				Key:     "quest-1",
+				Row:     "25 GP collectible Goblin Bounty",
+				Actions: []ItemActionData{{Trigger: ActionCollect, ID: "quest.collect_full", Label: "c collect"}},
+			}},
+		},
+		Loot: ListScreenData{
+			Items: []ListItemData{{
+				Key:     "loot-1",
+				Row:     "7 GP held Gold Necklace",
+				Actions: []ItemActionData{{Trigger: ActionRecognize, ID: "loot.recognize_latest", Label: "n recognize"}},
+			}},
+		},
+	}
+
+	shell := NewShell(&data)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "e/i/a entry") {
+		t.Fatalf("dashboard help = %q", help)
+	}
+
+	shell.HandleAction(ActionShowAccounts)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add") || !strings.Contains(help, "d remove") || !strings.Contains(help, "t deactivate") {
+		t.Fatalf("accounts help = %q", help)
+	}
+
+	shell.HandleAction(ActionShowJournal)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "e/i entry") || !strings.Contains(help, "r reverse") || strings.Contains(help, "e/i/a entry") {
+		t.Fatalf("journal help = %q", help)
+	}
+
+	shell.HandleAction(ActionShowQuests)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add") || !strings.Contains(help, "u edit") || !strings.Contains(help, "c collect") {
+		t.Fatalf("quests help = %q", help)
+	}
+
+	shell.HandleAction(ActionShowLoot)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add") || !strings.Contains(help, "u edit") || !strings.Contains(help, "n recognize") {
+		t.Fatalf("loot help = %q", help)
+	}
+}
+
+func TestShellSectionSpecificComposeLaunches(t *testing.T) {
+	data := DefaultShellData()
+	data.EntryCatalog.DefaultDate = "2026-03-10"
+
+	shell := NewShell(&data)
+	if result := shell.HandleAction(ActionNewCustom); !result.Redraw || shell.compose == nil || shell.compose.Mode != composeModeCustom {
+		t.Fatalf("dashboard a should open custom compose: %#v %#v", result, shell.compose)
+	}
+
+	shell.compose = nil
+	shell.HandleAction(ActionShowAccounts)
+	if result := shell.HandleAction(ActionNewCustom); !result.Redraw || shell.compose == nil || shell.compose.Mode != composeModeAccount {
+		t.Fatalf("accounts a should open account compose: %#v %#v", result, shell.compose)
+	}
+
+	shell.compose = nil
+	shell.HandleAction(ActionShowJournal)
+	if result := shell.HandleAction(ActionNewExpense); !result.Redraw || shell.compose == nil || shell.compose.Mode != composeModeExpense {
+		t.Fatalf("journal e should open expense compose: %#v %#v", result, shell.compose)
+	}
+
+	shell.compose = nil
+	if result := shell.HandleAction(ActionNewCustom); result.Redraw || shell.compose != nil {
+		t.Fatalf("journal a should not open compose: %#v %#v", result, shell.compose)
+	}
+
+	shell.HandleAction(ActionShowQuests)
+	if result := shell.HandleAction(ActionNewCustom); !result.Redraw || shell.compose == nil || shell.compose.Mode != composeModeQuest {
+		t.Fatalf("quests a should open quest compose: %#v %#v", result, shell.compose)
+	}
+
+	shell.compose = nil
+	shell.HandleAction(ActionShowLoot)
+	if result := shell.HandleAction(ActionNewCustom); !result.Redraw || shell.compose == nil || shell.compose.Mode != composeModeLoot {
+		t.Fatalf("loot a should open loot compose: %#v %#v", result, shell.compose)
+	}
+}
+
+func TestShellGlossaryModalOpensAndCloses(t *testing.T) {
+	theme := DefaultTheme()
+	keymap := DefaultKeyMap()
+	buffer := NewBuffer(100, 28, theme.Base)
+
+	data := DefaultShellData()
+	shell := NewShell(&data)
+	result := shell.HandleAction(ActionHelp)
+	if !result.Redraw || shell.glossary == nil {
+		t.Fatalf("expected glossary to open: %#v %#v", result, shell.glossary)
+	}
+
+	shell.Render(buffer, &theme, keymap)
+	output := buffer.PlainText()
+	for _, token := range []string{"Dashboard Terms", "To share now:", "? close"} {
+		if !strings.Contains(output, token) {
+			t.Fatalf("glossary output missing %q:\n%s", token, output)
+		}
+	}
+
+	result = shell.HandleAction(ActionHelp)
+	if !result.Redraw || shell.glossary != nil {
+		t.Fatalf("expected glossary to close on ?: %#v %#v", result, shell.glossary)
 	}
 }

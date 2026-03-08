@@ -56,3 +56,14 @@ func (s Section) previous() Section {
 func (s Section) scrollable() bool {
 	return s != SectionDashboard
 }
+
+func maxSectionTitleWidth() int {
+	width := 0
+	for _, section := range orderedSections {
+		titleWidth := len(section.Title())
+		if titleWidth > width {
+			width = titleWidth
+		}
+	}
+	return width
+}

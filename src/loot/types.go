@@ -18,6 +18,15 @@ type LootItemRecord struct {
 	UpdatedAt string
 }
 
+// UpdateLootItemInput holds the editable fields for a loot register row.
+type UpdateLootItemInput struct {
+	Name     string
+	Source   string
+	Quantity int
+	Holder   string
+	Notes    string
+}
+
 // LootAppraisalRecord represents a loot appraisal row from the database.
 type LootAppraisalRecord struct {
 	ID                string

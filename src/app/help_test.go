@@ -146,6 +146,15 @@ func TestRunTUIHelpShowsKeyboardControls(t *testing.T) {
 	if !strings.Contains(output, "sell the selected recognized loot item") {
 		t.Fatalf("tui help missing loot sell guidance: %q", output)
 	}
+	if !strings.Contains(output, "edit the selected quest or loot item") {
+		t.Fatalf("tui help missing edit guidance: %q", output)
+	}
+	if !strings.Contains(output, "does not set value; appraisal happens later") {
+		t.Fatalf("tui help missing loot creation appraisal guidance: %q", output)
+	}
+	if !strings.Contains(output, "open a glossary modal") {
+		t.Fatalf("tui help missing glossary guidance: %q", output)
+	}
 	if !strings.Contains(output, "Enter                      confirm the open modal") {
 		t.Fatalf("tui help missing confirm guidance: %q", output)
 	}

@@ -32,6 +32,9 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 	if status == string(ledger.QuestStatusAccepted) && acceptedOn == "" {
 		return QuestRecord{}, fmt.Errorf("accepted_on date is required when quest status is %q", ledger.QuestStatusAccepted)
 	}
+	if status != string(ledger.QuestStatusAccepted) {
+		acceptedOn = ""
+	}
 
 	if input.PromisedBaseReward < 0 {
 		return QuestRecord{}, fmt.Errorf("promised_base_reward must be non-negative")
@@ -51,10 +54,10 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 
 		if _, err := db.ExecContext(ctx,
 			`INSERT INTO quests (id, title, patron, description, promised_base_reward, partial_advance, bonus_conditions, status, notes, accepted_on)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, title, strings.TrimSpace(input.Patron), strings.TrimSpace(input.Description),
 			input.PromisedBaseReward, input.PartialAdvance, strings.TrimSpace(input.BonusConditions),
-			status, acceptedOnVal,
+			status, strings.TrimSpace(input.Notes), acceptedOnVal,
 		); err != nil {
 			return QuestRecord{}, fmt.Errorf("insert quest: %w", err)
 		}
@@ -67,9 +70,82 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 			PromisedBaseReward: input.PromisedBaseReward,
 			PartialAdvance:     input.PartialAdvance,
 			BonusConditions:    strings.TrimSpace(input.BonusConditions),
+			Notes:              strings.TrimSpace(input.Notes),
 			Status:             ledger.QuestStatus(status),
 			AcceptedOn:         acceptedOn,
 		}, nil
+	})
+}
+
+// UpdateQuest edits operational quest fields without mutating posted journal history.
+func UpdateQuest(ctx context.Context, databasePath string, questID string, input *UpdateQuestInput) (QuestRecord, error) {
+	questID = strings.TrimSpace(questID)
+	if questID == "" {
+		return QuestRecord{}, fmt.Errorf("quest ID is required")
+	}
+	if input == nil {
+		return QuestRecord{}, fmt.Errorf("quest input is required")
+	}
+
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return QuestRecord{}, fmt.Errorf("quest title is required")
+	}
+	if input.PromisedBaseReward < 0 {
+		return QuestRecord{}, fmt.Errorf("promised_base_reward must be non-negative")
+	}
+	if input.PartialAdvance < 0 {
+		return QuestRecord{}, fmt.Errorf("partial_advance must be non-negative")
+	}
+
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (QuestRecord, error) {
+		current, err := getQuestByID(ctx, db, questID)
+		if err != nil {
+			return QuestRecord{}, err
+		}
+
+		acceptedOn := strings.TrimSpace(input.AcceptedOn)
+		switch current.Status {
+		case ledger.QuestStatusOffered:
+			if acceptedOn != "" {
+				return QuestRecord{}, fmt.Errorf("accepted_on can only be set after a quest is accepted")
+			}
+		case ledger.QuestStatusAccepted:
+			if acceptedOn == "" {
+				return QuestRecord{}, fmt.Errorf("accepted_on date is required when quest status is %q", ledger.QuestStatusAccepted)
+			}
+		default:
+			if input.PromisedBaseReward != current.PromisedBaseReward {
+				return QuestRecord{}, fmt.Errorf("promised reward cannot be edited after quest status moves beyond accepted")
+			}
+			if input.PartialAdvance != current.PartialAdvance {
+				return QuestRecord{}, fmt.Errorf("partial advance cannot be edited after quest status moves beyond accepted")
+			}
+			if acceptedOn != current.AcceptedOn {
+				return QuestRecord{}, fmt.Errorf("accepted_on cannot be edited after quest status moves beyond accepted")
+			}
+			acceptedOn = current.AcceptedOn
+		}
+
+		if _, err := db.ExecContext(ctx,
+			`UPDATE quests
+			 SET title = ?, patron = ?, description = ?, promised_base_reward = ?, partial_advance = ?,
+			     bonus_conditions = ?, notes = ?, accepted_on = ?, updated_at = CURRENT_TIMESTAMP
+			 WHERE id = ?`,
+			title,
+			strings.TrimSpace(input.Patron),
+			strings.TrimSpace(input.Description),
+			input.PromisedBaseReward,
+			input.PartialAdvance,
+			strings.TrimSpace(input.BonusConditions),
+			strings.TrimSpace(input.Notes),
+			nullString(acceptedOn),
+			questID,
+		); err != nil {
+			return QuestRecord{}, fmt.Errorf("update quest: %w", err)
+		}
+
+		return getQuestByID(ctx, db, questID)
 	})
 }
 
@@ -480,6 +556,45 @@ func getQuestStatus(ctx context.Context, db *sql.DB, questID string) (ledger.Que
 	}
 
 	return s, nil
+}
+
+func getQuestByID(ctx context.Context, db *sql.DB, questID string) (QuestRecord, error) {
+	var record QuestRecord
+	var status string
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT id, title, patron, description, promised_base_reward, partial_advance,
+		       bonus_conditions, status, notes,
+		       COALESCE(accepted_on, ''), COALESCE(completed_on, ''), COALESCE(closed_on, ''),
+		       created_at, updated_at
+		FROM quests
+		WHERE id = ?
+	`, questID).Scan(
+		&record.ID, &record.Title, &record.Patron, &record.Description,
+		&record.PromisedBaseReward, &record.PartialAdvance,
+		&record.BonusConditions, &status, &record.Notes,
+		&record.AcceptedOn, &record.CompletedOn, &record.ClosedOn,
+		&record.CreatedAt, &record.UpdatedAt,
+	); err != nil {
+		if err == sql.ErrNoRows {
+			return QuestRecord{}, fmt.Errorf("quest %q does not exist", questID)
+		}
+		return QuestRecord{}, fmt.Errorf("query quest: %w", err)
+	}
+
+	record.Status = ledger.QuestStatus(status)
+	if !record.Status.Valid() {
+		return QuestRecord{}, fmt.Errorf("quest %s has invalid status %q", questID, status)
+	}
+
+	return record, nil
+}
+
+func nullString(value string) any {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return strings.TrimSpace(value)
 }
 
 func queryQuestTotalPaid(ctx context.Context, db *sql.DB, questTitle string) (int64, error) {

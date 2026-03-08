@@ -31,8 +31,21 @@ type CreateQuestInput struct {
 	PromisedBaseReward int64
 	PartialAdvance     int64
 	BonusConditions    string
+	Notes              string
 	Status             string // "offered" or "accepted"
 	AcceptedOn         string // required if status is "accepted"
+}
+
+// UpdateQuestInput holds the parameters for editing a quest register row.
+type UpdateQuestInput struct {
+	Title              string
+	Patron             string
+	Description        string
+	PromisedBaseReward int64
+	PartialAdvance     int64
+	BonusConditions    string
+	Notes              string
+	AcceptedOn         string
 }
 
 // CollectQuestPaymentInput holds the parameters for collecting a quest payment.

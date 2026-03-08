@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,14 +20,20 @@ import (
 )
 
 const (
+	tuiCommandAccountCreate     = "account.create"
 	tuiCommandAccountActivate   = "account.activate"
 	tuiCommandAccountDeactivate = "account.deactivate"
+	tuiCommandAccountDelete     = "account.delete"
 	tuiCommandJournalReverse    = "journal.reverse"
 	tuiCommandCreateExpense     = "entry.expense.create"
 	tuiCommandCreateIncome      = "entry.income.create"
 	tuiCommandCreateCustom      = "entry.custom.create"
+	tuiCommandQuestCreate       = "quest.create"
+	tuiCommandQuestUpdate       = "quest.update"
 	tuiCommandQuestCollectFull  = "quest.collect_full"
 	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
+	tuiCommandLootCreate        = "loot.create"
+	tuiCommandLootUpdate        = "loot.update"
 	tuiCommandLootRecognize     = "loot.recognize_latest"
 	tuiCommandLootSell          = "loot.sell"
 )
@@ -64,6 +71,10 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 				fmt.Sprintf("Read-only snapshot from %s.", databaseName),
 				"Use arrows, Tab, or 1-5 to move between boxed screens. Use e/i/a for guided entry creation.",
 			},
+			HoardLines: []string{
+				"To share now: awaiting ledger snapshot.",
+				"Unsold loot: awaiting register snapshot.",
+			},
 			QuickEntryLines: []string{
 				"e  I have an expense",
 				"i  I have income",
@@ -73,7 +84,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Accounts: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Chart of accounts from %s.", databaseName),
-				"Select an account to inspect it. `t` toggles active/inactive with confirmation.",
+				"Select an account to inspect it. `a` adds, `d` removes, and `t` toggles active/inactive.",
 			},
 			EmptyLines: []string{
 				"No accounts found.",
@@ -83,7 +94,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Journal: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Posted journal history from %s.", databaseName),
-				"Select an entry to inspect it. `r` reverses the selected posted entry on its original date.",
+				"Select an entry to inspect it. `e`/`i` add guided entries and `r` reverses the selected posted entry.",
 			},
 			EmptyLines: []string{
 				"No journal entries yet.",
@@ -93,7 +104,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Quests: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Quest register from %s.", databaseName),
-				"Select a quest to inspect it. `c` collects the full balance and `w` writes off the full balance using today's date.",
+				"Select a quest to inspect it. `a` adds, `u` edits, `c` collects the full balance, and `w` writes off the full balance.",
 			},
 			EmptyLines: []string{
 				"No quests tracked yet.",
@@ -103,7 +114,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Loot: render.ListScreenData{
 			HeaderLines: []string{
 				fmt.Sprintf("Unrealized loot register from %s.", databaseName),
-				"Select a loot item to inspect it. `n` recognizes the latest appraisal and `s` sells recognized loot using today's date.",
+				"Select a loot item to inspect it. `a` adds, `u` edits, `n` recognizes the latest appraisal, and `s` sells recognized loot.",
 			},
 			EmptyLines: []string{
 				"No loot tracked yet.",
@@ -150,11 +161,13 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	trialBalance, err := report.GetTrialBalance(ctx, databasePath)
+	trialBalanceAvailable := false
 	if err != nil {
 		data.Dashboard.LedgerLines = unavailablePanelLines(err)
 		panelErrors = append(panelErrors, "ledger")
 	} else {
 		data.Dashboard.LedgerLines = summarizeLedger(trialBalance)
+		trialBalanceAvailable = true
 	}
 
 	promisedQuests, err := report.GetPromisedQuests(ctx, databasePath)
@@ -218,6 +231,15 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		}
 	}
 
+	if trialBalanceAvailable {
+		data.Dashboard.HoardLines = summarizeShareableGold(trialBalance, lootRows, lootSummaryAvailable)
+	} else {
+		data.Dashboard.HoardLines = []string{
+			"To share now: unavailable",
+			"Ledger snapshot is unavailable.",
+		}
+	}
+
 	if len(panelErrors) > 0 {
 		data.Dashboard.HeaderLines[1] = "Some panels are unavailable: " + strings.Join(uniqueStrings(panelErrors), ", ") + "."
 	}
@@ -232,6 +254,24 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	today := tuiToday()
 
 	switch command.ID {
+	case tuiCommandAccountCreate:
+		accountType := ledger.AccountType(strings.TrimSpace(command.Fields["account_type"]))
+		result, err := account.CreateAccount(
+			ctx,
+			databasePath,
+			strings.TrimSpace(command.Fields["code"]),
+			strings.TrimSpace(command.Fields["name"]),
+			accountType,
+		)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Created account %s.", result.Code),
+		}
+		navigateTo = render.SectionAccounts
+		selectItemKey = result.Code
 	case tuiCommandAccountActivate:
 		if err := account.ActivateAccount(ctx, databasePath, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
@@ -247,6 +287,14 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Account %s deactivated.", command.ItemKey),
+		}
+	case tuiCommandAccountDelete:
+		if err := account.DeleteAccount(ctx, databasePath, command.ItemKey); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Removed account %s.", command.ItemKey),
 		}
 	case tuiCommandJournalReverse:
 		entries, err := journal.ListBrowseEntries(ctx, databasePath)
@@ -341,6 +389,79 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		navigateTo = render.SectionJournal
 		selectItemKey = result.ID
+	case tuiCommandQuestCreate:
+		rewardText := strings.TrimSpace(command.Fields["reward"])
+		if rewardText == "" {
+			rewardText = "0"
+		}
+		reward, err := tools.ParseAmount(rewardText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
+		}
+		advanceText := strings.TrimSpace(command.Fields["advance"])
+		if advanceText == "" {
+			advanceText = "0"
+		}
+		advance, err := tools.ParseAmount(advanceText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
+		}
+		result, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+			Title:              strings.TrimSpace(command.Fields["title"]),
+			Patron:             strings.TrimSpace(command.Fields["patron"]),
+			Description:        strings.TrimSpace(command.Fields["description"]),
+			PromisedBaseReward: reward,
+			PartialAdvance:     advance,
+			BonusConditions:    strings.TrimSpace(command.Fields["bonus"]),
+			Notes:              strings.TrimSpace(command.Fields["notes"]),
+			Status:             strings.TrimSpace(command.Fields["status"]),
+			AcceptedOn:         strings.TrimSpace(command.Fields["accepted_on"]),
+		})
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Created quest %q.", result.Title),
+		}
+		navigateTo = render.SectionQuests
+		selectItemKey = result.ID
+	case tuiCommandQuestUpdate:
+		rewardText := strings.TrimSpace(command.Fields["reward"])
+		if rewardText == "" {
+			rewardText = "0"
+		}
+		reward, err := tools.ParseAmount(rewardText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
+		}
+		advanceText := strings.TrimSpace(command.Fields["advance"])
+		if advanceText == "" {
+			advanceText = "0"
+		}
+		advance, err := tools.ParseAmount(advanceText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
+		}
+		result, err := quest.UpdateQuest(ctx, databasePath, command.ItemKey, &quest.UpdateQuestInput{
+			Title:              strings.TrimSpace(command.Fields["title"]),
+			Patron:             strings.TrimSpace(command.Fields["patron"]),
+			Description:        strings.TrimSpace(command.Fields["description"]),
+			PromisedBaseReward: reward,
+			PartialAdvance:     advance,
+			BonusConditions:    strings.TrimSpace(command.Fields["bonus"]),
+			Notes:              strings.TrimSpace(command.Fields["notes"]),
+			AcceptedOn:         strings.TrimSpace(command.Fields["accepted_on"]),
+		})
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Updated quest %q.", result.Title),
+		}
+		navigateTo = render.SectionQuests
+		selectItemKey = result.ID
 	case tuiCommandQuestCollectFull:
 		quests, err := loadTUIQuestRows(ctx, databasePath)
 		if err != nil {
@@ -396,6 +517,64 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", tools.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
+	case tuiCommandLootCreate:
+		quantityText := strings.TrimSpace(command.Fields["quantity"])
+		if quantityText == "" {
+			quantityText = "1"
+		}
+		quantity, err := strconv.Atoi(quantityText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+		}
+		if quantity <= 0 {
+			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
+		}
+		result, err := loot.CreateLootItem(
+			ctx,
+			databasePath,
+			strings.TrimSpace(command.Fields["name"]),
+			strings.TrimSpace(command.Fields["source"]),
+			quantity,
+			strings.TrimSpace(command.Fields["holder"]),
+			strings.TrimSpace(command.Fields["notes"]),
+		)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Created loot item %q.", result.Name),
+		}
+		navigateTo = render.SectionLoot
+		selectItemKey = result.ID
+	case tuiCommandLootUpdate:
+		quantityText := strings.TrimSpace(command.Fields["quantity"])
+		if quantityText == "" {
+			quantityText = "1"
+		}
+		quantity, err := strconv.Atoi(quantityText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+		}
+		if quantity <= 0 {
+			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
+		}
+		result, err := loot.UpdateLootItem(ctx, databasePath, command.ItemKey, &loot.UpdateLootItemInput{
+			Name:     strings.TrimSpace(command.Fields["name"]),
+			Source:   strings.TrimSpace(command.Fields["source"]),
+			Quantity: quantity,
+			Holder:   strings.TrimSpace(command.Fields["holder"]),
+			Notes:    strings.TrimSpace(command.Fields["notes"]),
+		})
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Updated loot item %q.", result.Name),
+		}
+		navigateTo = render.SectionLoot
+		selectItemKey = result.ID
 	case tuiCommandLootRecognize:
 		items, err := loot.ListBrowseItems(ctx, databasePath)
 		if err != nil {
@@ -543,8 +722,8 @@ func summarizeAccounts(accounts []ledger.AccountRecord) []string {
 	return []string{
 		fmt.Sprintf("Accounts: %d total", len(accounts)),
 		fmt.Sprintf("Active: %d  Inactive: %d", active, len(accounts)-active),
-		fmt.Sprintf("A/L/E: %d / %d / %d", counts[ledger.AccountTypeAsset], counts[ledger.AccountTypeLiability], counts[ledger.AccountTypeEquity]),
-		fmt.Sprintf("I/X: %d / %d", counts[ledger.AccountTypeIncome], counts[ledger.AccountTypeExpense]),
+		fmt.Sprintf("Assets: %d  Liabilities: %d", counts[ledger.AccountTypeAsset], counts[ledger.AccountTypeLiability]),
+		fmt.Sprintf("Equity: %d  Income: %d  Expenses: %d", counts[ledger.AccountTypeEquity], counts[ledger.AccountTypeIncome], counts[ledger.AccountTypeExpense]),
 	}
 }
 
@@ -719,11 +898,52 @@ func summarizeLoot(rows []report.LootSummaryRow) []string {
 	}
 }
 
+func summarizeShareableGold(trialBalance report.TrialBalanceReport, lootRows []report.LootSummaryRow, lootAvailable bool) []string {
+	cashBalance := int64(0)
+	cashFound := false
+	for _, row := range trialBalance.Accounts {
+		if row.AccountCode == "1000" {
+			cashBalance = row.Balance
+			cashFound = true
+			break
+		}
+		if row.AccountType == ledger.AccountTypeAsset && strings.EqualFold(row.AccountName, "Party Cash") {
+			cashBalance = row.Balance
+			cashFound = true
+			break
+		}
+	}
+
+	shareLine := "To share now: unknown"
+	if cashFound {
+		shareLine = "To share now: " + tools.FormatAmount(cashBalance)
+	}
+
+	if !lootAvailable {
+		return []string{
+			shareLine,
+			"Unsold loot: unavailable",
+		}
+	}
+
+	recognizedLoot := int64(0)
+	for _, row := range lootRows {
+		if row.Status == ledger.LootStatusRecognized {
+			recognizedLoot += row.LatestAppraisalValue
+		}
+	}
+
+	return []string{
+		shareLine,
+		"Unsold loot: " + tools.FormatAmount(recognizedLoot),
+	}
+}
+
 func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(accounts))
 	for _, record := range accounts {
 		status := "inactive"
-		action := &render.ItemActionData{
+		toggleAction := render.ItemActionData{
 			Trigger:      render.ActionToggle,
 			ID:           tuiCommandAccountActivate,
 			Label:        "t activate",
@@ -735,7 +955,7 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 		}
 		if record.Active {
 			status = "active"
-			action = &render.ItemActionData{
+			toggleAction = render.ItemActionData{
 				Trigger:      render.ActionToggle,
 				ID:           tuiCommandAccountDeactivate,
 				Label:        "t deactivate",
@@ -745,6 +965,17 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 					"Inactive accounts stay in history but cannot be used in new journal entries.",
 				},
 			}
+		}
+
+		deleteAction := render.ItemActionData{
+			Trigger:      render.ActionDelete,
+			ID:           tuiCommandAccountDelete,
+			Label:        "d remove",
+			ConfirmTitle: fmt.Sprintf("Remove account %s?", record.Code),
+			ConfirmLines: []string{
+				record.Name,
+				"Accounts with postings cannot be removed. Unused accounts will be deleted immediately.",
+			},
 		}
 
 		items = append(items, render.ListItemData{
@@ -758,7 +989,7 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 				"Code: " + record.Code + " (immutable)",
 				"Used accounts may be marked inactive. Accounts with postings cannot be deleted.",
 			},
-			Actions: []render.ItemActionData{*action},
+			Actions: []render.ItemActionData{deleteAction, toggleAction},
 		})
 	}
 
@@ -860,9 +1091,28 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 		}
 
 		var actions []render.ItemActionData
+		actions = append(actions, render.ItemActionData{
+			Trigger:      render.ActionEdit,
+			ID:           tuiCommandQuestUpdate,
+			Label:        "u edit",
+			Mode:         render.ItemActionModeCompose,
+			ComposeMode:  "quest",
+			ComposeTitle: "Edit Quest",
+			ComposeFields: map[string]string{
+				"title":       record.Title,
+				"patron":      record.Patron,
+				"description": record.Description,
+				"reward":      tools.FormatAmount(record.PromisedBaseReward),
+				"advance":     tools.FormatAmount(record.PartialAdvance),
+				"bonus":       record.BonusConditions,
+				"notes":       record.Notes,
+				"status":      string(record.Status),
+				"accepted_on": record.AcceptedOn,
+			},
+		})
 		if row.Collectible {
-			actions = []render.ItemActionData{
-				{
+			actions = append(actions,
+				render.ItemActionData{
 					Trigger:      render.ActionCollect,
 					ID:           tuiCommandQuestCollectFull,
 					Label:        "c collect",
@@ -874,7 +1124,7 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 						fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Quest payment: %s", record.Title)),
 					},
 				},
-				{
+				render.ItemActionData{
 					Trigger:      render.ActionWriteOff,
 					ID:           tuiCommandQuestWriteOffFull,
 					Label:        "w write off",
@@ -886,7 +1136,7 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 						fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Quest write-off: %s", record.Title)),
 					},
 				},
-			}
+			)
 		}
 
 		items = append(items, render.ListItemData{
@@ -943,13 +1193,28 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 		}
 
 		var actions []render.ItemActionData
+		actions = append(actions, render.ItemActionData{
+			Trigger:      render.ActionEdit,
+			ID:           tuiCommandLootUpdate,
+			Label:        "u edit",
+			Mode:         render.ItemActionModeCompose,
+			ComposeMode:  "loot",
+			ComposeTitle: "Edit Loot",
+			ComposeFields: map[string]string{
+				"name":     row.Name,
+				"source":   row.Source,
+				"quantity": strconv.Itoa(row.Quantity),
+				"holder":   row.Holder,
+				"notes":    row.Notes,
+			},
+		})
 		if lootRecognizable(row) {
 			appraisalDetail := "This uses the latest appraisal."
 			if row.AppraisalCount > 1 {
 				appraisalDetail = fmt.Sprintf("This uses the latest of %d appraisals.", row.AppraisalCount)
 			}
 
-			actions = []render.ItemActionData{{
+			actions = append(actions, render.ItemActionData{
 				Trigger:      render.ActionRecognize,
 				ID:           tuiCommandLootRecognize,
 				Label:        "n recognize",
@@ -963,9 +1228,9 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 					"A new posted journal entry will be created.",
 					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Recognize loot appraisal: %s", row.LatestAppraisal.ID)),
 				},
-			}}
+			})
 		} else if lootSellable(row) {
-			actions = []render.ItemActionData{{
+			actions = append(actions, render.ItemActionData{
 				Trigger:     render.ActionSell,
 				ID:          tuiCommandLootSell,
 				Label:       "s sell",
@@ -979,7 +1244,7 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Sale of loot item: %s", row.ID)),
 				},
 				Placeholder: tools.FormatAmount(row.RecognizedAppraisalValue),
-			}}
+			})
 		}
 
 		items = append(items, render.ListItemData{

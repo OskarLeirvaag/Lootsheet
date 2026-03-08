@@ -25,6 +25,11 @@ type inputState struct {
 	HelpLines   []string
 }
 
+type glossaryState struct {
+	Title string
+	Lines []string
+}
+
 type handleResult struct {
 	Command *Command
 	Quit    bool
@@ -44,6 +49,7 @@ type Shell struct {
 	confirm         *confirmState
 	input           *inputState
 	compose         *composeState
+	glossary        *glossaryState
 }
 
 // NewShell constructs the interactive TUI shell state.
@@ -71,6 +77,7 @@ func (s *Shell) Reload(data *ShellData) {
 	s.confirm = nil
 	s.input = nil
 	s.compose = nil
+	s.glossary = nil
 	s.reconcileSelections()
 }
 
@@ -92,11 +99,14 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	if s.input != nil {
 		return s.handleInputAction(action)
 	}
+	if s.glossary != nil {
+		return s.handleGlossaryAction(action)
+	}
 	if s.compose != nil {
 		switch action {
-		case ActionNone, ActionConfirm, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-			ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 			return handleResult{}
 		case ActionQuit:
@@ -119,6 +129,10 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		return handleResult{Quit: true}
 	case ActionRedraw:
 		return handleResult{Reload: true}
+	case ActionHelp:
+		if s.toggleGlossary() {
+			return handleResult{Redraw: true}
+		}
 	case ActionNextSection:
 		s.Section = s.Section.next()
 		s.reconcileSelection(s.Section)
@@ -171,18 +185,18 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			return handleResult{Redraw: true}
 		}
 	case ActionNewExpense:
-		if s.openCompose(composeModeExpense) {
+		if s.openComposeForAction(ActionNewExpense) {
 			return handleResult{Redraw: true}
 		}
 	case ActionNewIncome:
-		if s.openCompose(composeModeIncome) {
+		if s.openComposeForAction(ActionNewIncome) {
 			return handleResult{Redraw: true}
 		}
 	case ActionNewCustom:
-		if s.openCompose(composeModeCustom) {
+		if s.openComposeForAction(ActionNewCustom) {
 			return handleResult{Redraw: true}
 		}
-	case ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
+	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
 		}
@@ -235,9 +249,9 @@ func (s *Shell) handleConfirmAction(action Action) handleResult {
 
 func (s *Shell) handleInputAction(action Action) handleResult {
 	switch action {
-	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-		ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 		return handleResult{}
 	case ActionQuit:
@@ -251,6 +265,35 @@ func (s *Shell) handleInputAction(action Action) handleResult {
 	}
 
 	return handleResult{}
+}
+
+func (s *Shell) handleGlossaryAction(action Action) handleResult {
+	switch action {
+	case ActionQuit, ActionHelp:
+		s.glossary = nil
+		return handleResult{Redraw: true}
+	case ActionRedraw:
+		s.glossary = nil
+		return handleResult{Reload: true}
+	default:
+		return handleResult{}
+	}
+}
+
+func (s *Shell) toggleGlossary() bool {
+	if s == nil {
+		return false
+	}
+	if s.glossary != nil {
+		s.glossary = nil
+		return true
+	}
+
+	s.glossary = &glossaryState{
+		Title: s.glossaryTitle(),
+		Lines: s.glossaryLines(),
+	}
+	return true
 }
 
 func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
@@ -324,6 +367,7 @@ func (s *Shell) CloseModal() {
 	s.confirm = nil
 	s.input = nil
 	s.compose = nil
+	s.glossary = nil
 }
 
 // Render draws the full shell for the current section.
@@ -346,11 +390,15 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	main, footer := outer.SplitHorizontal(maxInt(0, outer.H-2), 0)
 	statusRect, helpRect := footer.SplitHorizontal(1, 0)
 	header, body := main.SplitHorizontal(6, 1)
+	headerAccent := s.sectionStyle(theme)
 
 	DrawPanel(buffer, header, theme, Panel{
-		Title: "LootSheet TUI",
-		Lines: s.headerLines(),
+		Title:       "LootSheet TUI",
+		Lines:       s.headerLines(),
+		BorderStyle: &headerAccent,
+		TitleStyle:  &headerAccent,
 	})
+	s.drawHeaderHighlights(buffer, header, theme)
 
 	switch s.Section {
 	case SectionAccounts:
@@ -376,6 +424,9 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	}
 	if s.confirm != nil {
 		s.renderConfirmModal(buffer, body, theme)
+	}
+	if s.glossary != nil {
+		s.renderGlossaryModal(buffer, body, theme)
 	}
 }
 
@@ -405,6 +456,7 @@ func (s *Shell) currentHeaderLines() []string {
 }
 
 func (s *Shell) tabsLine() string {
+	width := maxSectionTitleWidth() + 2
 	line := ""
 	for index, section := range orderedSections {
 		if index > 0 {
@@ -414,16 +466,80 @@ func (s *Shell) tabsLine() string {
 		label := section.Title()
 		if section == s.Section {
 			label = "[" + label + "]"
+		} else {
+			label = " " + label + " "
 		}
-		line += label
+		line += fmt.Sprintf("%-*s", width, label)
 	}
 
 	return line
 }
 
+func (s *Shell) drawHeaderHighlights(buffer *Buffer, rect Rect, theme *Theme) {
+	if buffer == nil || theme == nil {
+		return
+	}
+
+	content := panelContentRect(rect, buffer.Bounds())
+	if content.Empty() {
+		return
+	}
+
+	sectionLabel := "Section: "
+	buffer.WriteString(content.X, content.Y, theme.HeaderLabel, sectionLabel)
+	buffer.WriteString(content.X+len([]rune(sectionLabel)), content.Y, s.sectionStyle(theme), s.Section.Title())
+
+	if content.H < 2 {
+		return
+	}
+
+	prefix := "Sections: "
+	tabY := content.Y + content.H - 1
+	buffer.WriteString(content.X, tabY, theme.HeaderLabel, prefix)
+	x := content.X + len([]rune(prefix))
+	for index, section := range orderedSections {
+		if index > 0 {
+			x += buffer.WriteString(x, tabY, theme.Muted, "  ")
+		}
+
+		label := section.Title()
+		style := theme.TabInactive
+		if section == s.Section {
+			label = "[" + label + "]"
+			style = s.styleForSection(theme, section)
+		} else {
+			label = " " + label + " "
+		}
+		width := maxSectionTitleWidth() + 2
+		x += buffer.WriteString(x, tabY, style, fmt.Sprintf("%-*s", width, label))
+	}
+}
+
+func (s *Shell) sectionStyle(theme *Theme) tcell.Style {
+	return s.styleForSection(theme, s.Section)
+}
+
+func (s *Shell) styleForSection(theme *Theme, section Section) tcell.Style {
+	switch section {
+	case SectionAccounts:
+		return theme.SectionAccounts
+	case SectionJournal:
+		return theme.SectionJournal
+	case SectionQuests:
+		return theme.SectionQuests
+	case SectionLoot:
+		return theme.SectionLoot
+	default:
+		return theme.SectionDashboard
+	}
+}
+
 func (s *Shell) footerHelpText(keymap KeyMap) string {
 	if s.input != nil {
 		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel  q cancel"
+	}
+	if s.glossary != nil {
+		return "? close  Esc cancel  q cancel"
 	}
 	if s.compose != nil {
 		return s.composeHelpText()
@@ -433,7 +549,7 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 		return "Enter confirm  Esc cancel  q cancel"
 	}
 
-	help := keymap.HelpTextFor(ActionNextSection, ActionShowDashboard, ActionNewCustom, ActionQuit, ActionRedraw)
+	help := keymap.HelpTextFor(ActionNextSection, ActionShowDashboard)
 	if s.Section.scrollable() {
 		help = joinHelp(help, keymap.HelpTextFor(ActionMoveDown))
 	}
@@ -442,7 +558,77 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 		help = joinHelp(help, labels)
 	}
 
+	help = joinHelp(help, s.sectionLauncherHelpText())
+	help = joinHelp(help, "? terms", "q quit", "Ctrl+L refresh")
+
 	return help
+}
+
+func (s *Shell) sectionLauncherHelpText() string {
+	switch s.Section {
+	case SectionAccounts:
+		return "a add"
+	case SectionJournal:
+		return "e/i entry"
+	case SectionQuests:
+		return "a add  u edit"
+	case SectionLoot:
+		return "a add  u edit"
+	default:
+		return "e/i/a entry"
+	}
+}
+
+func (s *Shell) glossaryTitle() string {
+	return s.Section.Title() + " Terms"
+}
+
+func (s *Shell) glossaryLines() []string {
+	switch s.Section {
+	case SectionAccounts:
+		return []string{
+			"Assets: what the party owns or is owed.",
+			"Liabilities: what the party owes to others.",
+			"Equity: the party's accumulated net worth.",
+			"Income: rewards, fees, and gains earned by the party.",
+			"Expenses: costs like supplies, rations, inns, and repairs.",
+			"Active: usable in new entries.",
+			"Inactive: kept for history, blocked for new entries.",
+			"Postings: journal lines already recorded against an account.",
+		}
+	case SectionJournal:
+		return []string{
+			"Debit / Credit: the two sides of every balanced entry.",
+			"Posted: final and immutable.",
+			"Reversed: corrected by a later entry instead of editing history.",
+			"Reversal: a new entry that cancels an earlier posted entry.",
+			"Description: the plain-language reason for the entry.",
+		}
+	case SectionQuests:
+		return []string{
+			"Off-ledger promise: discussed reward, not earned yet.",
+			"Collectible: earned and ready to be paid.",
+			"Receivable: reward still owed to the party.",
+			"Collected so far: cash already received against the reward.",
+			"Write off: accept that the remaining reward will not be collected.",
+		}
+	case SectionLoot:
+		return []string{
+			"Held: physically owned, but not yet on the books.",
+			"Appraisal: estimated value of a loot item.",
+			"Recognize: move an appraisal onto the ledger as inventory and gain.",
+			"Recognized value: the inventory basis currently on the books.",
+			"Sell: turn recognized loot into cash and record any gain or loss.",
+		}
+	default:
+		return []string{
+			"To share now: current Party Cash balance available to split.",
+			"Unsold loot: recognized inventory not yet sold for cash.",
+			"Off-ledger: tracked in a register, but not yet in the ledger.",
+			"Register: operational tracking that may later create entries.",
+			"Ledger: the formal bookkeeping record.",
+		}
+	}
 }
 
 func (s *Shell) currentActionLabels() string {
@@ -469,6 +655,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		fallback := defaultListScreenData(section)
 		view = &fallback
 	}
+	accent := s.styleForSection(theme, section)
 
 	if rect.W < 48 || rect.H < 10 {
 		DrawPanel(buffer, rect, theme, Panel{
@@ -477,6 +664,8 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 				"Terminal too small for the interactive list view.",
 				"Resize to restore selection, detail, and action panels.",
 			},
+			BorderStyle: &accent,
+			TitleStyle:  &accent,
 		})
 		return
 	}
@@ -502,8 +691,10 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		summaryLines = []string{"No summary loaded."}
 	}
 	DrawPanel(buffer, summaryRect, theme, Panel{
-		Title: "Summary",
-		Lines: summaryLines,
+		Title:       "Summary",
+		Lines:       summaryLines,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
 	})
 
 	selectedIndex := s.currentSelectionIndex(section)
@@ -525,8 +716,10 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 	}
 
 	DrawPanel(buffer, detailRect, theme, Panel{
-		Title: detailTitle,
-		Lines: detailLines,
+		Title:       detailTitle,
+		Lines:       detailLines,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
 	})
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
@@ -535,17 +728,24 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section Section, data *ListScreenData, selectedIndex int) {
 	items := data.Items
 	title := section.Title()
+	accent := s.styleForSection(theme, section)
 	if len(items) == 0 {
 		DrawPanel(buffer, rect, theme, Panel{
-			Title: title,
-			Lines: data.EmptyLines,
+			Title:       title,
+			Lines:       data.EmptyLines,
+			BorderStyle: &accent,
+			TitleStyle:  &accent,
 		})
 		s.viewHeights[section] = 0
 		s.scrolls[section] = 0
 		return
 	}
 
-	DrawPanel(buffer, rect, theme, Panel{Title: title})
+	DrawPanel(buffer, rect, theme, Panel{
+		Title:       title,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
+	})
 
 	content := panelContentRect(rect, buffer.Bounds())
 	if content.Empty() {
@@ -569,7 +769,11 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 
 	end := minInt(len(items), scroll+content.H)
 	title = fmt.Sprintf("%s %d-%d/%d", section.Title(), scroll+1, end, len(items))
-	DrawPanel(buffer, rect, theme, Panel{Title: title})
+	DrawPanel(buffer, rect, theme, Panel{
+		Title:       title,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
+	})
 
 	for row := 0; row < content.H && scroll+row < len(items); row++ {
 		index := scroll + row
@@ -612,10 +816,13 @@ func (s *Shell) renderConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
 	x := rect.X + maxInt(0, (rect.W-width)/2)
 	y := rect.Y + maxInt(0, (rect.H-height)/2)
 	modal := Rect{X: x, Y: y, W: width, H: height}
+	accent := s.sectionStyle(theme)
 
 	DrawPanel(buffer, modal, theme, Panel{
-		Title: s.confirm.Action.ConfirmTitle,
-		Lines: lines,
+		Title:       s.confirm.Action.ConfirmTitle,
+		Lines:       lines,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
 	})
 }
 
@@ -652,10 +859,43 @@ func (s *Shell) renderInputModal(buffer *Buffer, rect Rect, theme *Theme) {
 	x := rect.X + maxInt(0, (rect.W-width)/2)
 	y := rect.Y + maxInt(0, (rect.H-height)/2)
 	modal := Rect{X: x, Y: y, W: width, H: height}
+	accent := s.sectionStyle(theme)
 
 	DrawPanel(buffer, modal, theme, Panel{
-		Title: s.input.Title,
-		Lines: lines,
+		Title:       s.input.Title,
+		Lines:       lines,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
+	})
+}
+
+func (s *Shell) renderGlossaryModal(buffer *Buffer, rect Rect, theme *Theme) {
+	if s.glossary == nil || rect.Empty() {
+		return
+	}
+
+	lines := append([]string{}, s.glossary.Lines...)
+	lines = append(lines, "", "? close  Esc/q cancel")
+
+	width := 74
+	for _, line := range lines {
+		if candidate := len([]rune(line)) + 4; candidate > width {
+			width = candidate
+		}
+	}
+
+	width = clampInt(width, 46, minInt(86, rect.W))
+	height := clampInt(len(lines)+2, 8, rect.H)
+	x := rect.X + maxInt(0, (rect.W-width)/2)
+	y := rect.Y + maxInt(0, (rect.H-height)/2)
+	modal := Rect{X: x, Y: y, W: width, H: height}
+	accent := s.sectionStyle(theme)
+
+	DrawPanel(buffer, modal, theme, Panel{
+		Title:       s.glossary.Title,
+		Lines:       lines,
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
 	})
 }
 
@@ -759,6 +999,8 @@ func (s *Shell) openAction(trigger Action) bool {
 		}
 
 		switch action.Mode {
+		case ItemActionModeCompose:
+			return s.openComposeFromAction(item.Key, &action)
 		case ItemActionModeInput:
 			s.input = &inputState{
 				Section:     s.Section,

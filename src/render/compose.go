@@ -13,6 +13,9 @@ const (
 	composeModeExpense composeMode = "expense"
 	composeModeIncome  composeMode = "income"
 	composeModeCustom  composeMode = "custom"
+	composeModeAccount composeMode = "account"
+	composeModeQuest   composeMode = "quest"
+	composeModeLoot    composeMode = "loot"
 )
 
 type composeLineState struct {
@@ -25,6 +28,9 @@ type composeLineState struct {
 type composeState struct {
 	Mode            composeMode
 	PreviousSection Section
+	CommandID       string
+	ItemKey         string
+	Title           string
 	FieldIndex      int
 	Fields          map[string]string
 	FieldErrors     map[string]string
@@ -45,6 +51,7 @@ func newExpenseCompose(previous Section, catalog *EntryCatalog) *composeState {
 	return &composeState{
 		Mode:            composeModeExpense,
 		PreviousSection: previous,
+		CommandID:       "entry.expense.create",
 		Fields: map[string]string{
 			"date":                catalog.DefaultDate,
 			"description":         "",
@@ -64,6 +71,7 @@ func newIncomeCompose(previous Section, catalog *EntryCatalog) *composeState {
 	return &composeState{
 		Mode:            composeModeIncome,
 		PreviousSection: previous,
+		CommandID:       "entry.income.create",
 		Fields: map[string]string{
 			"date":                catalog.DefaultDate,
 			"description":         "",
@@ -80,6 +88,7 @@ func newCustomCompose(previous Section) *composeState {
 	return &composeState{
 		Mode:            composeModeCustom,
 		PreviousSection: previous,
+		CommandID:       "entry.custom.create",
 		Fields: map[string]string{
 			"date":        "",
 			"description": "",
@@ -90,6 +99,78 @@ func newCustomCompose(previous Section) *composeState {
 			{Side: "credit"},
 		},
 	}
+}
+
+func newAccountCompose(previous Section) *composeState {
+	return &composeState{
+		Mode:            composeModeAccount,
+		PreviousSection: previous,
+		CommandID:       "account.create",
+		Fields: map[string]string{
+			"code":         "",
+			"name":         "",
+			"account_type": "",
+		},
+		FieldErrors: make(map[string]string),
+	}
+}
+
+func newQuestCompose(previous Section, _ *EntryCatalog) *composeState {
+	return &composeState{
+		Mode:            composeModeQuest,
+		PreviousSection: previous,
+		CommandID:       "quest.create",
+		Fields: map[string]string{
+			"title":       "",
+			"patron":      "",
+			"description": "",
+			"reward":      "0",
+			"advance":     "0",
+			"bonus":       "",
+			"notes":       "",
+			"status":      "offered",
+			"accepted_on": "",
+		},
+		FieldErrors: make(map[string]string),
+	}
+}
+
+func newLootCompose(previous Section) *composeState {
+	return &composeState{
+		Mode:            composeModeLoot,
+		PreviousSection: previous,
+		CommandID:       "loot.create",
+		Fields: map[string]string{
+			"name":     "",
+			"source":   "",
+			"quantity": "1",
+			"holder":   "",
+			"notes":    "",
+		},
+		FieldErrors: make(map[string]string),
+	}
+}
+
+func newQuestEditCompose(previous Section, itemKey string, fields map[string]string, catalog *EntryCatalog) *composeState {
+	compose := newQuestCompose(previous, catalog)
+	compose.CommandID = "quest.update"
+	compose.ItemKey = strings.TrimSpace(itemKey)
+	compose.Title = "Edit Quest"
+	for key, value := range fields {
+		compose.Fields[key] = strings.TrimSpace(value)
+	}
+	return compose
+}
+
+func newLootEditCompose(previous Section, itemKey string, fields map[string]string) *composeState {
+	compose := newLootCompose(previous)
+	compose.CommandID = "loot.update"
+	compose.ItemKey = strings.TrimSpace(itemKey)
+	compose.Title = "Edit Loot"
+	for key, value := range fields {
+		compose.Fields[key] = strings.TrimSpace(value)
+	}
+	return compose
 }
 
 func defaultAccountCode(options []AccountOption, preferred string) string {
@@ -115,10 +196,69 @@ func (s *Shell) openCompose(mode composeMode) bool {
 		compose := newCustomCompose(s.Section)
 		compose.Fields["date"] = s.Data.EntryCatalog.DefaultDate
 		s.compose = compose
+	case composeModeAccount:
+		s.compose = newAccountCompose(s.Section)
+	case composeModeQuest:
+		s.compose = newQuestCompose(s.Section, &s.Data.EntryCatalog)
+	case composeModeLoot:
+		s.compose = newLootCompose(s.Section)
 	default:
 		return false
 	}
 	return true
+}
+
+func (s *Shell) openComposeFromAction(itemKey string, action *ItemActionData) bool {
+	if s == nil {
+		return false
+	}
+	if action == nil {
+		return false
+	}
+
+	switch strings.TrimSpace(action.ComposeMode) {
+	case "quest":
+		s.compose = newQuestEditCompose(s.Section, itemKey, action.ComposeFields, &s.Data.EntryCatalog)
+	case "loot":
+		s.compose = newLootEditCompose(s.Section, itemKey, action.ComposeFields)
+	default:
+		return false
+	}
+
+	if strings.TrimSpace(action.ComposeTitle) != "" {
+		s.compose.Title = strings.TrimSpace(action.ComposeTitle)
+	}
+	return true
+}
+
+func (s *Shell) openComposeForAction(action Action) bool {
+	switch action {
+	case ActionNewExpense:
+		if s.Section != SectionDashboard && s.Section != SectionJournal {
+			return false
+		}
+		return s.openCompose(composeModeExpense)
+	case ActionNewIncome:
+		if s.Section != SectionDashboard && s.Section != SectionJournal {
+			return false
+		}
+		return s.openCompose(composeModeIncome)
+	case ActionNewCustom:
+		switch s.Section {
+		case SectionAccounts:
+			return s.openCompose(composeModeAccount)
+		case SectionQuests:
+			return s.openCompose(composeModeQuest)
+		case SectionLoot:
+			return s.openCompose(composeModeLoot)
+		case SectionJournal:
+			return false
+		default:
+			return s.openCompose(composeModeCustom)
+		}
+	default:
+		return false
+	}
 }
 
 func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
@@ -127,6 +267,12 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 	}
 
 	switch event.Key() {
+	case tcell.KeyUp, tcell.KeyLeft:
+		s.composeAdvance(-1)
+		return handleResult{Redraw: true}, true
+	case tcell.KeyDown, tcell.KeyRight:
+		s.composeAdvance(1)
+		return handleResult{Redraw: true}, true
 	case tcell.KeyTab:
 		s.composeAdvance(1)
 		return handleResult{Redraw: true}, true
@@ -193,9 +339,11 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 		return handleResult{Redraw: true}, true
 	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-		ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom:
 		return handleResult{}, false
+	case ActionHelp:
+		return handleResult{}, true
 	}
 
 	return handleResult{}, true
@@ -224,6 +372,44 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "account_code", Label: "Income account", Placeholder: "4000"},
 			{ID: "offset_account_code", Label: "Deposit to", Placeholder: "1000"},
 			{ID: "memo", Label: "Memo", Placeholder: "Mayor payout"},
+		}
+	case composeModeAccount:
+		return []composeField{
+			{ID: "code", Label: "Code", Placeholder: "5600"},
+			{ID: "name", Label: "Name", Placeholder: "Tavern Reparations"},
+			{ID: "account_type", Label: "Type", Placeholder: "asset|liability|equity|income|expense"},
+		}
+	case composeModeQuest:
+		if s.compose != nil && s.compose.CommandID == "quest.update" {
+			return []composeField{
+				{ID: "title", Label: "Title", Placeholder: "Clear the Goblin Cave"},
+				{ID: "patron", Label: "Patron", Placeholder: "Mayor Rowan"},
+				{ID: "description", Label: "Description", Placeholder: "Optional quest notes"},
+				{ID: "reward", Label: "Reward", Placeholder: "25GP"},
+				{ID: "advance", Label: "Advance", Placeholder: "0"},
+				{ID: "bonus", Label: "Bonus", Placeholder: "Optional bonus terms"},
+				{ID: "notes", Label: "Notes", Placeholder: "Optional register notes"},
+				{ID: "accepted_on", Label: "Accepted on", Placeholder: "YYYY-MM-DD"},
+			}
+		}
+		return []composeField{
+			{ID: "title", Label: "Title", Placeholder: "Clear the Goblin Cave"},
+			{ID: "patron", Label: "Patron", Placeholder: "Mayor Rowan"},
+			{ID: "description", Label: "Description", Placeholder: "Optional quest notes"},
+			{ID: "reward", Label: "Reward", Placeholder: "25GP"},
+			{ID: "advance", Label: "Advance", Placeholder: "0"},
+			{ID: "bonus", Label: "Bonus", Placeholder: "Optional bonus terms"},
+			{ID: "notes", Label: "Notes", Placeholder: "Optional register notes"},
+			{ID: "status", Label: "Status", Placeholder: "offered|accepted"},
+			{ID: "accepted_on", Label: "Accepted on", Placeholder: "YYYY-MM-DD"},
+		}
+	case composeModeLoot:
+		return []composeField{
+			{ID: "name", Label: "Name", Placeholder: "Silver Chalice"},
+			{ID: "source", Label: "Source", Placeholder: "Goblin den"},
+			{ID: "quantity", Label: "Quantity", Placeholder: "1"},
+			{ID: "holder", Label: "Holder", Placeholder: "Bard"},
+			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
 		}
 	default:
 		return []composeField{
@@ -304,7 +490,9 @@ func (s *Shell) composeAppendRune(value rune) {
 	switch fieldID {
 	case "side":
 		return
-	case "date", "description", "amount", "account_code", "offset_account_code", "memo":
+	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
+		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
+		"source", "quantity", "holder":
 		s.compose.Fields[fieldID] += string(value)
 		delete(s.compose.FieldErrors, fieldID)
 	default:
@@ -333,7 +521,9 @@ func (s *Shell) composeBackspace() {
 	switch fieldID {
 	case "side":
 		return
-	case "date", "description", "amount", "account_code", "offset_account_code", "memo":
+	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
+		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
+		"source", "quantity", "holder":
 		s.compose.Fields[fieldID] = trimLastRune(s.compose.Fields[fieldID])
 		delete(s.compose.FieldErrors, fieldID)
 	default:
@@ -370,7 +560,9 @@ func (s *Shell) composeClearCurrent() {
 	switch fieldID {
 	case "side":
 		return
-	case "date", "description", "amount", "account_code", "offset_account_code", "memo":
+	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
+		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
+		"source", "quantity", "holder":
 		s.compose.Fields[fieldID] = ""
 		delete(s.compose.FieldErrors, fieldID)
 	default:
@@ -432,22 +624,43 @@ func (s *Shell) composeCommand() (*Command, bool) {
 		Fields:  make(map[string]string),
 	}
 
-	switch s.compose.Mode {
-	case composeModeExpense:
-		command.ID = "entry.expense.create"
-	case composeModeIncome:
-		command.ID = "entry.income.create"
-	default:
-		command.ID = "entry.custom.create"
+	command.ID = strings.TrimSpace(s.compose.CommandID)
+	if command.ID == "" {
+		switch s.compose.Mode {
+		case composeModeExpense:
+			command.ID = "entry.expense.create"
+		case composeModeIncome:
+			command.ID = "entry.income.create"
+		case composeModeAccount:
+			command.ID = "account.create"
+		case composeModeQuest:
+			command.ID = "quest.create"
+		case composeModeLoot:
+			command.ID = "loot.create"
+		default:
+			command.ID = "entry.custom.create"
+		}
 	}
+	command.ItemKey = strings.TrimSpace(s.compose.ItemKey)
 
 	for key, value := range s.compose.Fields {
 		command.Fields[key] = strings.TrimSpace(value)
 	}
 
 	required := []string{"date", "description"}
-	if s.compose.Mode != composeModeCustom {
+	switch s.compose.Mode {
+	case composeModeExpense, composeModeIncome:
 		required = append(required, "amount", "account_code", "offset_account_code")
+	case composeModeAccount:
+		required = []string{"code", "name", "account_type"}
+	case composeModeQuest:
+		required = []string{"title", "reward", "advance"}
+		if strings.EqualFold(command.Fields["status"], "accepted") {
+			required = append(required, "accepted_on")
+		}
+	case composeModeLoot:
+		required = []string{"name", "quantity"}
+	case composeModeCustom:
 	}
 	for _, key := range required {
 		if strings.TrimSpace(command.Fields[key]) == "" {
@@ -512,9 +725,26 @@ func (s *Shell) composeTitle() string {
 		return "Guided Expense Entry"
 	case composeModeIncome:
 		return "Guided Income Entry"
-	default:
+	case composeModeAccount:
+		return "Add Account"
+	case composeModeQuest:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
+		return "Add Quest"
+	case composeModeLoot:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
+		return "Add Loot"
+	case composeModeCustom:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
 		return "Custom Journal Entry"
 	}
+
+	return "Compose"
 }
 
 func (s *Shell) composeFormLines() []string {
@@ -575,24 +805,22 @@ func (s *Shell) composeFormLines() []string {
 
 func (s *Shell) composeHelpText() string {
 	if s.compose.Mode == composeModeCustom {
-		return "Tab move  Enter submit  Ctrl+N add line  Ctrl+D delete line  Space toggle side  Esc cancel"
+		return "Tab/arrows move  Enter submit  Ctrl+N add line  Ctrl+D delete line  Space toggle side  Esc cancel"
 	}
-	return "Tab move  Enter submit  Esc cancel"
+	return "Tab/arrows move  Enter submit  Esc cancel"
 }
 
 func (s *Shell) composePreviewLines() []string {
 	if s.compose == nil {
 		return nil
 	}
-	lines := []string{
-		"Date: " + displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
-		"Description: " + displayComposeValue(s.compose.Fields["description"], "required"),
-		"",
-	}
+	lines := []string{}
 
 	switch s.compose.Mode {
 	case composeModeExpense:
 		lines = append(lines,
+			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
+			"Description: "+displayComposeValue(s.compose.Fields["description"], "required"),
 			"Dr "+displayComposeValue(s.compose.Fields["account_code"], "expense account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"Cr "+displayComposeValue(s.compose.Fields["offset_account_code"], "funding account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"",
@@ -603,6 +831,8 @@ func (s *Shell) composePreviewLines() []string {
 		lines = append(lines, accountOptionLines(s.Data.EntryCatalog.FundingAccounts)...)
 	case composeModeIncome:
 		lines = append(lines,
+			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
+			"Description: "+displayComposeValue(s.compose.Fields["description"], "required"),
 			"Dr "+displayComposeValue(s.compose.Fields["offset_account_code"], "deposit account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"Cr "+displayComposeValue(s.compose.Fields["account_code"], "income account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"",
@@ -611,7 +841,53 @@ func (s *Shell) composePreviewLines() []string {
 		lines = append(lines, accountOptionLines(s.Data.EntryCatalog.IncomeAccounts)...)
 		lines = append(lines, "", "Deposit accounts:")
 		lines = append(lines, accountOptionLines(s.Data.EntryCatalog.DepositAccounts)...)
+	case composeModeAccount:
+		lines = append(lines,
+			"Code: "+displayComposeValue(s.compose.Fields["code"], "required"),
+			"Name: "+displayComposeValue(s.compose.Fields["name"], "required"),
+			"Type: "+displayComposeValue(s.compose.Fields["account_type"], "required"),
+			"",
+			"Valid account types:",
+			"asset  liability  equity  income  expense",
+		)
+	case composeModeQuest:
+		statusLabel := "Status: " + displayComposeValue(s.compose.Fields["status"], "offered")
+		statusHelpA := "Quest statuses:"
+		statusHelpB := "offered  accepted"
+		if s.compose.CommandID == "quest.update" {
+			statusLabel = "Current status: " + displayComposeValue(s.compose.Fields["status"], "unknown")
+			statusHelpA = "Quest lifecycle state is not edited here."
+			statusHelpB = "Reward, advance, and accepted date may only change while the quest is offered or accepted."
+		}
+		lines = append(lines,
+			"Title: "+displayComposeValue(s.compose.Fields["title"], "required"),
+			"Patron: "+displayComposeValue(s.compose.Fields["patron"], "optional"),
+			"Reward: "+displayComposeValue(s.compose.Fields["reward"], "0"),
+			"Advance: "+displayComposeValue(s.compose.Fields["advance"], "0"),
+			"Notes: "+displayComposeValue(s.compose.Fields["notes"], "optional"),
+			statusLabel,
+			"Accepted on: "+displayComposeValue(s.compose.Fields["accepted_on"], "YYYY-MM-DD"),
+			"",
+			statusHelpA,
+			statusHelpB,
+		)
+	case composeModeLoot:
+		lines = append(lines,
+			"Name: "+displayComposeValue(s.compose.Fields["name"], "required"),
+			"Source: "+displayComposeValue(s.compose.Fields["source"], "optional"),
+			"Quantity: "+displayComposeValue(s.compose.Fields["quantity"], "1"),
+			"Holder: "+displayComposeValue(s.compose.Fields["holder"], "optional"),
+			"Notes: "+displayComposeValue(s.compose.Fields["notes"], "optional"),
+			"",
+			"Loot is created as held and off-ledger.",
+			"No value is entered here. Appraise it later.",
+		)
 	default:
+		lines = append(lines,
+			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
+			"Description: "+displayComposeValue(s.compose.Fields["description"], "required"),
+			"",
+		)
 		var debitCount, creditCount int
 		lines = append(lines, "Lines:")
 		for index := range s.compose.Lines {

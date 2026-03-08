@@ -5,6 +5,7 @@ type DashboardData struct {
 	HeaderLines     []string
 	AccountsLines   []string
 	JournalLines    []string
+	HoardLines      []string
 	QuickEntryLines []string
 	LedgerLines     []string
 	QuestLines      []string
@@ -27,6 +28,10 @@ func DefaultDashboardData() DashboardData {
 			"Posted entries remain immutable.",
 			"Corrections continue to happen by reversal or adjustment.",
 			"Read-only browsing is available before editing flows.",
+		},
+		HoardLines: []string{
+			"To share now: awaiting ledger data.",
+			"Unsold loot stays out of the split until sold.",
 		},
 		QuickEntryLines: []string{
 			"e  I have an expense",
@@ -62,6 +67,7 @@ func ErrorDashboardData(summary string, detail string) DashboardData {
 		HeaderLines:     []string{summary, detail},
 		AccountsLines:   []string{"Accounts unavailable.", detail},
 		JournalLines:    []string{"Journal unavailable.", detail},
+		HoardLines:      []string{"Dragon hoard unavailable.", detail},
 		QuickEntryLines: []string{"Quick entry unavailable.", detail},
 		LedgerLines:     []string{"Ledger snapshot unavailable.", detail},
 		QuestLines:      []string{"Quest register unavailable.", detail},
@@ -89,6 +95,7 @@ func dashboardDataEmpty(data *DashboardData) bool {
 	return len(data.HeaderLines) == 0 &&
 		len(data.AccountsLines) == 0 &&
 		len(data.JournalLines) == 0 &&
+		len(data.HoardLines) == 0 &&
 		len(data.QuickEntryLines) == 0 &&
 		len(data.LedgerLines) == 0 &&
 		len(data.QuestLines) == 0 &&

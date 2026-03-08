@@ -27,6 +27,8 @@ const (
 	ActionPageDown      Action = "page_down"
 	ActionMoveTop       Action = "move_top"
 	ActionMoveBottom    Action = "move_bottom"
+	ActionEdit          Action = "edit"
+	ActionDelete        Action = "delete"
 	ActionToggle        Action = "toggle"
 	ActionReverse       Action = "reverse"
 	ActionCollect       Action = "collect"
@@ -38,6 +40,7 @@ const (
 	ActionNewCustom     Action = "new_custom"
 	ActionSubmitCompose Action = "submit_compose"
 	ActionConfirm       Action = "confirm"
+	ActionHelp          Action = "help"
 )
 
 // KeyStroke matches a specific tcell key event.
@@ -156,6 +159,14 @@ func DefaultKeyMap() KeyMap {
 				Label:  "e/i/a entry",
 			},
 			{
+				Action: ActionEdit,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'u'},
+			},
+			{
+				Action: ActionDelete,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'd'},
+			},
+			{
 				Action: ActionToggle,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 't'},
 			},
@@ -186,6 +197,11 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionConfirm,
 				Stroke: KeyStroke{Key: tcell.KeyEnter},
+			},
+			{
+				Action: ActionHelp,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '?'},
+				Label:  "? terms",
 			},
 			{
 				Action: ActionQuit,

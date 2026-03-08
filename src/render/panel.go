@@ -1,9 +1,13 @@
 package render
 
+import "github.com/gdamore/tcell/v2"
+
 // Panel describes a boxed panel and its body lines.
 type Panel struct {
-	Title string
-	Lines []string
+	Title       string
+	Lines       []string
+	BorderStyle *tcell.Style
+	TitleStyle  *tcell.Style
 }
 
 // DrawPanel renders a simple boxed panel into the frame buffer.
@@ -19,6 +23,15 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 
 	buffer.FillRect(visible, ' ', theme.Panel)
 
+	borderStyle := theme.Border
+	if panel.BorderStyle != nil {
+		borderStyle = *panel.BorderStyle
+	}
+	titleStyle := theme.PanelTitle
+	if panel.TitleStyle != nil {
+		titleStyle = *panel.TitleStyle
+	}
+
 	if visible.W < 2 || visible.H < 2 {
 		return
 	}
@@ -27,22 +40,22 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 	bottom := visible.Y + visible.H - 1
 
 	for x := visible.X + 1; x < right; x++ {
-		buffer.Set(x, visible.Y, '─', theme.Border)
-		buffer.Set(x, bottom, '─', theme.Border)
+		buffer.Set(x, visible.Y, '─', borderStyle)
+		buffer.Set(x, bottom, '─', borderStyle)
 	}
 	for y := visible.Y + 1; y < bottom; y++ {
-		buffer.Set(visible.X, y, '│', theme.Border)
-		buffer.Set(right, y, '│', theme.Border)
+		buffer.Set(visible.X, y, '│', borderStyle)
+		buffer.Set(right, y, '│', borderStyle)
 	}
 
-	buffer.Set(visible.X, visible.Y, '┌', theme.Border)
-	buffer.Set(right, visible.Y, '┐', theme.Border)
-	buffer.Set(visible.X, bottom, '└', theme.Border)
-	buffer.Set(right, bottom, '┘', theme.Border)
+	buffer.Set(visible.X, visible.Y, '┌', borderStyle)
+	buffer.Set(right, visible.Y, '┐', borderStyle)
+	buffer.Set(visible.X, bottom, '└', borderStyle)
+	buffer.Set(right, bottom, '┘', borderStyle)
 
 	title := clipText(panel.Title, maxInt(0, visible.W-4))
 	if title != "" {
-		buffer.WriteString(visible.X+1, visible.Y, theme.PanelTitle, " "+title+" ")
+		buffer.WriteString(visible.X+1, visible.Y, titleStyle, " "+title+" ")
 	}
 
 	content := visible.Inset(1)
