@@ -85,17 +85,26 @@ Examples:
 Use this structure unless the user changes it:
 
 - `main.go` starts the application
-- `src/config` for config file setup and env handling
-- `src/app` for DI and bootstrap
-- `src/render` for terminal rendering
-- `src/service` for business logic
-- `src/repo` for SQLite and SQL access
-- `src/tools` for utilities such as CSV export
+- `src/app` for thin CLI routing and bootstrap
+- `src/account` for account CRUD, activation, and deletion protection
+- `src/journal` for posting, reversal, and account-ledger output
+- `src/quest` for quest lifecycle handling
+- `src/loot` for loot lifecycle handling
+- `src/report` for read-only reporting flows
+- `src/ledger` for shared types, validation, DB helpers, errors, and migrations
+- `src/config` for config file setup, path resolution, and embedded init assets
+- `src/tools` for shared helpers such as currency parsing/formatting
+- `src/render` for the upcoming TUI shell
+
+Keep dependency flow one-way:
+
+- `app -> domain packages -> ledger -> config`
+- no cross-domain imports between `account`, `journal`, `quest`, `loot`, and `report`
 
 ## Preferred Planned Stack
 
 - Go
-- Cobra
+- explicit stdlib CLI parsing unless there is a strong reason to add a framework
 - `tcell`
 - SQLite
 
@@ -112,9 +121,16 @@ If you propose alternatives, explain why they are better for this specific repos
 
 Before considering work complete, prefer to run:
 
-- `go fmt ./...`
+- `make check`
+
+That currently expands to:
+
+- `gofmt -l .`
+- `goimports -l .`
+- `go test ./...`
 - `go vet ./...`
 - `golangci-lint run`
+- `govulncheck ./...`
 
 ## Implementation Priorities
 
@@ -122,9 +138,9 @@ Build in this order unless the user redirects:
 
 1. domain model
 2. storage and migrations
-3. CLI workflows
+3. CLI workflows and reports
 4. TUI
-5. reports and polish
+5. packaging, backups, and polish
 
 ## Editing Expectations
 

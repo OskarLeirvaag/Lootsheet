@@ -16,23 +16,28 @@ The product is intentionally not a web app in v1. It is a local Go application w
 
 ## Application Structure
 
-The intended code layout is:
+The current code layout is:
 
 - `main.go` for application startup
-- `src/config` for config file loading and environment handling
-- `src/app` for dependency injection and runtime bootstrap
-- `src/render` for `tcell` rendering, layout, and input coordination
-- `src/service` for business logic
-- `src/repo` for SQLite repositories and SQL access
-- `src/tools` for CSV export, backup, and similar utilities
+- `src/app` for runtime bootstrap and top-level CLI dispatch
+- `src/account` for account CRUD, activation, and deletion protection
+- `src/journal` for posting, reversal, and account-ledger output
+- `src/quest` for quest lifecycle workflows
+- `src/loot` for loot lifecycle workflows
+- `src/report` for read-only reporting flows
+- `src/ledger` for shared types, validation, DB helpers, errors, and migrations
+- `src/config` for config loading, path resolution, and embedded setup assets
+- `src/tools` for shared helpers such as currency parsing and formatting
+- `src/render` reserved for the upcoming TUI shell
 
-The dependency direction should stay simple:
+The dependency direction should stay simple and one-way:
 
 - `main.go` depends on `src/app`
-- `src/app` depends on `config`, `repo`, `service`, and `render`
-- `service` depends on `repo` interfaces or repository layer
-- `render` depends on `service` or app-facing interfaces, not raw SQL
-- `repo` depends on SQLite and storage concerns only
+- `src/app` depends on domain packages and top-level configuration
+- domain packages depend on `src/ledger` for shared types and DB helpers
+- `src/ledger` depends on `src/config` assets and storage concerns
+- `src/render` should depend on app-facing interfaces, not raw SQL
+- domain packages should not import one another directly
 
 This is intentionally straightforward DI rather than framework-driven wiring.
 
@@ -79,6 +84,8 @@ Long-term use requires a conservative storage policy:
 - migrations should be forward-only and explicit
 - risky migrations should create or require a backup first
 - failures should stop with a recovery message rather than partially mutating data silently
+
+The current CLI already distinguishes those database states in `lootsheet db status` and refuses to auto-migrate foreign or damaged databases.
 
 ### Logging and Diagnostics
 
@@ -480,21 +487,28 @@ Suggested input model:
 
 ## Storage Design
 
-Planned database: SQLite
+Current database: SQLite
 
-Planned top-level tables:
+Current top-level tables:
 
+- `settings`
+- `schema_migrations`
 - `accounts`
 - `journal_entries`
 - `journal_lines`
 - `quests`
-- `quest_reward_terms`
-- `quest_events`
 - `loot_items`
 - `loot_appraisals`
-- `settings`
 
-The initial storage engine should be SQLite.
+Quest reward terms are currently stored directly on `quests` as:
+
+- `promised_base_reward`
+- `partial_advance`
+- `bonus_conditions`
+
+Quest and loot lifecycle actions currently derive ledger links from journal entries rather than separate event tables.
+
+The storage engine is SQLite.
 
 Reasons:
 
@@ -553,23 +567,17 @@ Fields:
 - `id`
 - `title`
 - `patron`
+- `description`
+- `promised_base_reward`
+- `partial_advance`
+- `bonus_conditions`
 - `status`
 - `notes`
 - `accepted_on`
 - `completed_on`
 - `closed_on`
-
-### Quest Reward Terms
-
-Fields:
-
-- `id`
-- `quest_id`
-- `term_type`
-- `amount`
-- `condition_text`
-- `earned`
-- `paid`
+- `created_at`
+- `updated_at`
 
 ### Loot Items
 
@@ -580,7 +588,10 @@ Fields:
 - `source`
 - `status`
 - `quantity`
+- `holder`
 - `notes`
+- `created_at`
+- `updated_at`
 
 ### Loot Appraisals
 
@@ -593,17 +604,23 @@ Fields:
 - `notes`
 - `appraised_at`
 - `recognized_entry_id`
+- `created_at`
 
 ## Reporting
 
-Reports needed in v1:
+Reports currently implemented:
 
 - trial balance
 - account ledger
-- open quests
-- collectible rewards
+- outstanding quest receivables
+- promised-but-unearned quest report
 - unrealized loot summary
+- write-off candidates
+
+Still reasonable later additions:
+
 - correction history
+- dashboard-oriented rollups once the TUI shell lands
 
 ## Non-Goals
 

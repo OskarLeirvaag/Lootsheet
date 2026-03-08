@@ -2,6 +2,13 @@
 
 This file describes the intended implementation sequence for LootSheet.
 
+## Current Snapshot
+
+- Phases 1 and 2 are largely complete: the SQLite-backed CLI workflows are in place.
+- Several reporting deliverables from Phase 5 shipped early to support the CLI and smoke coverage.
+- The next major product milestone is Phase 3, the `tcell`-based TUI shell.
+- The main supporting work around that milestone is backup/recovery flow, packaging, and sample data.
+
 ## Phase 0: Product Definition
 
 Goal:
@@ -102,12 +109,14 @@ Goal:
 Deliverables:
 - trial balance
 - account ledger drill-down
-- outstanding quest report
+- quest receivables report
+- promised-but-unearned quest report
 - unrealized loot report
-- correction history
+- write-off candidates report
+- correction history later if it proves necessary for day-to-day review
 
 Exit criteria:
-- a user can understand current cash, earned-but-unpaid rewards, and unrealized loot at a glance
+- a user can understand current cash, promised rewards, earned-but-unpaid rewards, unrealized loot, and stale receivables at a glance
 
 ## Phase 6: Polish
 

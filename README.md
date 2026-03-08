@@ -6,27 +6,42 @@ The intent is to treat party finances like a small accounting system, but adapte
 
 ## Status
 
-This repository is in the initial bootstrap stage.
+LootSheet now has a working SQLite-backed CLI foundation. The next major milestone is the TUI shell; packaging, backup/recovery flow, and sample-data polish are still in progress.
 
 Implemented so far:
 
-- Go module initialization
-- `main.go -> src/app -> src/config` application bootstrap
 - local config loading with environment variable overrides
-- core enum definitions for accounts, journal entries, quests, and loot
-- embedded setup files for ordered init migrations and default account seeds
-- CLI commands for `db status`, `db migrate`, `init`, `account list`, and `journal post`
-- first-time SQLite initialization that uses setup assets once and then keeps SQLite as the source of truth
-- applied migrations recorded inside SQLite, with forward-only upgrade support for older local databases
-- journal posting with balance validation before persistence
+- SQLite initialization from embedded migrations and seed accounts
+- database lifecycle detection for `uninitialized`, `current`, `upgradeable`, `foreign`, and `damaged` states
+- account create/list/rename/activate/deactivate/delete with posting protection
+- journal post/reverse workflows with balancing validation and immutable posted entries
+- quest create/list/accept/complete/collect/writeoff lifecycle flows
+- loot create/list/appraise/recognize/sell lifecycle flows
+- reporting for trial balance, account ledger, quest receivables, promised quests, loot summary, and write-off candidates
+- installed-binary-style smoke coverage in `./testapp.sh`
 - structured application logging with OTel-backed instrumentation and text levels `DBG`, `INFO`, `WARN`, `ERR`
 
-The first implementation target is:
+## Current Architecture
 
-- Go backend and application logic
-- CLI/TUI interface instead of a browser UI
-- local SQLite database
-- single-user local workflow
+The codebase is organized as vertical slices under `src/`:
+
+- `src/app` for bootstrap and top-level CLI routing
+- `src/account` for account CRUD and account state changes
+- `src/journal` for posting, reversal, and ledger output
+- `src/quest` for quest lifecycle tracking
+- `src/loot` for loot lifecycle tracking
+- `src/report` for read-only reports
+- `src/ledger` for shared domain types, validation, DB helpers, errors, and migrations
+- `src/config` for config loading and embedded setup assets
+- `src/tools` for shared helpers such as D&D currency parsing/formatting
+- `src/render` reserved for the upcoming TUI
+
+Dependency flow is intentionally one-way:
+
+- `app -> domain packages -> ledger -> config`
+- no cross-domain imports between domain slices
+
+All amounts are stored as `int64` copper pieces and exposed through `tools.ParseAmount` and `tools.FormatAmount`.
 
 ## Product Goals
 
@@ -83,7 +98,7 @@ Accounts may be renamed. Their internal IDs must remain stable.
 These are bookkeeping accounts in the chart of accounts, not login identities.
 LootSheet does not have a user-account or auth model in v1.
 
-## Planned Feature Set
+## Feature Set
 
 ### Ledger
 
@@ -99,34 +114,36 @@ LootSheet does not have a user-account or auth model in v1.
 - unrealized loot register
 - optionally party supplies or distribution register later
 
-### Dashboard
+### Reports
 
-- current party cash
-- recent posted entries
-- open quests
-- collectible rewards
-- unrealized loot value
+- trial balance
+- account ledger
+- outstanding quest receivables
+- promised-but-unearned quests
+- unrealized loot summary
 - write-off candidates
 
-## Planned Stack
+## Runtime Stack
 
 - Go
-- Cobra for CLI commands
-- `tcell` for low-level terminal rendering, input, mouse, and resize handling
-- custom boxed panel renderer inspired by `btop`
+- explicit stdlib CLI parsing for the current command surface
 - SQLite for local storage
+- `tcell` planned for the full-screen TUI
 
-## Planned Repository Shape
+## Repository Shape
 
 ```text
 main.go                application entrypoint and startup
 src/config/            config loading, defaults, env handling
 src/app/               dependency wiring and app bootstrap
-src/render/            tcell layout, screen model, and drawing
-src/service/           core business logic and use cases
-src/repo/              SQLite repositories and data access
-src/tools/             exports, imports, backup, CSV helpers
-docs/                  optional supplementary docs later
+src/account/           account commands and persistence
+src/journal/           journal commands and ledger reporting
+src/quest/             quest register commands and persistence
+src/loot/              loot register commands and persistence
+src/report/            reporting commands and queries
+src/ledger/            shared types, validation, DB helpers, migrations
+src/render/            upcoming tcell-based TUI shell
+src/tools/             currency and utility helpers
 ```
 
 ## TUI Direction
@@ -148,18 +165,17 @@ This does not require C++. The visual style comes from terminal rendering strate
 Development should stay boring and explicit.
 
 - `main.go` starts the application and hands off to `src/app`
-- `src/config` owns config file parsing and environment handling
-- `src/app` wires together config, repositories, services, and renderer
-- `src/render` owns terminal rendering and interaction
-- `src/service` owns business rules
-- `src/repo` owns SQLite access
-- `src/tools` holds utility workflows such as CSV export and backup helpers
+- `src/app` parses top-level commands and delegates into domain packages
+- domain packages own their CLI handlers and data access for their slice
+- `src/ledger` owns shared validation, migrations, and DB lifecycle helpers
+- `src/config` owns config file parsing, path resolution, and embedded setup assets
+- `src/tools` owns shared helpers such as amount parsing and formatting
+- `src/render` remains the placeholder for the future TUI shell
 
-The expected local checks are:
+The preferred local checks are:
 
-- `go fmt ./...`
-- `go vet ./...`
-- `golangci-lint run`
+- `make check`
+- `bash ./testapp.sh`
 
 ## Configuration
 
@@ -182,7 +198,7 @@ Environment overrides:
 - `LOOTSHEET_DATABASE_PATH`
 - `LOOTSHEET_LOG_LEVEL`
 
-## Database Initialization
+## Database Lifecycle
 
 LootSheet stores init-time setup assets in:
 
@@ -193,11 +209,20 @@ LootSheet stores init-time setup assets in:
 Those files are used only by `lootsheet init` when bootstrapping a fresh SQLite database.
 The applied migrations are recorded in SQLite in `schema_migrations`, and `lootsheet db migrate` applies any later embedded migrations to an existing LootSheet database.
 
+`lootsheet db status` classifies the current database as:
+
+- `uninitialized`
+- `current`
+- `upgradeable`
+- `foreign`
+- `damaged`
+
 After initialization:
 
 - SQLite is the source of truth for accounts and other stored records
 - startup and account listing read from SQLite, not from config seed files
 - rerunning `lootsheet init` against an initialized LootSheet database does not reseed it
+- foreign or damaged databases are reported clearly and are not migrated implicitly
 
 ## CLI
 
@@ -206,11 +231,11 @@ Current commands:
 - `lootsheet db status`
 - `lootsheet db migrate`
 - `lootsheet init`
-- `lootsheet account ...`
-- `lootsheet journal ...`
-- `lootsheet quest ...`
-- `lootsheet loot ...`
-- `lootsheet report ...`
+- `lootsheet account list|create|rename|deactivate|activate|delete|ledger`
+- `lootsheet journal post|reverse`
+- `lootsheet quest create|list|accept|complete|collect|writeoff`
+- `lootsheet loot create|list|appraise|recognize|sell`
+- `lootsheet report trial-balance|quest-receivables|promised-quests|loot-summary|writeoff-candidates`
 - `lootsheet help`
 
 Use `lootsheet help` for the exact command surface and flag syntax.
@@ -258,11 +283,12 @@ Cr Quest Receivable          100
 
 ## Next Step
 
-The next implementation milestone is to expand the CLI workflows around the new SQLite storage layer:
+The next implementation milestone is the TUI shell around the existing ledger and register workflows.
 
-- account create and rename
-- journal entry posting and balancing validation
-- quest and loot register commands
-- loot appraisals
+Near-term supporting work still pending:
+
+- backup-before-migration or repair flows
+- sample campaign fixture data
+- upgrade and recovery documentation
 
 See [PLAN.md](PLAN.md), [TODO.md](TODO.md), and [DESIGN.md](DESIGN.md) for the working project plan.
