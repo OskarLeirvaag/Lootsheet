@@ -20,11 +20,18 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 	status := DatabaseStatus{
 		Exists:              state.Exists,
 		Initialized:         state.SchemaVersion != "",
-		State:               DatabaseStateUninitialized,
+		State:               state.LifecycleState,
+		Detail:              state.Detail,
 		UserTableCount:      state.UserTableCount,
 		SchemaVersion:       state.SchemaVersion,
 		TargetSchemaVersion: assets.SchemaVersion,
 		AppliedMigrations:   state.AppliedMigrations,
+	}
+
+	switch state.LifecycleState {
+	case DatabaseStateDamaged, DatabaseStateForeign:
+		return status, nil
+	case DatabaseStateUninitialized, DatabaseStateCurrent, DatabaseStateUpgradeable:
 	}
 
 	if state.SchemaVersion == "" {
@@ -33,7 +40,8 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 
 	_, pendingMigrations, err := splitMigrationsAtVersion(assets.Migrations, state.SchemaVersion)
 	if err != nil {
-		status.State = DatabaseStateUnknown
+		status.State = DatabaseStateForeign
+		status.Detail = fmt.Sprintf("schema version %q is not recognized by this build", state.SchemaVersion)
 		return status, nil //nolint:nilerr // unknown schema version is a valid state, not a caller error
 	}
 
@@ -57,10 +65,14 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, assets conf
 	}
 
 	switch {
+	case state.LifecycleState == DatabaseStateDamaged:
+		return MigrationResult{}, fmt.Errorf("database %q is damaged: %s", databasePath, blankDatabaseDetail(state.Detail))
+	case state.LifecycleState == DatabaseStateForeign:
+		return MigrationResult{}, fmt.Errorf("database %q is foreign: %s", databasePath, blankDatabaseDetail(state.Detail))
 	case state.SchemaVersion == "" && state.UserTableCount == 0:
 		return MigrationResult{}, fmt.Errorf("database %q is not initialized; run `lootsheet init`", databasePath)
 	case state.SchemaVersion == "":
-		return MigrationResult{}, fmt.Errorf("database %q has tables but is missing LootSheet migration metadata", databasePath)
+		return MigrationResult{}, fmt.Errorf("database %q is foreign: database has tables but is missing LootSheet migration metadata", databasePath)
 	}
 
 	appliedMigrations, pendingMigrations, err := splitMigrationsAtVersion(assets.Migrations, state.SchemaVersion)

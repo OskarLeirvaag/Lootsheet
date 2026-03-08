@@ -206,8 +206,17 @@ Current commands:
 - `lootsheet db status`
 - `lootsheet db migrate`
 - `lootsheet init`
-- `lootsheet account list`
-- `lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]`
+- `lootsheet account ...`
+- `lootsheet journal ...`
+- `lootsheet quest ...`
+- `lootsheet loot ...`
+- `lootsheet report ...`
+- `lootsheet help`
+
+Use `lootsheet help` for the exact command surface and flag syntax.
+
+The repository also includes `./testapp.sh`, which builds a temporary binary and
+runs an installed-binary-style smoke scenario against a temporary workspace.
 
 ## Accounting Examples
 
