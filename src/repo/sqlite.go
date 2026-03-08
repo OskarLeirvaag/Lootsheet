@@ -685,6 +685,149 @@ func UpdateJournalLine(ctx context.Context, databasePath string, lineID string, 
 	return nil
 }
 
+// CreateAccount inserts a new account with a generated UUID.
+// Code must be unique. The account defaults to active=true.
+func CreateAccount(ctx context.Context, databasePath string, code string, name string, accountType service.AccountType) (AccountRecord, error) {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return AccountRecord{}, err
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return AccountRecord{}, fmt.Errorf("account code is required")
+	}
+
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return AccountRecord{}, fmt.Errorf("account name is required")
+	}
+
+	if !accountType.Valid() {
+		return AccountRecord{}, fmt.Errorf("invalid account type %q", accountType)
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return AccountRecord{}, err
+	}
+	defer db.Close()
+
+	id := uuid.NewString()
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO accounts (id, code, name, type, active) VALUES (?, ?, ?, ?, 1)",
+		id, code, name, string(accountType),
+	); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return AccountRecord{}, fmt.Errorf("account code %q already exists", code)
+		}
+		return AccountRecord{}, fmt.Errorf("insert account: %w", err)
+	}
+
+	return AccountRecord{
+		ID:     id,
+		Code:   code,
+		Name:   name,
+		Type:   accountType,
+		Active: true,
+	}, nil
+}
+
+// RenameAccount updates the name of an existing account identified by code.
+// Account IDs are immutable; only the name changes.
+func RenameAccount(ctx context.Context, databasePath string, code string, newName string) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return fmt.Errorf("account code is required")
+	}
+
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("account name is required")
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	result, err := db.ExecContext(ctx,
+		"UPDATE accounts SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE code = ?",
+		newName, code,
+	)
+	if err != nil {
+		return fmt.Errorf("rename account: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check rename result: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("account code %q does not exist", code)
+	}
+
+	return nil
+}
+
+// DeactivateAccount marks an account as inactive.
+// Inactive accounts cannot be used in new journal entries.
+func DeactivateAccount(ctx context.Context, databasePath string, code string) error {
+	return setAccountActive(ctx, databasePath, code, false)
+}
+
+// ActivateAccount marks an account as active.
+func ActivateAccount(ctx context.Context, databasePath string, code string) error {
+	return setAccountActive(ctx, databasePath, code, true)
+}
+
+func setAccountActive(ctx context.Context, databasePath string, code string, active bool) error {
+	if err := ensureInitializedDatabase(ctx, databasePath); err != nil {
+		return err
+	}
+
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return fmt.Errorf("account code is required")
+	}
+
+	db, err := openDB(databasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	activeVal := 0
+	if active {
+		activeVal = 1
+	}
+
+	result, err := db.ExecContext(ctx,
+		"UPDATE accounts SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE code = ?",
+		activeVal, code,
+	)
+	if err != nil {
+		return fmt.Errorf("update account active status: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check update result: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("account code %q does not exist", code)
+	}
+
+	return nil
+}
+
 func nextJournalEntryNumber(ctx context.Context, db *sql.DB) (int, error) {
 	var entryNumber int
 

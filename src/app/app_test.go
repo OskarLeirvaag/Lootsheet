@@ -178,6 +178,185 @@ func TestRunJournalPostRejectsUnbalancedEntry(t *testing.T) {
 	}
 }
 
+func TestRunAccountCreateAddsNewAccount(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"account", "create",
+		"--code", "5600",
+		"--name", "Tavern Reparations",
+		"--type", "expense",
+	}, &stdout)
+	if err != nil {
+		t.Fatalf("run account create: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Created account") {
+		t.Fatalf("account create output missing confirmation: %q", output)
+	}
+
+	if !strings.Contains(output, "Code: 5600") {
+		t.Fatalf("account create output missing code: %q", output)
+	}
+
+	if !strings.Contains(output, "Tavern Reparations") {
+		t.Fatalf("account create output missing name: %q", output)
+	}
+
+	// Verify it appears in account list
+	var listStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"account", "list"}, &listStdout); err != nil {
+		t.Fatalf("run account list: %v", err)
+	}
+
+	if !strings.Contains(listStdout.String(), "5600") {
+		t.Fatalf("account list missing new account: %q", listStdout.String())
+	}
+}
+
+func TestRunAccountCreateRejectsDuplicateCode(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	err := Run(context.Background(), []string{
+		"account", "create",
+		"--code", "1000",
+		"--name", "Duplicate Cash",
+		"--type", "asset",
+	}, &bytes.Buffer{})
+	if err == nil {
+		t.Fatal("expected account create with duplicate code to fail")
+	}
+
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("error = %q, want duplicate code error", err)
+	}
+}
+
+func TestRunAccountRenameChangesName(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"account", "rename",
+		"--code", "1000",
+		"--name", "Gold Hoard",
+	}, &stdout)
+	if err != nil {
+		t.Fatalf("run account rename: %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "Renamed account 1000") {
+		t.Fatalf("rename output missing confirmation: %q", stdout.String())
+	}
+
+	var listStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"account", "list"}, &listStdout); err != nil {
+		t.Fatalf("run account list: %v", err)
+	}
+
+	if !strings.Contains(listStdout.String(), "Gold Hoard") {
+		t.Fatalf("account list missing renamed account: %q", listStdout.String())
+	}
+}
+
+func TestRunAccountDeactivateAndActivate(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config", "config.json")
+	dataDir := filepath.Join(tmpDir, "data")
+
+	t.Setenv(config.EnvConfigPath, configPath)
+	t.Setenv(config.EnvDataDir, dataDir)
+	t.Setenv(config.EnvDatabasePath, "ledger.db")
+
+	var initStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"init"}, &initStdout); err != nil {
+		t.Fatalf("run init: %v", err)
+	}
+
+	// Deactivate
+	var deactivateStdout bytes.Buffer
+	err := Run(context.Background(), []string{
+		"account", "deactivate",
+		"--code", "1000",
+	}, &deactivateStdout)
+	if err != nil {
+		t.Fatalf("run account deactivate: %v", err)
+	}
+
+	if !strings.Contains(deactivateStdout.String(), "Deactivated account 1000") {
+		t.Fatalf("deactivate output missing confirmation: %q", deactivateStdout.String())
+	}
+
+	// Verify it shows as inactive in list
+	var listStdout bytes.Buffer
+	if err := Run(context.Background(), []string{"account", "list"}, &listStdout); err != nil {
+		t.Fatalf("run account list: %v", err)
+	}
+
+	if !strings.Contains(listStdout.String(), "1000  asset      no") {
+		t.Fatalf("account list missing inactive account: %q", listStdout.String())
+	}
+
+	// Reactivate
+	var activateStdout bytes.Buffer
+	err = Run(context.Background(), []string{
+		"account", "activate",
+		"--code", "1000",
+	}, &activateStdout)
+	if err != nil {
+		t.Fatalf("run account activate: %v", err)
+	}
+
+	if !strings.Contains(activateStdout.String(), "Activated account 1000") {
+		t.Fatalf("activate output missing confirmation: %q", activateStdout.String())
+	}
+
+	// Verify it shows as active again
+	var listStdout2 bytes.Buffer
+	if err := Run(context.Background(), []string{"account", "list"}, &listStdout2); err != nil {
+		t.Fatalf("run account list: %v", err)
+	}
+
+	if !strings.Contains(listStdout2.String(), "1000  asset      yes") {
+		t.Fatalf("account list missing reactivated account: %q", listStdout2.String())
+	}
+}
+
 func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config", "config.json")

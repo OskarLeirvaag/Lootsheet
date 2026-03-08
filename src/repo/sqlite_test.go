@@ -609,6 +609,262 @@ func TestUpdateJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 	}
 }
 
+func TestCreateAccountInsertsNewAccount(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	account, err := CreateAccount(context.Background(), databasePath, "5600", "Tavern Reparations", service.AccountTypeExpense)
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	if account.Code != "5600" || account.Name != "Tavern Reparations" || account.Type != service.AccountTypeExpense || !account.Active {
+		t.Fatalf("created account = %+v, want code=5600 name=Tavern Reparations type=expense active=true", account)
+	}
+
+	if account.ID == "" {
+		t.Fatal("created account ID is empty")
+	}
+
+	accounts, err := ListAccounts(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+
+	if len(accounts) != 17 {
+		t.Fatalf("account count = %d, want 17", len(accounts))
+	}
+}
+
+func TestCreateAccountRejectsDuplicateCode(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	_, err = CreateAccount(context.Background(), databasePath, "1000", "Duplicate Cash", service.AccountTypeAsset)
+	if err == nil {
+		t.Fatal("expected create account with duplicate code to fail")
+	}
+
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("error = %q, want duplicate code error", err)
+	}
+}
+
+func TestCreateAccountRejectsInvalidType(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	_, err = CreateAccount(context.Background(), databasePath, "9999", "Bad Type", service.AccountType("bogus"))
+	if err == nil {
+		t.Fatal("expected create account with invalid type to fail")
+	}
+
+	if !strings.Contains(err.Error(), "invalid account type") {
+		t.Fatalf("error = %q, want invalid type error", err)
+	}
+}
+
+func TestCreateAccountRejectsEmptyCodeAndName(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	_, err = CreateAccount(context.Background(), databasePath, "", "No Code", service.AccountTypeAsset)
+	if err == nil {
+		t.Fatal("expected create account with empty code to fail")
+	}
+
+	_, err = CreateAccount(context.Background(), databasePath, "9999", "", service.AccountTypeAsset)
+	if err == nil {
+		t.Fatal("expected create account with empty name to fail")
+	}
+}
+
+func TestRenameAccountChangesName(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	if err := RenameAccount(context.Background(), databasePath, "1000", "Gold Hoard"); err != nil {
+		t.Fatalf("rename account: %v", err)
+	}
+
+	accounts, err := ListAccounts(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+
+	for _, account := range accounts {
+		if account.Code == "1000" {
+			if account.Name != "Gold Hoard" {
+				t.Fatalf("renamed account name = %q, want Gold Hoard", account.Name)
+			}
+			return
+		}
+	}
+
+	t.Fatal("account code 1000 not found after rename")
+}
+
+func TestRenameAccountRejectsNonexistentCode(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	err = RenameAccount(context.Background(), databasePath, "9999", "Ghost Account")
+	if err == nil {
+		t.Fatal("expected rename of nonexistent account to fail")
+	}
+
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("error = %q, want does-not-exist error", err)
+	}
+}
+
+func TestDeactivateAndActivateAccount(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	if err := DeactivateAccount(context.Background(), databasePath, "1000"); err != nil {
+		t.Fatalf("deactivate account: %v", err)
+	}
+
+	accounts, err := ListAccounts(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+
+	for _, account := range accounts {
+		if account.Code == "1000" {
+			if account.Active {
+				t.Fatal("expected account 1000 to be inactive after deactivation")
+			}
+			break
+		}
+	}
+
+	// Verify inactive account rejects journal posting
+	_, err = PostJournalEntry(context.Background(), databasePath, service.JournalPostInput{
+		EntryDate:   "2026-03-08",
+		Description: "Should fail",
+		Lines: []service.JournalLineInput{
+			{AccountCode: "5100", DebitAmount: 10},
+			{AccountCode: "1000", CreditAmount: 10},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected journal post to inactive account to fail")
+	}
+
+	if !strings.Contains(err.Error(), "inactive") {
+		t.Fatalf("error = %q, want inactive error", err)
+	}
+
+	// Reactivate
+	if err := ActivateAccount(context.Background(), databasePath, "1000"); err != nil {
+		t.Fatalf("activate account: %v", err)
+	}
+
+	accounts, err = ListAccounts(context.Background(), databasePath)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+
+	for _, account := range accounts {
+		if account.Code == "1000" {
+			if !account.Active {
+				t.Fatal("expected account 1000 to be active after reactivation")
+			}
+			return
+		}
+	}
+
+	t.Fatal("account code 1000 not found after reactivation")
+}
+
+func TestDeactivateAccountRejectsNonexistentCode(t *testing.T) {
+	tmpDir := t.TempDir()
+	databasePath := filepath.Join(tmpDir, "lootsheet.db")
+
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+		t.Fatalf("initialize sqlite database: %v", err)
+	}
+
+	err = DeactivateAccount(context.Background(), databasePath, "9999")
+	if err == nil {
+		t.Fatal("expected deactivate of nonexistent account to fail")
+	}
+
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Fatalf("error = %q, want does-not-exist error", err)
+	}
+}
+
 func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "lootsheet.db")
