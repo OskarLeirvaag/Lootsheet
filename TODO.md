@@ -28,7 +28,7 @@
   - [x] create account
   - [x] rename account
   - [x] post journal entry
-  - [ ] reverse journal entry
+  - [x] reverse journal entry
   - [ ] create quest
   - [ ] mark quest completed
   - [ ] collect quest payment
@@ -80,7 +80,7 @@
 - [ ] Run `go vet ./...` as a standard check.
 - [ ] Run `golangci-lint run` as a standard check.
 - [x] Add unit tests for journal balancing.
-- [ ] Add tests for reversal and correction flows.
+- [x] Add tests for reversal and correction flows.
 - [ ] Add tests for quest completion and collection flows.
 - [ ] Add tests for loot appraisal recognition and sale flows.
 - [ ] Add fixtures with a sample campaign ledger.
