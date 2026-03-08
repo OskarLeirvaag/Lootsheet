@@ -1,0 +1,37 @@
+.TH LOOTSHEET-JOURNAL-POST 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-journal-post \\- Post a balanced journal entry
+.SH SYNOPSIS
+lootsheet journal post [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+
+Amounts accept D&D 5e denominations: PP, GP, EP, SP, CP (case insensitive).
+  Mixed:   2GP5SP, 1PP 2GP 3SP 5CP
+  Decimal: 5.5GP, 0.5SP
+  Bare integer (treated as CP): 100
+
+Examples:
+  lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP:Quiver refill --credit 1000:2SP5CP
+  lootsheet journal post --date 2026-03-08 --description "Quest reward earned" --debit 1100:1GP --credit 4000:1GP
+.SH OPTIONS
+.TP
+--credit=stringArray
+credit line in CODE:AMOUNT[:MEMO] format (default: [])
+.TP
+--date=string
+entry date in YYYY-MM-DD (default: )
+.TP
+--debit=stringArray
+debit line in CODE:AMOUNT[:MEMO] format (default: [])
+.TP
+--description=string
+journal entry description (default: )
+.TP
+-h, --help
+help for post
+.SH SEE ALSO
+lootsheet-journal(1)

@@ -1,0 +1,22 @@
+.TH LOOTSHEET-DB-MIGRATE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-db-migrate \\- Apply pending embedded schema migrations
+.SH SYNOPSIS
+lootsheet db migrate [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet db migrate
+
+Applies pending schema migrations to the configured LootSheet database.
+Foreign and damaged databases are reported and left untouched.
+
+Examples:
+  lootsheet db migrate
+.SH OPTIONS
+.TP
+-h, --help
+help for migrate
+.SH SEE ALSO
+lootsheet-db(1)

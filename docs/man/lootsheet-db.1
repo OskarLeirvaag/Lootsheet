@@ -1,0 +1,27 @@
+.TH LOOTSHEET-DB 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-db \\- Inspect database state and run schema migrations
+.SH SYNOPSIS
+lootsheet db [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet db status
+  lootsheet db migrate
+
+Subcommands:
+  status   inspect whether the configured SQLite database is uninitialized, current, upgradeable, foreign, or damaged
+  migrate  apply pending embedded schema migrations to an existing LootSheet database
+
+Examples:
+  lootsheet db status
+  lootsheet db migrate
+.SH OPTIONS
+.TP
+-h, --help
+help for db
+.SH SEE ALSO
+lootsheet(1)
+lootsheet-db-migrate(1)
+lootsheet-db-status(1)

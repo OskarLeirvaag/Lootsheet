@@ -1,0 +1,19 @@
+.TH LOOTSHEET-INIT 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-init \\- Initialize a fresh LootSheet database
+.SH SYNOPSIS
+lootsheet init [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet init
+
+Bootstraps a fresh SQLite database from the embedded schema and seed accounts.
+If the configured database already contains LootSheet metadata, init reports that it is already initialized and does not reseed it.
+.SH OPTIONS
+.TP
+-h, --help
+help for init
+.SH SEE ALSO
+lootsheet(1)

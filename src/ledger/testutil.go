@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -78,6 +80,33 @@ func RunSQLiteScriptForTest(t testing.TB, databasePath string, sqlScript string)
 	if _, err := db.ExecContext(context.Background(), sqlScript); err != nil {
 		t.Fatalf("run test script: %v: %s", err, fmt.Sprintf("%.200s", sqlScript))
 	}
+}
+
+// LoadFixtureForTest reads a checked-in SQL fixture from the repository's
+// fixtures directory.
+func LoadFixtureForTest(t testing.TB, fixtureName string) string {
+	t.Helper()
+
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve testutil caller path")
+	}
+
+	fixturePath := filepath.Join(filepath.Dir(currentFile), "..", "..", "fixtures", fixtureName)
+	content, err := os.ReadFile(fixturePath)
+	if err != nil {
+		t.Fatalf("read fixture %q: %v", fixtureName, err)
+	}
+
+	return string(content)
+}
+
+// ApplyFixtureForTest loads and executes a checked-in SQL fixture against an
+// initialized test database.
+func ApplyFixtureForTest(t testing.TB, databasePath string, fixtureName string) {
+	t.Helper()
+
+	RunSQLiteScriptForTest(t, databasePath, LoadFixtureForTest(t, fixtureName))
 }
 
 // LoadMigrationAssetsForTest returns the full and legacy (v1-only) init assets

@@ -1,0 +1,24 @@
+.TH LOOTSHEET-ACCOUNT-DELETE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-account-delete \\- Delete an unused account
+.SH SYNOPSIS
+lootsheet account delete [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet account delete --code CODE
+
+Deletes an account only if it has no journal postings.
+
+Example:
+  lootsheet account delete --code 5120
+.SH OPTIONS
+.TP
+--code=string
+account code (default: )
+.TP
+-h, --help
+help for delete
+.SH SEE ALSO
+lootsheet-account(1)

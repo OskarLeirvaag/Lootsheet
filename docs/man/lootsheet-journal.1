@@ -1,0 +1,23 @@
+.TH LOOTSHEET-JOURNAL 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-journal \\- Post and reverse balanced journal entries
+.SH SYNOPSIS
+lootsheet journal [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet journal post --date YYYY-MM-DD --description TEXT --debit CODE:AMOUNT[:MEMO] --credit CODE:AMOUNT[:MEMO]
+  lootsheet journal reverse --entry-id UUID --date YYYY-MM-DD [--description TEXT]
+
+Subcommands:
+  post     create a new balanced posted journal entry
+  reverse  create an immutable reversing entry for a posted journal entry
+.SH OPTIONS
+.TP
+-h, --help
+help for journal
+.SH SEE ALSO
+lootsheet(1)
+lootsheet-journal-post(1)
+lootsheet-journal-reverse(1)

@@ -1,0 +1,32 @@
+.TH LOOTSHEET-REPORT 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-report \\- Run read-only accounting and register reports
+.SH SYNOPSIS
+lootsheet report [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet report trial-balance
+  lootsheet report quest-receivables
+  lootsheet report promised-quests
+  lootsheet report loot-summary
+  lootsheet report writeoff-candidates [--as-of YYYY-MM-DD] [--min-age-days N]
+
+Subcommands:
+  trial-balance         show debits, credits, balances, and overall balancing status
+  quest-receivables     show earned quest rewards that are not fully collected
+  promised-quests       show offered or accepted quests that remain off-ledger
+  loot-summary          show held or recognized loot with appraisal visibility
+  writeoff-candidates   show older completed quests with remaining uncollected balances
+.SH OPTIONS
+.TP
+-h, --help
+help for report
+.SH SEE ALSO
+lootsheet(1)
+lootsheet-report-loot-summary(1)
+lootsheet-report-promised-quests(1)
+lootsheet-report-quest-receivables(1)
+lootsheet-report-trial-balance(1)
+lootsheet-report-writeoff-candidates(1)
