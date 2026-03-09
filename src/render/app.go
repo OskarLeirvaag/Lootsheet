@@ -124,7 +124,7 @@ func Run(ctx context.Context, options *Options) error {
 			}
 		case *tcell.EventMouse:
 			var mouseResult handleResult
-			switch typed.Buttons() {
+			switch typed.Buttons() { //nolint:exhaustive // only wheel events are relevant
 			case tcell.WheelUp:
 				mouseResult = shell.HandleAction(ActionMoveUp)
 			case tcell.WheelDown:

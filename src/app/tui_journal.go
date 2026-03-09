@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
 func summarizeJournal(summary journal.Summary) []string {

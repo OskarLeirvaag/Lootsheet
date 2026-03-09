@@ -68,6 +68,11 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
+    rules:
+      - path: src/texture/
+        linters:
+          - gosec
+        text: "G404"
     paths:
       - third_party$
       - builtin$

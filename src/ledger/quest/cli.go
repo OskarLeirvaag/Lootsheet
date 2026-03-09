@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 // RunCreate creates a quest and writes the CLI output.

@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
-	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
-	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
 func summarizeLoot(rows []report.LootSummaryRow) []string {
