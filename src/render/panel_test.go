@@ -15,13 +15,13 @@ func TestDrawPanelRendersBoxAndTitle(t *testing.T) {
 	})
 
 	output := buffer.PlainText()
-	if !strings.Contains(output, "┌ Accounts ") {
+	if !strings.Contains(output, "╔ Accounts ") {
 		t.Fatalf("panel output missing title:\n%s", output)
 	}
 	if !strings.Contains(output, "│Read-only shell") {
 		t.Fatalf("panel output missing body:\n%s", output)
 	}
-	if !strings.Contains(output, "└") {
+	if !strings.Contains(output, "╚") {
 		t.Fatalf("panel output missing bottom border:\n%s", output)
 	}
 }

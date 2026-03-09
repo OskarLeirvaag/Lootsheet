@@ -1,0 +1,24 @@
+# Colormap for hoard.ascii
+#
+# Tags map single characters to theme style names.
+# Rules assign a default tag per line range, with optional pattern overrides.
+#
+# Format:
+#   TAG=StyleName                       (tag definition)
+#   ---                                 (separator)
+#   RANGE DEFAULT [PATTERN TAG ...]     (line rule)
+
+d=HoardDragon
+g=HoardGold
+m=HoardGem
+---
+1-10 d
+11   m
+12   g
+13   g  <>  m
+14   g
+15   g  <>  m
+16   g
+17   g  <>  m
+18   g
+19   g  <>  m
