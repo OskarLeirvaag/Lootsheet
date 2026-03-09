@@ -1,6 +1,6 @@
 // Package tools provides shared utility functions for the LootSheet application,
 // including D&D 5e currency parsing and formatting.
-package tools
+package currency
 
 import (
 	"fmt"

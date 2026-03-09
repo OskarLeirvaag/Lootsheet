@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/account"
-	"github.com/OskarLeirvaag/Lootsheet/src/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 )
 
 func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
