@@ -1,6 +1,33 @@
 package render
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"strings"
+	"sync"
+
+	"github.com/gdamore/tcell/v2"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/texture"
+)
+
+var (
+	brickOnce    sync.Once
+	brickCached  [][]rune
+)
+
+func brickPattern() [][]rune {
+	brickOnce.Do(func() {
+		data, err := texture.FS.ReadFile("bricks.ascii")
+		if err != nil {
+			return
+		}
+		lines := strings.Split(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n")
+		brickCached = make([][]rune, len(lines))
+		for i, line := range lines {
+			brickCached[i] = []rune(line)
+		}
+	})
+	return brickCached
+}
 
 // Panel describes a boxed panel and its body lines.
 type Panel struct {
@@ -22,6 +49,9 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 	}
 
 	buffer.FillRect(visible, ' ', theme.Panel)
+	if pattern := brickPattern(); pattern != nil {
+		buffer.FillTexture(visible, pattern, theme.Brick)
+	}
 
 	borderStyle := theme.Border
 	if panel.BorderStyle != nil {

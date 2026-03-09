@@ -30,11 +30,11 @@ type Theme struct {
 	HoardGold         tcell.Style
 	HoardBag          tcell.Style
 	HoardGem          tcell.Style
+	Brick             tcell.Style
 }
 
 // DefaultTheme returns the boxed-dashboard palette used by the first slice.
 func DefaultTheme() Theme {
-	background := tcell.NewRGBColor(14, 18, 24)
 	panelBackground := tcell.NewRGBColor(26, 31, 39)
 	bronze := tcell.NewRGBColor(246, 188, 78)
 	ink := tcell.NewRGBColor(244, 239, 228)
@@ -50,9 +50,10 @@ func DefaultTheme() Theme {
 	gold := tcell.NewRGBColor(255, 216, 74)
 	bag := tcell.NewRGBColor(214, 158, 96)
 	gem := tcell.NewRGBColor(72, 229, 217)
+	brick := tcell.NewRGBColor(38, 43, 52)
 
 	return Theme{
-		Base:             tcell.StyleDefault.Foreground(ink).Background(background),
+		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),
 		Header:           tcell.StyleDefault.Foreground(ink).Background(panelBackground).Bold(true),
 		Panel:            tcell.StyleDefault.Foreground(ink).Background(panelBackground),
 		Border:           tcell.StyleDefault.Foreground(bronze).Background(panelBackground),
@@ -78,6 +79,7 @@ func DefaultTheme() Theme {
 		HoardGold:        tcell.StyleDefault.Foreground(gold).Background(panelBackground).Bold(true),
 		HoardBag:         tcell.StyleDefault.Foreground(bag).Background(panelBackground).Bold(true),
 		HoardGem:         tcell.StyleDefault.Foreground(gem).Background(panelBackground).Bold(true),
+		Brick:            tcell.StyleDefault.Foreground(brick).Background(panelBackground),
 	}
 }
 
