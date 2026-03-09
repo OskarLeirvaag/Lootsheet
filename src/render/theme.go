@@ -31,7 +31,11 @@ type Theme struct {
 	HoardBag          tcell.Style
 	HoardGem          tcell.Style
 	Brick             tcell.Style
-	Leaf              tcell.Style
+	ScatterAssets     tcell.Style
+	ScatterAccounts   tcell.Style
+	ScatterJournal    tcell.Style
+	ScatterQuests     tcell.Style
+	ScatterLoot       tcell.Style
 }
 
 // DefaultTheme returns the boxed-dashboard palette used by the first slice.
@@ -53,6 +57,10 @@ func DefaultTheme() Theme {
 	gem := tcell.NewRGBColor(72, 229, 217)
 	brick := tcell.NewRGBColor(38, 43, 52)
 	leafTint := tcell.NewRGBColor(110, 78, 148)
+	scatterAccountsTint := tcell.NewRGBColor(55, 100, 130)
+	scatterJournalTint := tcell.NewRGBColor(120, 95, 50)
+	scatterQuestsTint := tcell.NewRGBColor(55, 110, 65)
+	scatterLootTint := tcell.NewRGBColor(120, 105, 45)
 
 	return Theme{
 		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),
@@ -82,7 +90,11 @@ func DefaultTheme() Theme {
 		HoardBag:         tcell.StyleDefault.Foreground(bag).Background(panelBackground).Bold(true),
 		HoardGem:         tcell.StyleDefault.Foreground(gem).Background(panelBackground).Bold(true),
 		Brick:            tcell.StyleDefault.Foreground(brick).Background(panelBackground),
-		Leaf:             tcell.StyleDefault.Foreground(leafTint).Background(panelBackground),
+		ScatterAssets:    tcell.StyleDefault.Foreground(leafTint).Background(panelBackground),
+		ScatterAccounts:  tcell.StyleDefault.Foreground(scatterAccountsTint).Background(panelBackground),
+		ScatterJournal:   tcell.StyleDefault.Foreground(scatterJournalTint).Background(panelBackground),
+		ScatterQuests:    tcell.StyleDefault.Foreground(scatterQuestsTint).Background(panelBackground),
+		ScatterLoot:      tcell.StyleDefault.Foreground(scatterLootTint).Background(panelBackground),
 	}
 }
 

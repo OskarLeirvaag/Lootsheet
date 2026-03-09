@@ -562,10 +562,37 @@ func sectionTexture(section Section) PanelTexture {
 }
 
 func sectionBorders(section Section) *BorderSet {
-	if section == SectionAssets {
+	switch section {
+	case SectionAssets:
 		return &runicBorders
+	case SectionLoot:
+		return &lootBorders
+	case SectionQuests:
+		return &questBorders
+	case SectionJournal:
+		return &journalBorders
+	case SectionAccounts:
+		return &accountBorders
+	default:
+		return nil
 	}
-	return nil
+}
+
+func sectionScatter(section Section, theme *Theme) ([]rune, *tcell.Style) {
+	switch section {
+	case SectionAssets:
+		return scatterGlyphs, &theme.ScatterAssets
+	case SectionLoot:
+		return scatterLoot, &theme.ScatterLoot
+	case SectionQuests:
+		return scatterQuests, &theme.ScatterQuests
+	case SectionJournal:
+		return scatterJournal, &theme.ScatterJournal
+	case SectionAccounts:
+		return scatterAccounts, &theme.ScatterAccounts
+	default:
+		return nil, nil
+	}
 }
 
 func (s *Shell) footerHelpText(keymap KeyMap) string {
@@ -701,6 +728,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 	accent := s.styleForSection(theme, section)
 	tex := sectionTexture(section)
 	brd := sectionBorders(section)
+	scGlyphs, scStyle := sectionScatter(section, theme)
 
 	if rect.W < 48 || rect.H < 10 {
 		DrawPanel(buffer, rect, theme, Panel{
@@ -709,10 +737,12 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 				"Terminal too small for the interactive list view.",
 				"Resize to restore selection, detail, and action panels.",
 			},
-			BorderStyle: &accent,
-			TitleStyle:  &accent,
-			Texture:     tex,
-			Borders:     brd,
+			BorderStyle:   &accent,
+			TitleStyle:    &accent,
+			Texture:       tex,
+			Borders:       brd,
+			ScatterGlyphs: scGlyphs,
+			ScatterStyle:  scStyle,
 		})
 		return
 	}
@@ -738,12 +768,14 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		summaryLines = []string{"No summary loaded."}
 	}
 	DrawPanel(buffer, summaryRect, theme, Panel{
-		Title:       "Summary",
-		Lines:       summaryLines,
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     tex,
-		Borders:     brd,
+		Title:         "Summary",
+		Lines:         summaryLines,
+		BorderStyle:   &accent,
+		TitleStyle:    &accent,
+		Texture:       tex,
+		Borders:       brd,
+		ScatterGlyphs: scGlyphs,
+		ScatterStyle:  scStyle,
 	})
 
 	selectedIndex := s.currentSelectionIndex(section)
@@ -765,12 +797,14 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 	}
 
 	DrawPanel(buffer, detailRect, theme, Panel{
-		Title:       detailTitle,
-		Lines:       detailLines,
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     tex,
-		Borders:     brd,
+		Title:         detailTitle,
+		Lines:         detailLines,
+		BorderStyle:   &accent,
+		TitleStyle:    &accent,
+		Texture:       tex,
+		Borders:       brd,
+		ScatterGlyphs: scGlyphs,
+		ScatterStyle:  scStyle,
 	})
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
@@ -782,14 +816,17 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 	accent := s.styleForSection(theme, section)
 	tex := sectionTexture(section)
 	brd := sectionBorders(section)
+	scGlyphs, scStyle := sectionScatter(section, theme)
 	if len(items) == 0 {
 		DrawPanel(buffer, rect, theme, Panel{
-			Title:       title,
-			Lines:       data.EmptyLines,
-			BorderStyle: &accent,
-			TitleStyle:  &accent,
-			Texture:     tex,
-			Borders:     brd,
+			Title:         title,
+			Lines:         data.EmptyLines,
+			BorderStyle:   &accent,
+			TitleStyle:    &accent,
+			Texture:       tex,
+			Borders:       brd,
+			ScatterGlyphs: scGlyphs,
+			ScatterStyle:  scStyle,
 		})
 		s.viewHeights[section] = 0
 		s.scrolls[section] = 0
@@ -797,11 +834,13 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 	}
 
 	DrawPanel(buffer, rect, theme, Panel{
-		Title:       title,
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     tex,
-		Borders:     brd,
+		Title:         title,
+		BorderStyle:   &accent,
+		TitleStyle:    &accent,
+		Texture:       tex,
+		Borders:       brd,
+		ScatterGlyphs: scGlyphs,
+		ScatterStyle:  scStyle,
 	})
 
 	content := panelContentRect(rect, buffer.Bounds())
@@ -827,11 +866,13 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 	end := minInt(len(items), scroll+content.H)
 	title = fmt.Sprintf("%s %d-%d/%d", section.Title(), scroll+1, end, len(items))
 	DrawPanel(buffer, rect, theme, Panel{
-		Title:       title,
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     tex,
-		Borders:     brd,
+		Title:         title,
+		BorderStyle:   &accent,
+		TitleStyle:    &accent,
+		Texture:       tex,
+		Borders:       brd,
+		ScatterGlyphs: scGlyphs,
+		ScatterStyle:  scStyle,
 	})
 
 	for row := 0; row < content.H && scroll+row < len(items); row++ {
