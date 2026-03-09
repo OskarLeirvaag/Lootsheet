@@ -152,15 +152,18 @@ func newLootCompose(previous Section) *composeState {
 	}
 }
 
-func newQuestEditCompose(previous Section, itemKey string, fields map[string]string, catalog *EntryCatalog) *composeState {
-	compose := newQuestCompose(previous, catalog)
-	compose.CommandID = "quest.update"
-	compose.ItemKey = strings.TrimSpace(itemKey)
-	compose.Title = "Edit Quest"
+func newEditCompose(base *composeState, commandID, itemKey, title string, fields map[string]string) *composeState {
+	base.CommandID = commandID
+	base.ItemKey = strings.TrimSpace(itemKey)
+	base.Title = title
 	for key, value := range fields {
-		compose.Fields[key] = strings.TrimSpace(value)
+		base.Fields[key] = strings.TrimSpace(value)
 	}
-	return compose
+	return base
+}
+
+func newQuestEditCompose(previous Section, itemKey string, fields map[string]string, catalog *EntryCatalog) *composeState {
+	return newEditCompose(newQuestCompose(previous, catalog), "quest.update", itemKey, "Edit Quest", fields)
 }
 
 func newAssetCompose(previous Section) *composeState {
@@ -180,25 +183,11 @@ func newAssetCompose(previous Section) *composeState {
 }
 
 func newAssetEditCompose(previous Section, itemKey string, fields map[string]string) *composeState {
-	compose := newAssetCompose(previous)
-	compose.CommandID = "asset.update"
-	compose.ItemKey = strings.TrimSpace(itemKey)
-	compose.Title = "Edit Asset"
-	for key, value := range fields {
-		compose.Fields[key] = strings.TrimSpace(value)
-	}
-	return compose
+	return newEditCompose(newAssetCompose(previous), "asset.update", itemKey, "Edit Asset", fields)
 }
 
 func newLootEditCompose(previous Section, itemKey string, fields map[string]string) *composeState {
-	compose := newLootCompose(previous)
-	compose.CommandID = "loot.update"
-	compose.ItemKey = strings.TrimSpace(itemKey)
-	compose.Title = "Edit Loot"
-	for key, value := range fields {
-		compose.Fields[key] = strings.TrimSpace(value)
-	}
-	return compose
+	return newEditCompose(newLootCompose(previous), "loot.update", itemKey, "Edit Loot", fields)
 }
 
 func defaultAccountCode(options []AccountOption, preferred string) string {
@@ -524,7 +513,9 @@ func (s *Shell) composeCurrentLinePosition() (int, int) {
 	return offset / 4, offset % 4
 }
 
-func (s *Shell) composeAppendRune(value rune) {
+type fieldOp func(string) string
+
+func (s *Shell) composeEditCurrentField(op fieldOp) {
 	if s.compose == nil {
 		return
 	}
@@ -535,7 +526,7 @@ func (s *Shell) composeAppendRune(value rune) {
 	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
 		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
 		"source", "quantity", "holder":
-		s.compose.Fields[fieldID] += string(value)
+		s.compose.Fields[fieldID] = op(s.compose.Fields[fieldID])
 		delete(s.compose.FieldErrors, fieldID)
 	default:
 		lineIndex, column := s.composeCurrentLinePosition()
@@ -544,46 +535,23 @@ func (s *Shell) composeAppendRune(value rune) {
 		}
 		switch column {
 		case 1:
-			s.compose.Lines[lineIndex].AccountCode += string(value)
+			s.compose.Lines[lineIndex].AccountCode = op(s.compose.Lines[lineIndex].AccountCode)
 		case 2:
-			s.compose.Lines[lineIndex].Amount += string(value)
+			s.compose.Lines[lineIndex].Amount = op(s.compose.Lines[lineIndex].Amount)
 		case 3:
-			s.compose.Lines[lineIndex].Memo += string(value)
+			s.compose.Lines[lineIndex].Memo = op(s.compose.Lines[lineIndex].Memo)
 		}
 		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
 	}
 	s.compose.GeneralError = ""
 }
 
+func (s *Shell) composeAppendRune(r rune) {
+	s.composeEditCurrentField(func(v string) string { return v + string(r) })
+}
+
 func (s *Shell) composeBackspace() {
-	if s.compose == nil {
-		return
-	}
-	fieldID := s.composeCurrentFieldID()
-	switch fieldID {
-	case "side":
-		return
-	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
-		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
-		"source", "quantity", "holder":
-		s.compose.Fields[fieldID] = trimLastRune(s.compose.Fields[fieldID])
-		delete(s.compose.FieldErrors, fieldID)
-	default:
-		lineIndex, column := s.composeCurrentLinePosition()
-		if lineIndex < 0 || lineIndex >= len(s.compose.Lines) {
-			return
-		}
-		switch column {
-		case 1:
-			s.compose.Lines[lineIndex].AccountCode = trimLastRune(s.compose.Lines[lineIndex].AccountCode)
-		case 2:
-			s.compose.Lines[lineIndex].Amount = trimLastRune(s.compose.Lines[lineIndex].Amount)
-		case 3:
-			s.compose.Lines[lineIndex].Memo = trimLastRune(s.compose.Lines[lineIndex].Memo)
-		}
-		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
-	}
-	s.compose.GeneralError = ""
+	s.composeEditCurrentField(trimLastRune)
 }
 
 func trimLastRune(value string) string {
@@ -595,34 +563,7 @@ func trimLastRune(value string) string {
 }
 
 func (s *Shell) composeClearCurrent() {
-	if s.compose == nil {
-		return
-	}
-	fieldID := s.composeCurrentFieldID()
-	switch fieldID {
-	case "side":
-		return
-	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
-		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
-		"source", "quantity", "holder":
-		s.compose.Fields[fieldID] = ""
-		delete(s.compose.FieldErrors, fieldID)
-	default:
-		lineIndex, column := s.composeCurrentLinePosition()
-		if lineIndex < 0 || lineIndex >= len(s.compose.Lines) {
-			return
-		}
-		switch column {
-		case 1:
-			s.compose.Lines[lineIndex].AccountCode = ""
-		case 2:
-			s.compose.Lines[lineIndex].Amount = ""
-		case 3:
-			s.compose.Lines[lineIndex].Memo = ""
-		}
-		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
-	}
-	s.compose.GeneralError = ""
+	s.composeEditCurrentField(func(_ string) string { return "" })
 }
 
 func (s *Shell) clearErrorForCurrentField() {
@@ -754,36 +695,15 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
-	leftWidth := maxInt(38, rect.W/2)
+	leftWidth := max(38, rect.W/2)
 	left, right := rect.SplitVertical(leftWidth, 1)
 	gapX := left.X + left.W
 	if gapX < right.X {
 		buffer.FillRect(Rect{X: gapX, Y: rect.Y, W: right.X - gapX, H: rect.H}, ' ', theme.Panel)
 	}
-	accent := s.styleForSection(theme, s.Section)
-	tex := sectionTexture(s.Section)
-	brd := sectionBorders(s.Section)
-	scGlyphs, scStyle := sectionScatter(s.Section, theme)
-	DrawPanel(buffer, left, theme, Panel{
-		Title:         s.composeTitle(),
-		Lines:         s.composeFormLines(),
-		BorderStyle:   &accent,
-		TitleStyle:    &accent,
-		Texture:       tex,
-		Borders:       brd,
-		ScatterGlyphs: scGlyphs,
-		ScatterStyle:  scStyle,
-	})
-	DrawPanel(buffer, right, theme, Panel{
-		Title:         "Preview",
-		Lines:         s.composePreviewLines(),
-		BorderStyle:   &accent,
-		TitleStyle:    &accent,
-		Texture:       tex,
-		Borders:       brd,
-		ScatterGlyphs: scGlyphs,
-		ScatterStyle:  scStyle,
-	})
+	ss := s.Section.Style(theme)
+	DrawPanel(buffer, left, theme, ss.Panel(s.composeTitle(), s.composeFormLines()))
+	DrawPanel(buffer, right, theme, ss.Panel("Preview", s.composePreviewLines()))
 }
 
 func (s *Shell) composeTitle() string {
@@ -1002,7 +922,7 @@ func accountOptionLines(options []AccountOption) []string {
 	if len(options) == 0 {
 		return []string{"No matching active accounts."}
 	}
-	lines := make([]string, 0, minInt(len(options), 10))
+	lines := make([]string, 0, min(len(options), 10))
 	for index := 0; index < len(options) && index < 10; index++ {
 		lines = append(lines, fmt.Sprintf("%s %s (%s)", options[index].Code, options[index].Name, options[index].Type))
 	}
