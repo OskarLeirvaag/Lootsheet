@@ -12,7 +12,7 @@ import (
 )
 
 // CreateLootItem inserts a new loot item with status='held'.
-func CreateLootItem(ctx context.Context, databasePath string, name string, source string, quantity int, holder string, notes string) (LootItemRecord, error) {
+func CreateLootItem(ctx context.Context, databasePath string, name string, source string, quantity int, holder string, notes string, itemType string) (LootItemRecord, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return LootItemRecord{}, fmt.Errorf("loot item name is required")
@@ -22,14 +22,22 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 		quantity = 1
 	}
 
+	itemType = strings.TrimSpace(itemType)
+	if itemType == "" {
+		itemType = "loot"
+	}
+	if itemType != "loot" && itemType != "asset" {
+		return LootItemRecord{}, fmt.Errorf("item type must be loot or asset")
+	}
+
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootItemRecord, error) {
 		id := uuid.NewString()
 
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO loot_items (id, name, source, status, quantity, holder, notes)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO loot_items (id, name, source, status, quantity, holder, notes, item_type)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, name, strings.TrimSpace(source), string(ledger.LootStatusHeld),
-			quantity, strings.TrimSpace(holder), strings.TrimSpace(notes),
+			quantity, strings.TrimSpace(holder), strings.TrimSpace(notes), itemType,
 		); err != nil {
 			return LootItemRecord{}, fmt.Errorf("insert loot item: %w", err)
 		}
@@ -39,6 +47,7 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 			Name:     name,
 			Source:   strings.TrimSpace(source),
 			Status:   ledger.LootStatusHeld,
+			ItemType: itemType,
 			Quantity: quantity,
 			Holder:   strings.TrimSpace(holder),
 			Notes:    strings.TrimSpace(notes),
@@ -92,12 +101,18 @@ func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string,
 	})
 }
 
-// ListLootItems returns all loot items ordered by status priority then name.
-func ListLootItems(ctx context.Context, databasePath string) ([]LootItemRecord, error) {
+// ListLootItems returns loot items of the given type ordered by status priority then name.
+func ListLootItems(ctx context.Context, databasePath string, itemType string) ([]LootItemRecord, error) {
+	itemType = strings.TrimSpace(itemType)
+	if itemType == "" {
+		itemType = "loot"
+	}
+
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]LootItemRecord, error) {
 		rows, err := db.QueryContext(ctx, `
-			SELECT id, name, source, status, quantity, holder, notes, created_at, updated_at
+			SELECT id, name, source, status, item_type, quantity, holder, notes, created_at, updated_at
 			FROM loot_items
+			WHERE item_type = ?
 			ORDER BY
 			  CASE status
 			    WHEN 'held' THEN 1
@@ -108,7 +123,7 @@ func ListLootItems(ctx context.Context, databasePath string) ([]LootItemRecord, 
 			    WHEN 'discarded' THEN 6
 			  END,
 			  name
-		`)
+		`, itemType)
 		if err != nil {
 			return nil, fmt.Errorf("query loot items: %w", err)
 		}
@@ -120,7 +135,7 @@ func ListLootItems(ctx context.Context, databasePath string) ([]LootItemRecord, 
 			var status string
 
 			if err := rows.Scan(
-				&item.ID, &item.Name, &item.Source, &status,
+				&item.ID, &item.Name, &item.Source, &status, &item.ItemType,
 				&item.Quantity, &item.Holder, &item.Notes,
 				&item.CreatedAt, &item.UpdatedAt,
 			); err != nil {
@@ -473,17 +488,51 @@ func getLootItemStatus(ctx context.Context, db *sql.DB, lootItemID string) (ledg
 	return s, nil
 }
 
+// TransferItemType changes a loot item's item_type between 'loot' and 'asset'.
+func TransferItemType(ctx context.Context, databasePath string, itemID string, newType string) error {
+	itemID = strings.TrimSpace(itemID)
+	if itemID == "" {
+		return fmt.Errorf("item ID is required")
+	}
+	newType = strings.TrimSpace(newType)
+	if newType != "loot" && newType != "asset" {
+		return fmt.Errorf("new type must be loot or asset")
+	}
+
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		var currentType string
+		if err := db.QueryRowContext(ctx,
+			"SELECT item_type FROM loot_items WHERE id = ?", itemID,
+		).Scan(&currentType); err != nil {
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("item %q does not exist", itemID)
+			}
+			return fmt.Errorf("query item type: %w", err)
+		}
+		if currentType == newType {
+			return fmt.Errorf("item %q is already of type %q", itemID, newType)
+		}
+		if _, err := db.ExecContext(ctx,
+			"UPDATE loot_items SET item_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+			newType, itemID,
+		); err != nil {
+			return fmt.Errorf("update item type: %w", err)
+		}
+		return nil
+	})
+}
+
 func getLootItemByID(ctx context.Context, db *sql.DB, lootItemID string) (LootItemRecord, error) {
 	var item LootItemRecord
 	var status string
 
 	if err := db.QueryRowContext(ctx,
-		`SELECT id, name, source, status, quantity, holder, notes, created_at, updated_at
+		`SELECT id, name, source, status, item_type, quantity, holder, notes, created_at, updated_at
 		 FROM loot_items
 		 WHERE id = ?`,
 		lootItemID,
 	).Scan(
-		&item.ID, &item.Name, &item.Source, &status,
+		&item.ID, &item.Name, &item.Source, &status, &item.ItemType,
 		&item.Quantity, &item.Holder, &item.Notes,
 		&item.CreatedAt, &item.UpdatedAt,
 	); err != nil {

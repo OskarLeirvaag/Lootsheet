@@ -9,8 +9,8 @@ import (
 )
 
 // RunCreate creates a loot item and writes the CLI output.
-func RunCreate(ctx context.Context, hctx ledger.HandlerContext, name string, source string, quantity int, holder string, notes string) error {
-	result, err := CreateLootItem(ctx, hctx.DatabasePath, name, source, quantity, holder, notes)
+func RunCreate(ctx context.Context, hctx ledger.HandlerContext, name string, source string, quantity int, holder string, notes string, itemType string) error {
+	result, err := CreateLootItem(ctx, hctx.DatabasePath, name, source, quantity, holder, notes, itemType)
 	if err != nil {
 		return err
 	}
@@ -30,8 +30,8 @@ func RunCreate(ctx context.Context, hctx ledger.HandlerContext, name string, sou
 }
 
 // RunList writes the loot item listing.
-func RunList(ctx context.Context, hctx ledger.HandlerContext) error {
-	items, err := ListLootItems(ctx, hctx.DatabasePath)
+func RunList(ctx context.Context, hctx ledger.HandlerContext, itemType string) error {
+	items, err := ListLootItems(ctx, hctx.DatabasePath, itemType)
 	if err != nil {
 		return err
 	}

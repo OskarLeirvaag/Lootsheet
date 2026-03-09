@@ -94,9 +94,12 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 
 	var quests Rect
 	var loot Rect
+	var assets Rect
 	if !bottom.Empty() {
-		bottomWidth := maxInt(20, (bottom.W-1)/2)
-		quests, loot = bottom.SplitVertical(bottomWidth, 1)
+		bottomWidth := maxInt(16, (bottom.W-2)/3)
+		var bottomRest Rect
+		quests, bottomRest = bottom.SplitVertical(bottomWidth, 1)
+		loot, assets = bottomRest.SplitVertical(bottomWidth, 1)
 	}
 
 	DrawPanel(buffer, accounts, theme, Panel{
@@ -135,6 +138,16 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 			Lines:       resolved.LootLines,
 			BorderStyle: &theme.SectionLoot,
 			TitleStyle:  &theme.SectionLoot,
+		})
+	}
+
+	if !assets.Empty() {
+		DrawPanel(buffer, assets, theme, Panel{
+			Title:       "Asset Register",
+			Lines:       resolved.AssetLines,
+			BorderStyle: &theme.SectionAssets,
+			TitleStyle:  &theme.SectionAssets,
+			Texture:     PanelTextureLeaf,
 		})
 	}
 }

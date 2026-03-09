@@ -550,7 +550,7 @@ func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 		t.Fatalf("write-off candidate row = %+v, want Moonlit Escort aged 38 days", writeoffCandidates[0])
 	}
 
-	lootSummary, err := GetLootSummary(ctx, databasePath)
+	lootSummary, err := GetLootSummary(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("get loot summary: %v", err)
 	}

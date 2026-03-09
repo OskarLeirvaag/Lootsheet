@@ -114,9 +114,9 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	}
 	if s.compose != nil {
 		switch action {
-		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 			return handleResult{}
 		case ActionQuit:
@@ -170,6 +170,10 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		s.Section = SectionLoot
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
+	case ActionShowAssets:
+		s.Section = SectionAssets
+		s.reconcileSelection(s.Section)
+		return handleResult{Redraw: true}
 	case ActionMoveUp:
 		if s.moveSelection(-1) {
 			return handleResult{Redraw: true}
@@ -206,7 +210,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.openComposeForAction(ActionNewCustom) {
 			return handleResult{Redraw: true}
 		}
-	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell:
+	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
 		}
@@ -259,9 +263,9 @@ func (s *Shell) handleConfirmAction(action Action) handleResult {
 
 func (s *Shell) handleInputAction(action Action) handleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 		return handleResult{}
 	case ActionQuit:
@@ -419,6 +423,8 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 		s.renderListSection(buffer, body, theme, SectionQuests, &s.Data.Quests)
 	case SectionLoot:
 		s.renderListSection(buffer, body, theme, SectionLoot, &s.Data.Loot)
+	case SectionAssets:
+		s.renderListSection(buffer, body, theme, SectionAssets, &s.Data.Assets)
 	default:
 		drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
 	}
@@ -460,6 +466,8 @@ func (s *Shell) currentHeaderLines() []string {
 		return append([]string{}, s.Data.Quests.HeaderLines...)
 	case SectionLoot:
 		return append([]string{}, s.Data.Loot.HeaderLines...)
+	case SectionAssets:
+		return append([]string{}, s.Data.Assets.HeaderLines...)
 	default:
 		return append([]string{}, resolveDashboardData(&s.Data.Dashboard).HeaderLines...)
 	}
@@ -539,9 +547,18 @@ func (s *Shell) styleForSection(theme *Theme, section Section) tcell.Style {
 		return theme.SectionQuests
 	case SectionLoot:
 		return theme.SectionLoot
+	case SectionAssets:
+		return theme.SectionAssets
 	default:
 		return theme.SectionDashboard
 	}
+}
+
+func sectionTexture(section Section) PanelTexture {
+	if section == SectionAssets {
+		return PanelTextureLeaf
+	}
+	return PanelTextureBrick
 }
 
 func (s *Shell) footerHelpText(keymap KeyMap) string {
@@ -583,6 +600,8 @@ func (s *Shell) sectionLauncherHelpText() string {
 	case SectionQuests:
 		return "a add  u edit"
 	case SectionLoot:
+		return "a add  u edit"
+	case SectionAssets:
 		return "a add  u edit"
 	default:
 		return "e/i/a entry"
@@ -630,6 +649,13 @@ func (s *Shell) glossaryLines() []string {
 			"Recognized value: the inventory basis currently on the books.",
 			"Sell: turn recognized loot into cash and record any gain or loss.",
 		}
+	case SectionAssets:
+		return []string{
+			"Asset: high-value item the party intends to keep.",
+			"Transfer: move an asset to the loot register for sale, or vice versa.",
+			"Appraisal: estimated value, shared with the loot system.",
+			"Recognize: move an appraisal onto the ledger as inventory and gain.",
+		}
 	default:
 		return []string{
 			"To share now: current Party Cash balance available to split.",
@@ -666,6 +692,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		view = &fallback
 	}
 	accent := s.styleForSection(theme, section)
+	tex := sectionTexture(section)
 
 	if rect.W < 48 || rect.H < 10 {
 		DrawPanel(buffer, rect, theme, Panel{
@@ -676,6 +703,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 			},
 			BorderStyle: &accent,
 			TitleStyle:  &accent,
+			Texture:     tex,
 		})
 		return
 	}
@@ -705,6 +733,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		Lines:       summaryLines,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     tex,
 	})
 
 	selectedIndex := s.currentSelectionIndex(section)
@@ -730,6 +759,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		Lines:       detailLines,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     tex,
 	})
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
@@ -739,12 +769,14 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 	items := data.Items
 	title := section.Title()
 	accent := s.styleForSection(theme, section)
+	tex := sectionTexture(section)
 	if len(items) == 0 {
 		DrawPanel(buffer, rect, theme, Panel{
 			Title:       title,
 			Lines:       data.EmptyLines,
 			BorderStyle: &accent,
 			TitleStyle:  &accent,
+			Texture:     tex,
 		})
 		s.viewHeights[section] = 0
 		s.scrolls[section] = 0
@@ -755,6 +787,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 		Title:       title,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     tex,
 	})
 
 	content := panelContentRect(rect, buffer.Bounds())
@@ -1143,6 +1176,8 @@ func (s *Shell) listDataForSection(section Section) *ListScreenData {
 		return &s.Data.Quests
 	case SectionLoot:
 		return &s.Data.Loot
+	case SectionAssets:
+		return &s.Data.Assets
 	default:
 		return nil
 	}

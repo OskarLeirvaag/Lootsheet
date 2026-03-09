@@ -11,7 +11,7 @@ import (
 func TestCreateLootItem(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Ruby Gemstone", "Dragon Hoard", 1, "Bard", "Large and shiny")
+	item, err := CreateLootItem(context.Background(), databasePath, "Ruby Gemstone", "Dragon Hoard", 1, "Bard", "Large and shiny", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestCreateLootItem(t *testing.T) {
 func TestCreateLootItemRejectsEmptyName(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	_, err := CreateLootItem(context.Background(), databasePath, "", "source", 1, "", "")
+	_, err := CreateLootItem(context.Background(), databasePath, "", "source", 1, "", "", "loot")
 	if err == nil {
 		t.Fatal("expected error for empty name")
 	}
@@ -53,17 +53,17 @@ func TestCreateLootItemRejectsEmptyName(t *testing.T) {
 func TestListLootItems(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	_, err := CreateLootItem(context.Background(), databasePath, "Sword", "", 1, "", "")
+	_, err := CreateLootItem(context.Background(), databasePath, "Sword", "", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create sword: %v", err)
 	}
 
-	_, err = CreateLootItem(context.Background(), databasePath, "Shield", "", 2, "", "")
+	_, err = CreateLootItem(context.Background(), databasePath, "Shield", "", 2, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create shield: %v", err)
 	}
 
-	items, err := ListLootItems(context.Background(), databasePath)
+	items, err := ListLootItems(context.Background(), databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list loot items: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestListLootItems(t *testing.T) {
 func TestAppraiseLootItem(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Emerald", "Cave", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Emerald", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestAppraiseLootItem(t *testing.T) {
 func TestAppraiseRejectsNonHeldItem(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Diamond", "Mine", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Diamond", "Mine", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestAppraiseRejectsNonHeldItem(t *testing.T) {
 func TestRecognizeLootAppraisal(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestRecognizeLootAppraisal(t *testing.T) {
 	}
 
 	// Verify item status changed to recognized.
-	items, err := ListLootItems(context.Background(), databasePath)
+	items, err := ListLootItems(context.Background(), databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list items: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestRecognizeLootAppraisal(t *testing.T) {
 func TestRecognizeAlreadyRecognizedAppraisal(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Silver Ring", "Dungeon", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Silver Ring", "Dungeon", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestRecognizeAlreadyRecognizedAppraisal(t *testing.T) {
 func TestSellLootItemAtAppraisalValue(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Ruby", "Cave", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Ruby", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestSellLootItemAtAppraisalValue(t *testing.T) {
 	}
 
 	// Verify item status.
-	items, err := ListLootItems(context.Background(), databasePath)
+	items, err := ListLootItems(context.Background(), databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list items: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestSellLootItemAtAppraisalValue(t *testing.T) {
 func TestSellLootItemBelowAppraisalValue(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Damaged Gem", "Ruins", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Damaged Gem", "Ruins", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestSellLootItemBelowAppraisalValue(t *testing.T) {
 func TestSellLootItemAboveAppraisalValue(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Rare Pearl", "Ocean", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Rare Pearl", "Ocean", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -321,7 +321,7 @@ func TestSellLootItemAboveAppraisalValue(t *testing.T) {
 func TestSellLootItemRejectsHeldItem(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Unsold Gem", "Cave", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Unsold Gem", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestRecognizeNonexistentAppraisal(t *testing.T) {
 func TestUpdateLootItemEditsHeldItem(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet")
+	item, err := CreateLootItem(context.Background(), databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -389,7 +389,7 @@ func TestUpdateLootItemEditsHeldItem(t *testing.T) {
 func TestUpdateLootItemRejectsQuantityChangeAfterRecognition(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

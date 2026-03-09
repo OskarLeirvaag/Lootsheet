@@ -103,7 +103,7 @@ func TestRunDatabaseStatusBeforeInit(t *testing.T) {
 		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
-	if !strings.Contains(output, "Target schema version: 2") {
+	if !strings.Contains(output, "Target schema version: 3") {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
@@ -664,15 +664,15 @@ func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
-	if !strings.Contains(output, "Schema version: 2") {
+	if !strings.Contains(output, "Schema version: 3") {
 		t.Fatalf("db status missing schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Target schema version: 2") {
+	if !strings.Contains(output, "Target schema version: 3") {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Applied migrations: 2") {
+	if !strings.Contains(output, "Applied migrations: 3") {
 		t.Fatalf("db status missing migration count: %q", output)
 	}
 
@@ -682,6 +682,10 @@ func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 
 	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
 		t.Fatalf("db status missing second migration row: %q", output)
+	}
+
+	if !strings.Contains(output, "3  003_add_loot_item_type.sql") {
+		t.Fatalf("db status missing third migration row: %q", output)
 	}
 }
 
@@ -722,12 +726,16 @@ func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Pending migrations: 1") {
+	if !strings.Contains(output, "Pending migrations: 2") {
 		t.Fatalf("db status missing pending migration count: %q", output)
 	}
 
 	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
 		t.Fatalf("db status missing pending migration row: %q", output)
+	}
+
+	if !strings.Contains(output, "3  003_add_loot_item_type.sql") {
+		t.Fatalf("db status missing third pending migration row: %q", output)
 	}
 }
 
@@ -830,12 +838,16 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 		t.Fatalf("db migrate missing from schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "To schema version: 2") {
+	if !strings.Contains(output, "To schema version: 3") {
 		t.Fatalf("db migrate missing to schema version: %q", output)
 	}
 
 	if !strings.Contains(output, "2  002_add_journal_entry_reversal_tracking.sql") {
 		t.Fatalf("db migrate missing applied migration row: %q", output)
+	}
+
+	if !strings.Contains(output, "3  003_add_loot_item_type.sql") {
+		t.Fatalf("db migrate missing third applied migration row: %q", output)
 	}
 }
 

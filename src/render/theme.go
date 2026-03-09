@@ -22,15 +22,16 @@ type Theme struct {
 	SectionJournal    tcell.Style
 	SectionQuests     tcell.Style
 	SectionLoot       tcell.Style
+	SectionAssets     tcell.Style
 	TabInactive       tcell.Style
 	QuickEntry        tcell.Style
 	HoardShare        tcell.Style
 	HoardUnsold       tcell.Style
-	HoardDragon       tcell.Style
 	HoardGold         tcell.Style
 	HoardBag          tcell.Style
 	HoardGem          tcell.Style
 	Brick             tcell.Style
+	Leaf              tcell.Style
 }
 
 // DefaultTheme returns the boxed-dashboard palette used by the first slice.
@@ -46,11 +47,12 @@ func DefaultTheme() Theme {
 	selectedBackground := tcell.NewRGBColor(88, 69, 24)
 	errorBackground := tcell.NewRGBColor(138, 43, 56)
 	okBackground := tcell.NewRGBColor(34, 96, 64)
-	dragon := tcell.NewRGBColor(120, 201, 145)
+	violet := tcell.NewRGBColor(200, 140, 255)
 	gold := tcell.NewRGBColor(255, 216, 74)
 	bag := tcell.NewRGBColor(214, 158, 96)
 	gem := tcell.NewRGBColor(72, 229, 217)
 	brick := tcell.NewRGBColor(38, 43, 52)
+	leafTint := tcell.NewRGBColor(48, 36, 62)
 
 	return Theme{
 		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),
@@ -71,15 +73,16 @@ func DefaultTheme() Theme {
 		SectionJournal:   tcell.StyleDefault.Foreground(amber).Background(panelBackground).Bold(true),
 		SectionQuests:    tcell.StyleDefault.Foreground(moss).Background(panelBackground).Bold(true),
 		SectionLoot:      tcell.StyleDefault.Foreground(gold).Background(panelBackground).Bold(true),
+		SectionAssets:    tcell.StyleDefault.Foreground(violet).Background(panelBackground).Bold(true),
 		TabInactive:      tcell.StyleDefault.Foreground(muted).Background(panelBackground),
 		QuickEntry:       tcell.StyleDefault.Foreground(bronze).Background(panelBackground).Bold(true),
 		HoardShare:       tcell.StyleDefault.Foreground(gold).Background(panelBackground).Bold(true),
 		HoardUnsold:      tcell.StyleDefault.Foreground(gem).Background(panelBackground).Bold(true),
-		HoardDragon:      tcell.StyleDefault.Foreground(dragon).Background(panelBackground).Bold(true),
 		HoardGold:        tcell.StyleDefault.Foreground(gold).Background(panelBackground).Bold(true),
 		HoardBag:         tcell.StyleDefault.Foreground(bag).Background(panelBackground).Bold(true),
 		HoardGem:         tcell.StyleDefault.Foreground(gem).Background(panelBackground).Bold(true),
 		Brick:            tcell.StyleDefault.Foreground(brick).Background(panelBackground),
+		Leaf:             tcell.StyleDefault.Foreground(leafTint).Background(panelBackground),
 	}
 }
 

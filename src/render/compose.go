@@ -16,6 +16,7 @@ const (
 	composeModeAccount composeMode = "account"
 	composeModeQuest   composeMode = "quest"
 	composeModeLoot    composeMode = "loot"
+	composeModeAsset   composeMode = "asset"
 )
 
 type composeLineState struct {
@@ -162,6 +163,33 @@ func newQuestEditCompose(previous Section, itemKey string, fields map[string]str
 	return compose
 }
 
+func newAssetCompose(previous Section) *composeState {
+	return &composeState{
+		Mode:            composeModeAsset,
+		PreviousSection: previous,
+		CommandID:       "asset.create",
+		Fields: map[string]string{
+			"name":     "",
+			"source":   "",
+			"quantity": "1",
+			"holder":   "",
+			"notes":    "",
+		},
+		FieldErrors: make(map[string]string),
+	}
+}
+
+func newAssetEditCompose(previous Section, itemKey string, fields map[string]string) *composeState {
+	compose := newAssetCompose(previous)
+	compose.CommandID = "asset.update"
+	compose.ItemKey = strings.TrimSpace(itemKey)
+	compose.Title = "Edit Asset"
+	for key, value := range fields {
+		compose.Fields[key] = strings.TrimSpace(value)
+	}
+	return compose
+}
+
 func newLootEditCompose(previous Section, itemKey string, fields map[string]string) *composeState {
 	compose := newLootCompose(previous)
 	compose.CommandID = "loot.update"
@@ -202,6 +230,8 @@ func (s *Shell) openCompose(mode composeMode) bool {
 		s.compose = newQuestCompose(s.Section, &s.Data.EntryCatalog)
 	case composeModeLoot:
 		s.compose = newLootCompose(s.Section)
+	case composeModeAsset:
+		s.compose = newAssetCompose(s.Section)
 	default:
 		return false
 	}
@@ -221,6 +251,8 @@ func (s *Shell) openComposeFromAction(itemKey string, action *ItemActionData) bo
 		s.compose = newQuestEditCompose(s.Section, itemKey, action.ComposeFields, &s.Data.EntryCatalog)
 	case "loot":
 		s.compose = newLootEditCompose(s.Section, itemKey, action.ComposeFields)
+	case "asset":
+		s.compose = newAssetEditCompose(s.Section, itemKey, action.ComposeFields)
 	default:
 		return false
 	}
@@ -251,6 +283,8 @@ func (s *Shell) openComposeForAction(action Action) bool {
 			return s.openCompose(composeModeQuest)
 		case SectionLoot:
 			return s.openCompose(composeModeLoot)
+		case SectionAssets:
+			return s.openCompose(composeModeAsset)
 		case SectionJournal:
 			return false
 		default:
@@ -337,9 +371,9 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 			return handleResult{Command: command}, true
 		}
 		return handleResult{Redraw: true}, true
-	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot,
+	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell,
+		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom:
 		return handleResult{}, false
 	case ActionHelp:
@@ -409,6 +443,14 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "source", Label: "Source", Placeholder: "Goblin den"},
 			{ID: "quantity", Label: "Quantity", Placeholder: "1"},
 			{ID: "holder", Label: "Holder", Placeholder: "Bard"},
+			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
+		}
+	case composeModeAsset:
+		return []composeField{
+			{ID: "name", Label: "Name", Placeholder: "Staff of the Magi"},
+			{ID: "source", Label: "Source", Placeholder: "Ancient tomb"},
+			{ID: "quantity", Label: "Quantity", Placeholder: "1"},
+			{ID: "holder", Label: "Holder", Placeholder: "Wizard"},
 			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
 		}
 	default:
@@ -637,6 +679,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 			command.ID = "quest.create"
 		case composeModeLoot:
 			command.ID = "loot.create"
+		case composeModeAsset:
+			command.ID = "asset.create"
 		default:
 			command.ID = "entry.custom.create"
 		}
@@ -659,6 +703,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 			required = append(required, "accepted_on")
 		}
 	case composeModeLoot:
+		required = []string{"name", "quantity"}
+	case composeModeAsset:
 		required = []string{"name", "quantity"}
 	case composeModeCustom:
 	}
@@ -737,6 +783,11 @@ func (s *Shell) composeTitle() string {
 			return s.compose.Title
 		}
 		return "Add Loot"
+	case composeModeAsset:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
+		return "Add Asset"
 	case composeModeCustom:
 		if strings.TrimSpace(s.compose.Title) != "" {
 			return s.compose.Title
@@ -881,6 +932,17 @@ func (s *Shell) composePreviewLines() []string {
 			"",
 			"Loot is created as held and off-ledger.",
 			"No value is entered here. Appraise it later.",
+		)
+	case composeModeAsset:
+		lines = append(lines,
+			"Name: "+displayComposeValue(s.compose.Fields["name"], "required"),
+			"Source: "+displayComposeValue(s.compose.Fields["source"], "optional"),
+			"Quantity: "+displayComposeValue(s.compose.Fields["quantity"], "1"),
+			"Holder: "+displayComposeValue(s.compose.Fields["holder"], "optional"),
+			"Notes: "+displayComposeValue(s.compose.Fields["notes"], "optional"),
+			"",
+			"Asset is created as held and off-ledger.",
+			"Transfer to loot register when ready to sell.",
 		)
 	default:
 		lines = append(lines,

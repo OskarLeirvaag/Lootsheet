@@ -12,6 +12,7 @@ type Screen interface {
 	HideCursor()
 	Show()
 	Sync()
+	EnableMouse(...tcell.MouseFlags)
 	PollEvent() tcell.Event
 	PostEvent(tcell.Event) error
 	SetContent(x int, y int, primary rune, combining []rune, style tcell.Style)
@@ -43,6 +44,7 @@ func OpenTerminal(factory ScreenFactory, theme *Theme) (*Terminal, error) {
 		return nil, err
 	}
 
+	screen.EnableMouse(tcell.MouseButtonEvents)
 	screen.SetStyle(theme.Base)
 	screen.HideCursor()
 	screen.Clear()

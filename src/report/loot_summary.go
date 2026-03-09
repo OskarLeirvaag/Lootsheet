@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
@@ -20,8 +21,13 @@ type LootSummaryRow struct {
 }
 
 // GetLootSummary returns loot items with status 'held' or 'recognized',
-// along with their latest appraisal value (if any).
-func GetLootSummary(ctx context.Context, databasePath string) ([]LootSummaryRow, error) {
+// along with their latest appraisal value (if any), filtered by item type.
+func GetLootSummary(ctx context.Context, databasePath string, itemType string) ([]LootSummaryRow, error) {
+	itemType = strings.TrimSpace(itemType)
+	if itemType == "" {
+		itemType = "loot"
+	}
+
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]LootSummaryRow, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT
@@ -39,9 +45,9 @@ func GetLootSummary(ctx context.Context, databasePath string) ([]LootSummaryRow,
 					FROM loot_appraisals la2
 					WHERE la2.loot_item_id = li.id
 				)
-			WHERE li.status IN ('held', 'recognized')
+			WHERE li.item_type = ? AND li.status IN ('held', 'recognized')
 			ORDER BY li.status, li.name
-		`)
+		`, itemType)
 		if err != nil {
 			return nil, fmt.Errorf("query loot summary: %w", err)
 		}
