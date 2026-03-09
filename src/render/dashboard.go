@@ -23,7 +23,7 @@ func (d *Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 
 	data := resolveDashboardData(&d.Data)
 	outer := bounds.Inset(1)
-	main, footer := outer.SplitHorizontal(maxInt(0, outer.H-1), 0)
+	main, footer := outer.SplitHorizontal(max(0, outer.H-1), 0)
 	header, body := main.SplitHorizontal(4, 1)
 
 	DrawPanel(buffer, header, theme, Panel{
@@ -70,7 +70,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	}
 
 	heroHeight := clampInt(body.H/2, 7, 14)
-	heroHeight = minInt(heroHeight, maxInt(0, body.H-8))
+	heroHeight = min(heroHeight, max(0, body.H-8))
 	hero, lower := body.SplitHorizontal(heroHeight, 1)
 	if lower.H < 4 {
 		hero = body
@@ -88,7 +88,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	if bottom.Empty() {
 		top = lower
 	}
-	topWidth := maxInt(16, (top.W-2)/3)
+	topWidth := max(16, (top.W-2)/3)
 	accounts, topRest := top.SplitVertical(topWidth, 1)
 	journal, ledger := topRest.SplitVertical(topWidth, 1)
 
@@ -96,7 +96,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	var loot Rect
 	var assets Rect
 	if !bottom.Empty() {
-		bottomWidth := maxInt(16, (bottom.W-2)/3)
+		bottomWidth := max(16, (bottom.W-2)/3)
 		var bottomRest Rect
 		quests, bottomRest = bottom.SplitVertical(bottomWidth, 1)
 		loot, assets = bottomRest.SplitVertical(bottomWidth, 1)
