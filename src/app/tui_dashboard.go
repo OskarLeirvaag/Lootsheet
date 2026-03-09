@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -45,8 +44,8 @@ const (
 
 var tuiNow = time.Now
 
-func buildTUIShellData(ctx context.Context, databasePath string, assets config.InitAssets) (render.ShellData, error) {
-	status, err := ledger.GetDatabaseStatusWithAssets(ctx, databasePath, assets)
+func buildTUIShellData(ctx context.Context, loader TUIDataLoader, assets config.InitAssets) (render.ShellData, error) {
+	status, err := loader.GetDatabaseStatus(ctx, assets)
 	if err != nil {
 		return render.ErrorShellData("Database status unavailable.", err.Error()), nil
 	}
@@ -61,7 +60,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	case ledger.DatabaseStateCurrent:
 	}
 
-	databaseName := filepath.Base(databasePath)
+	databaseName := loader.DatabaseName()
 	data := render.ShellData{
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
@@ -132,7 +131,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 
 	var panelErrors []string
 
-	accounts, err := account.ListAccounts(ctx, databasePath)
+	accounts, err := loader.ListAccounts(ctx)
 	if err != nil {
 		data.Dashboard.AccountsLines = unavailablePanelLines(err)
 		data.Accounts = unavailableSectionData("Accounts unavailable.", err.Error())
@@ -144,7 +143,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
 
-	journalSummary, err := journal.GetSummary(ctx, databasePath)
+	journalSummary, err := loader.GetJournalSummary(ctx)
 	if err != nil {
 		data.Dashboard.JournalLines = unavailablePanelLines(err)
 		data.Journal = unavailableSectionData("Journal unavailable.", err.Error())
@@ -154,7 +153,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		data.Journal.SummaryLines = summarizeJournal(journalSummary)
 	}
 
-	journalEntries, err := journal.ListBrowseEntries(ctx, databasePath)
+	journalEntries, err := loader.ListBrowseJournalEntries(ctx)
 	if err != nil {
 		if len(data.Journal.SummaryLines) == 0 {
 			data.Journal = unavailableSectionData("Journal unavailable.", err.Error())
@@ -167,7 +166,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		data.Journal.Items = buildJournalItems(journalEntries)
 	}
 
-	trialBalance, err := report.GetTrialBalance(ctx, databasePath)
+	trialBalance, err := loader.GetTrialBalance(ctx)
 	trialBalanceAvailable := false
 	if err != nil {
 		data.Dashboard.LedgerLines = unavailablePanelLines(err)
@@ -177,7 +176,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		trialBalanceAvailable = true
 	}
 
-	promisedQuests, err := report.GetPromisedQuests(ctx, databasePath)
+	promisedQuests, err := loader.GetPromisedQuests(ctx)
 	var receivables []report.QuestReceivableRow
 	questSummaryAvailable := false
 	if err != nil {
@@ -186,7 +185,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		panelErrors = append(panelErrors, "quests")
 	} else {
 		var receivableErr error
-		receivables, receivableErr = report.GetQuestReceivables(ctx, databasePath)
+		receivables, receivableErr = loader.GetQuestReceivables(ctx)
 		if receivableErr != nil {
 			data.Dashboard.QuestLines = unavailablePanelLines(receivableErr)
 			data.Quests = unavailableSectionData("Quest register unavailable.", receivableErr.Error())
@@ -199,7 +198,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	if questSummaryAvailable {
-		questRows, questErr := loadTUIQuestRows(ctx, databasePath)
+		questRows, questErr := loadTUIQuestRows(ctx, loader)
 		if questErr != nil {
 			if len(data.Quests.SummaryLines) == 0 {
 				data.Quests = unavailableSectionData("Quest register unavailable.", questErr.Error())
@@ -212,7 +211,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		}
 	}
 
-	lootRows, err := report.GetLootSummary(ctx, databasePath, "loot")
+	lootRows, err := loader.GetLootSummary(ctx, "loot")
 	lootSummaryAvailable := false
 	if err != nil {
 		data.Dashboard.LootLines = unavailablePanelLines(err)
@@ -225,7 +224,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	if lootSummaryAvailable {
-		browseItems, browseErr := loot.ListBrowseItems(ctx, databasePath, "loot")
+		browseItems, browseErr := loader.ListBrowseLootItems(ctx, "loot")
 		if browseErr != nil {
 			if len(data.Loot.SummaryLines) == 0 {
 				data.Loot = unavailableSectionData("Loot register unavailable.", browseErr.Error())
@@ -238,7 +237,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		}
 	}
 
-	assetRows, assetSummaryErr := report.GetLootSummary(ctx, databasePath, "asset")
+	assetRows, assetSummaryErr := loader.GetLootSummary(ctx, "asset")
 	assetSummaryAvailable := false
 	if assetSummaryErr != nil {
 		data.Dashboard.AssetLines = unavailablePanelLines(assetSummaryErr)
@@ -251,7 +250,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	if assetSummaryAvailable {
-		assetBrowseItems, assetBrowseErr := loot.ListBrowseItems(ctx, databasePath, "asset")
+		assetBrowseItems, assetBrowseErr := loader.ListBrowseLootItems(ctx, "asset")
 		if assetBrowseErr != nil {
 			if len(data.Assets.SummaryLines) == 0 {
 				data.Assets = unavailableSectionData("Asset register unavailable.", assetBrowseErr.Error())
@@ -280,7 +279,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	return data, nil
 }
 
-func handleTUICommand(ctx context.Context, command render.Command, databasePath string, assets config.InitAssets) (render.CommandResult, error) {
+func handleTUICommand(ctx context.Context, command render.Command, databasePath string, loader TUIDataLoader, assets config.InitAssets) (render.CommandResult, error) {
 	var message render.StatusMessage
 	var navigateTo render.Section
 	var selectItemKey string
@@ -330,7 +329,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Removed account %s.", command.ItemKey),
 		}
 	case tuiCommandJournalReverse:
-		entries, err := journal.ListBrowseEntries(ctx, databasePath)
+		entries, err := loader.ListBrowseJournalEntries(ctx)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -478,7 +477,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionQuests
 		selectItemKey = result.ID
 	case tuiCommandQuestCollectFull:
-		quests, err := loadTUIQuestRows(ctx, databasePath)
+		quests, err := loadTUIQuestRows(ctx, loader)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -506,7 +505,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Collected %s for quest %q as entry #%d.", currency.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
 	case tuiCommandQuestWriteOffFull:
-		quests, err := loadTUIQuestRows(ctx, databasePath)
+		quests, err := loadTUIQuestRows(ctx, loader)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -549,7 +548,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandLootRecognize:
-		items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
+		items, err := loader.ListBrowseLootItems(ctx, "loot")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -572,7 +571,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Recognized loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	case tuiCommandLootSell:
-		items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
+		items, err := loader.ListBrowseLootItems(ctx, "loot")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -634,7 +633,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandAssetRecognize:
-		items, err := loot.ListBrowseItems(ctx, databasePath, "asset")
+		items, err := loader.ListBrowseLootItems(ctx, "asset")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -670,7 +669,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, loader, assets)
 	if err != nil {
 		return render.CommandResult{}, err
 	}
@@ -683,8 +682,8 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	}, nil
 }
 
-func buildTUIDashboardData(ctx context.Context, databasePath string, assets config.InitAssets) (render.DashboardData, error) {
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+func buildTUIDashboardData(ctx context.Context, loader TUIDataLoader, assets config.InitAssets) (render.DashboardData, error) {
+	data, err := buildTUIShellData(ctx, loader, assets)
 	if err != nil {
 		return render.ErrorDashboardData("Dashboard data unavailable.", err.Error()), nil
 	}

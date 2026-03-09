@@ -24,7 +24,7 @@ func TestBuildTUIDashboardDataForUninitializedDatabase(t *testing.T) {
 	}
 
 	databasePath := t.TempDir() + "/lootsheet.db"
-	data, err := buildTUIDashboardData(context.Background(), databasePath, assets)
+	data, err := buildTUIDashboardData(context.Background(), &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build dashboard data: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("recognize loot appraisal: %v", err)
 	}
 
-	data, err := buildTUIDashboardData(ctx, databasePath, assets)
+	data, err := buildTUIDashboardData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build dashboard data: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 		t.Fatalf("appraise loot item: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
 	}
 
 	databasePath := ledger.InitTestDB(t)
-	data, err := buildTUIShellData(context.Background(), databasePath, assets)
+	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestBuildTUIShellDataAddsJournalReverseActionAndLineDetail(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestBuildTUIShellDataOmitsJournalReverseActionForReversedOriginal(t *testin
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 		ID:      tuiCommandAccountDeactivate,
 		Section: render.SectionAccounts,
 		ItemKey: "1000",
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("deactivate account through tui command: %v", err)
 	}
@@ -399,7 +399,7 @@ func TestHandleTUICommandCreatesAccountAndNavigatesToAccounts(t *testing.T) {
 			"name":         "Tavern Reparations",
 			"account_type": "expense",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("create account through tui command: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestHandleTUICommandDeletesAccount(t *testing.T) {
 		ID:      tuiCommandAccountDelete,
 		Section: render.SectionAccounts,
 		ItemKey: "9900",
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("delete account through tui command: %v", err)
 	}
@@ -470,7 +470,7 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 		ID:      tuiCommandJournalReverse,
 		Section: render.SectionJournal,
 		ItemKey: posted.ID,
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("reverse journal entry through tui command: %v", err)
 	}
@@ -523,7 +523,7 @@ func TestBuildTUIShellDataIncludesEntryCatalog(t *testing.T) {
 	}
 
 	databasePath := ledger.InitTestDB(t)
-	data, err := buildTUIShellData(context.Background(), databasePath, assets)
+	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestHandleTUICommandCreatesExpenseAndNavigatesToJournal(t *testing.T) {
 			"offset_account_code": "1000",
 			"memo":                "Quiver refill",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("create expense through tui command: %v", err)
 	}
@@ -603,7 +603,7 @@ func TestHandleTUICommandCreatesIncomeAndNavigatesToJournal(t *testing.T) {
 			"offset_account_code": "1000",
 			"memo":                "Mayor payout",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("create income through tui command: %v", err)
 	}
@@ -641,7 +641,7 @@ func TestHandleTUICommandCreatesCustomEntryAndNavigatesToJournal(t *testing.T) {
 			{Side: "debit", AccountCode: "1300", Amount: "500"},
 			{Side: "credit", AccountCode: "1000", Amount: "500"},
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("create custom through tui command: %v", err)
 	}
@@ -683,7 +683,7 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 		t.Fatalf("complete quest: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -753,7 +753,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 		ID:      tuiCommandQuestCollectFull,
 		Section: render.SectionQuests,
 		ItemKey: record.ID,
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("collect quest through tui command: %v", err)
 	}
@@ -833,7 +833,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 		ID:      tuiCommandQuestWriteOffFull,
 		Section: render.SectionQuests,
 		ItemKey: record.ID,
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("write off quest through tui command: %v", err)
 	}
@@ -904,7 +904,7 @@ func TestHandleTUICommandCreatesQuestAndNavigatesToQuests(t *testing.T) {
 			"status":      "accepted",
 			"accepted_on": "2026-03-10",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("create quest through tui command: %v", err)
 	}
@@ -937,7 +937,7 @@ func TestHandleTUICommandCreatesLootAndNavigatesToLoot(t *testing.T) {
 			"holder":   "Bard",
 			"notes":    "Wrap in velvet",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("create loot through tui command: %v", err)
 	}
@@ -977,7 +977,7 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 		t.Fatalf("second appraisal: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -1057,7 +1057,7 @@ func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
 		t.Fatalf("recognize item: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -1136,7 +1136,7 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 		t.Fatalf("zero appraisal: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, databasePath, assets)
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -1198,7 +1198,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 		ID:      tuiCommandLootRecognize,
 		Section: render.SectionLoot,
 		ItemKey: item.ID,
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("recognize loot through tui command: %v", err)
 	}
@@ -1275,7 +1275,7 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 		Fields: map[string]string{
 			"amount": "banana",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err == nil {
 		t.Fatal("expected invalid sale amount error")
 	}
@@ -1322,7 +1322,7 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 		Fields: map[string]string{
 			"amount": "8 gp",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("sell loot through tui command: %v", err)
 	}
@@ -1394,7 +1394,7 @@ func TestHandleTUICommandUpdatesQuestAndKeepsSelection(t *testing.T) {
 			"notes":       "Bring witnesses",
 			"accepted_on": "2026-03-08",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("update quest through tui command: %v", err)
 	}
@@ -1445,7 +1445,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 			"holder":   "Cleric",
 			"notes":    "Split between packs",
 		},
-	}, databasePath, assets)
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath}, assets)
 	if err != nil {
 		t.Fatalf("update loot through tui command: %v", err)
 	}

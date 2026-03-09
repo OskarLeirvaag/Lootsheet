@@ -96,12 +96,14 @@ func (a *Application) newTUICommand() *cobra.Command {
 			return err
 		}
 
+		loader := &sqliteDataLoader{databasePath: a.config.Paths.DatabasePath}
+
 		return render.Run(ctx, &render.Options{
 			ShellLoader: func(ctx context.Context) (render.ShellData, error) {
-				return buildTUIShellData(ctx, a.config.Paths.DatabasePath, assets)
+				return buildTUIShellData(ctx, loader, assets)
 			},
 			CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
-				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, assets)
+				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, loader, assets)
 			},
 		})
 	})
