@@ -45,7 +45,7 @@ func DefaultTheme() Theme {
 	ink := tcell.NewRGBColor(244, 239, 228)
 	muted := tcell.NewRGBColor(151, 164, 180)
 	slateBlue := tcell.NewRGBColor(103, 206, 255)
-	amber := tcell.NewRGBColor(255, 181, 68)
+	amber := tcell.NewRGBColor(230, 100, 90)
 	moss := tcell.NewRGBColor(110, 221, 124)
 	footerBackground := tcell.NewRGBColor(32, 61, 88)
 	selectedBackground := tcell.NewRGBColor(88, 69, 24)
@@ -58,9 +58,9 @@ func DefaultTheme() Theme {
 	brick := tcell.NewRGBColor(38, 43, 52)
 	leafTint := tcell.NewRGBColor(110, 78, 148)
 	scatterAccountsTint := tcell.NewRGBColor(55, 100, 130)
-	scatterJournalTint := tcell.NewRGBColor(120, 95, 50)
+	scatterJournalTint := tcell.NewRGBColor(120, 50, 45)
 	scatterQuestsTint := tcell.NewRGBColor(55, 110, 65)
-	scatterLootTint := tcell.NewRGBColor(120, 105, 45)
+	scatterLootTint := tcell.NewRGBColor(110, 100, 30)
 
 	return Theme{
 		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),

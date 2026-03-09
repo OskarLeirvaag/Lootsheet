@@ -97,42 +97,6 @@ var (
 		BotRight:   'ᛟ',
 		RuneBar:    []rune{'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ'},
 	}
-	lootBorders = BorderSet{
-		Horizontal: '─',
-		Vertical:   '│',
-		TopLeft:    '◆',
-		TopRight:   '◆',
-		BotLeft:    '◆',
-		BotRight:   '◆',
-		RuneBar:    []rune{'$', '¢', '£', '¥'},
-	}
-	questBorders = BorderSet{
-		Horizontal: '─',
-		Vertical:   '│',
-		TopLeft:    '⚔',
-		TopRight:   '⚔',
-		BotLeft:    '⚔',
-		BotRight:   '⚔',
-		RuneBar:    []rune{'☆', '⚑', '►', '⚔'},
-	}
-	journalBorders = BorderSet{
-		Horizontal: '─',
-		Vertical:   '│',
-		TopLeft:    '§',
-		TopRight:   '§',
-		BotLeft:    '§',
-		BotRight:   '§',
-		RuneBar:    []rune{'¶', '†', '‡', '※'},
-	}
-	accountBorders = BorderSet{
-		Horizontal: '─',
-		Vertical:   '│',
-		TopLeft:    '§',
-		TopRight:   '§',
-		BotLeft:    '§',
-		BotRight:   '§',
-		RuneBar:    []rune{'#', 'Σ', '∞', '≡'},
-	}
 )
 
 // Panel describes a boxed panel and its body lines.

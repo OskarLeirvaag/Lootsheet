@@ -107,7 +107,6 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 		Lines:         resolved.AccountsLines,
 		BorderStyle:   &theme.SectionAccounts,
 		TitleStyle:    &theme.SectionAccounts,
-		Borders:       &accountBorders,
 		ScatterGlyphs: scatterAccounts,
 		ScatterStyle:  &theme.ScatterAccounts,
 	})
@@ -117,7 +116,6 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 		Lines:         resolved.JournalLines,
 		BorderStyle:   &theme.SectionJournal,
 		TitleStyle:    &theme.SectionJournal,
-		Borders:       &journalBorders,
 		ScatterGlyphs: scatterJournal,
 		ScatterStyle:  &theme.ScatterJournal,
 	})
@@ -135,7 +133,6 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 			Lines:         resolved.QuestLines,
 			BorderStyle:   &theme.SectionQuests,
 			TitleStyle:    &theme.SectionQuests,
-			Borders:       &questBorders,
 			ScatterGlyphs: scatterQuests,
 			ScatterStyle:  &theme.ScatterQuests,
 		})
@@ -147,7 +144,6 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 			Lines:         resolved.LootLines,
 			BorderStyle:   &theme.SectionLoot,
 			TitleStyle:    &theme.SectionLoot,
-			Borders:       &lootBorders,
 			ScatterGlyphs: scatterLoot,
 			ScatterStyle:  &theme.ScatterLoot,
 		})

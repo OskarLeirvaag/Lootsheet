@@ -562,20 +562,10 @@ func sectionTexture(section Section) PanelTexture {
 }
 
 func sectionBorders(section Section) *BorderSet {
-	switch section {
-	case SectionAssets:
+	if section == SectionAssets {
 		return &runicBorders
-	case SectionLoot:
-		return &lootBorders
-	case SectionQuests:
-		return &questBorders
-	case SectionJournal:
-		return &journalBorders
-	case SectionAccounts:
-		return &accountBorders
-	default:
-		return nil
 	}
+	return nil
 }
 
 func sectionScatter(section Section, theme *Theme) ([]rune, *tcell.Style) {
