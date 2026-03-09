@@ -63,6 +63,40 @@ type PanelTexture int
 const (
 	PanelTextureBrick PanelTexture = iota
 	PanelTextureLeaf
+	PanelTextureNone
+)
+
+// BorderSet defines the characters used to draw panel borders.
+type BorderSet struct {
+	Horizontal rune
+	Vertical   rune
+	TopLeft    rune
+	TopRight   rune
+	BotLeft    rune
+	BotRight   rune
+	// RuneBar, if set, fills horizontal edges with repeating runes instead
+	// of a single Horizontal character.
+	RuneBar []rune
+}
+
+var (
+	defaultBorders = BorderSet{
+		Horizontal: '─',
+		Vertical:   '│',
+		TopLeft:    '╔',
+		TopRight:   '╗',
+		BotLeft:    '╚',
+		BotRight:   '╝',
+	}
+	runicBorders = BorderSet{
+		Horizontal: '─',
+		Vertical:   '│',
+		TopLeft:    'ᛟ',
+		TopRight:   'ᛟ',
+		BotLeft:    'ᛟ',
+		BotRight:   'ᛟ',
+		RuneBar:    []rune{'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ'},
+	}
 )
 
 // Panel describes a boxed panel and its body lines.
@@ -72,6 +106,7 @@ type Panel struct {
 	BorderStyle *tcell.Style
 	TitleStyle  *tcell.Style
 	Texture     PanelTexture
+	Borders     *BorderSet
 }
 
 // DrawPanel renders a simple boxed panel into the frame buffer.
@@ -86,18 +121,18 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 	}
 
 	buffer.FillRect(visible, ' ', theme.Panel)
-	var pattern [][]rune
-	var texStyle tcell.Style
 	switch panel.Texture {
 	case PanelTextureLeaf:
-		pattern = leafPattern()
-		texStyle = theme.Leaf
+		if pattern := leafPattern(); pattern != nil {
+			buffer.FillTexture(visible, pattern, theme.Brick)
+		}
+		scatterRunes(buffer, visible, theme.Leaf)
+	case PanelTextureNone:
+		// clean background, no texture
 	default:
-		pattern = brickPattern()
-		texStyle = theme.Brick
-	}
-	if pattern != nil {
-		buffer.FillTexture(visible, pattern, texStyle)
+		if pattern := brickPattern(); pattern != nil {
+			buffer.FillTexture(visible, pattern, theme.Brick)
+		}
 	}
 
 	borderStyle := theme.Border
@@ -113,22 +148,36 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 		return
 	}
 
+	bs := defaultBorders
+	if panel.Borders != nil {
+		bs = *panel.Borders
+	}
+
 	right := visible.X + visible.W - 1
 	bottom := visible.Y + visible.H - 1
 
+	spread := len(bs.RuneBar)
 	for x := visible.X + 1; x < right; x++ {
-		buffer.Set(x, visible.Y, '─', borderStyle)
-		buffer.Set(x, bottom, '─', borderStyle)
+		ch := bs.Horizontal
+		distLeft := x - visible.X - 1
+		distRight := right - x - 1
+		if distLeft < spread {
+			ch = bs.RuneBar[distLeft]
+		} else if distRight < spread {
+			ch = bs.RuneBar[distRight]
+		}
+		buffer.Set(x, visible.Y, ch, borderStyle)
+		buffer.Set(x, bottom, ch, borderStyle)
 	}
 	for y := visible.Y + 1; y < bottom; y++ {
-		buffer.Set(visible.X, y, '│', borderStyle)
-		buffer.Set(right, y, '│', borderStyle)
+		buffer.Set(visible.X, y, bs.Vertical, borderStyle)
+		buffer.Set(right, y, bs.Vertical, borderStyle)
 	}
 
-	buffer.Set(visible.X, visible.Y, '╔', borderStyle)
-	buffer.Set(right, visible.Y, '╗', borderStyle)
-	buffer.Set(visible.X, bottom, '╚', borderStyle)
-	buffer.Set(right, bottom, '╝', borderStyle)
+	buffer.Set(visible.X, visible.Y, bs.TopLeft, borderStyle)
+	buffer.Set(right, visible.Y, bs.TopRight, borderStyle)
+	buffer.Set(visible.X, bottom, bs.BotLeft, borderStyle)
+	buffer.Set(right, bottom, bs.BotRight, borderStyle)
 
 	title := clipText(panel.Title, maxInt(0, visible.W-4))
 	if title != "" {
@@ -157,4 +206,26 @@ func clipText(text string, width int) string {
 	}
 
 	return string(runes[:width])
+}
+
+var scatterGlyphs = []rune{'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ', 'ᚺ', 'ᚾ', 'ᛃ', 'ᛈ', 'ᛇ', 'ᛉ', 'ᛊ', 'ᛏ', 'ᛒ', 'ᛚ', 'ᛗ', 'ᛞ', 'ᛟ'}
+
+// scatterRunes places a few random Elder Futhark runes into the texture area.
+// Uses a simple position-seeded hash so the result is deterministic.
+func scatterRunes(buffer *Buffer, rect Rect, style tcell.Style) {
+	for y := rect.Y; y < rect.Y+rect.H; y++ {
+		for x := rect.X; x < rect.X+rect.W; x++ {
+			if buffer.Get(x, y).Rune != ' ' {
+				continue
+			}
+			h := uint32(x*7919 + y*104729 + 277)
+			h ^= h >> 16
+			h *= 0x45d9f3b
+			h ^= h >> 16
+			if h%97 < 3 {
+				ch := scatterGlyphs[h%uint32(len(scatterGlyphs))]
+				buffer.Set(x, y, ch, style)
+			}
+		}
+	}
 }

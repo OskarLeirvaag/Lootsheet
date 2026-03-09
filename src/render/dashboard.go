@@ -148,6 +148,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 			BorderStyle: &theme.SectionAssets,
 			TitleStyle:  &theme.SectionAssets,
 			Texture:     PanelTextureLeaf,
+			Borders:     &runicBorders,
 		})
 	}
 }

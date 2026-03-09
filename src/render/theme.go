@@ -52,7 +52,7 @@ func DefaultTheme() Theme {
 	bag := tcell.NewRGBColor(214, 158, 96)
 	gem := tcell.NewRGBColor(72, 229, 217)
 	brick := tcell.NewRGBColor(38, 43, 52)
-	leafTint := tcell.NewRGBColor(48, 36, 62)
+	leafTint := tcell.NewRGBColor(110, 78, 148)
 
 	return Theme{
 		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),
