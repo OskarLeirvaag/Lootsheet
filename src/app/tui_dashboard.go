@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
@@ -44,8 +43,8 @@ const (
 
 var tuiNow = time.Now
 
-func buildTUIShellData(ctx context.Context, loader TUIDataLoader, assets config.InitAssets) (render.ShellData, error) {
-	status, err := loader.GetDatabaseStatus(ctx, assets)
+func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellData, error) {
+	status, err := loader.GetDatabaseStatus(ctx)
 	if err != nil {
 		return render.ErrorShellData("Database status unavailable.", err.Error()), nil
 	}
@@ -218,8 +217,8 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader, assets config.
 		data.Loot = unavailableSectionData("Loot register unavailable.", err.Error())
 		panelErrors = append(panelErrors, "loot")
 	} else {
-		data.Dashboard.LootLines = summarizeLoot(lootRows)
-		data.Loot.SummaryLines = summarizeLoot(lootRows)
+		data.Dashboard.LootLines = summarizeItemRegister(lootRows, "items")
+		data.Loot.SummaryLines = summarizeItemRegister(lootRows, "items")
 		lootSummaryAvailable = true
 	}
 
@@ -244,8 +243,8 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader, assets config.
 		data.Assets = unavailableSectionData("Asset register unavailable.", assetSummaryErr.Error())
 		panelErrors = append(panelErrors, "assets")
 	} else {
-		data.Dashboard.AssetLines = summarizeAssets(assetRows)
-		data.Assets.SummaryLines = summarizeAssets(assetRows)
+		data.Dashboard.AssetLines = summarizeItemRegister(assetRows, "assets")
+		data.Assets.SummaryLines = summarizeItemRegister(assetRows, "assets")
 		assetSummaryAvailable = true
 	}
 
@@ -279,7 +278,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader, assets config.
 	return data, nil
 }
 
-func handleTUICommand(ctx context.Context, command render.Command, databasePath string, loader TUIDataLoader, assets config.InitAssets) (render.CommandResult, error) {
+func handleTUICommand(ctx context.Context, command render.Command, databasePath string, loader TUIDataLoader) (render.CommandResult, error) {
 	var message render.StatusMessage
 	var navigateTo render.Section
 	var selectItemKey string
@@ -404,78 +403,21 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionJournal
 		selectItemKey = result.ID
 	case tuiCommandQuestCreate:
-		rewardText := strings.TrimSpace(command.Fields["reward"])
-		if rewardText == "" {
-			rewardText = "0"
-		}
-		reward, err := currency.ParseAmount(rewardText)
+		result, err := handleQuestCreateOrUpdate(ctx, command, databasePath, true)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
+			return render.CommandResult{}, err
 		}
-		advanceText := strings.TrimSpace(command.Fields["advance"])
-		if advanceText == "" {
-			advanceText = "0"
-		}
-		advance, err := currency.ParseAmount(advanceText)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
-		}
-		result, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
-			Title:              strings.TrimSpace(command.Fields["title"]),
-			Patron:             strings.TrimSpace(command.Fields["patron"]),
-			Description:        strings.TrimSpace(command.Fields["description"]),
-			PromisedBaseReward: reward,
-			PartialAdvance:     advance,
-			BonusConditions:    strings.TrimSpace(command.Fields["bonus"]),
-			Notes:              strings.TrimSpace(command.Fields["notes"]),
-			Status:             strings.TrimSpace(command.Fields["status"]),
-			AcceptedOn:         strings.TrimSpace(command.Fields["accepted_on"]),
-		})
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Created quest %q.", result.Title),
-		}
-		navigateTo = render.SectionQuests
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandQuestUpdate:
-		rewardText := strings.TrimSpace(command.Fields["reward"])
-		if rewardText == "" {
-			rewardText = "0"
-		}
-		reward, err := currency.ParseAmount(rewardText)
+		result, err := handleQuestCreateOrUpdate(ctx, command, databasePath, false)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
+			return render.CommandResult{}, err
 		}
-		advanceText := strings.TrimSpace(command.Fields["advance"])
-		if advanceText == "" {
-			advanceText = "0"
-		}
-		advance, err := currency.ParseAmount(advanceText)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
-		}
-		result, err := quest.UpdateQuest(ctx, databasePath, command.ItemKey, &quest.UpdateQuestInput{
-			Title:              strings.TrimSpace(command.Fields["title"]),
-			Patron:             strings.TrimSpace(command.Fields["patron"]),
-			Description:        strings.TrimSpace(command.Fields["description"]),
-			PromisedBaseReward: reward,
-			PartialAdvance:     advance,
-			BonusConditions:    strings.TrimSpace(command.Fields["bonus"]),
-			Notes:              strings.TrimSpace(command.Fields["notes"]),
-			AcceptedOn:         strings.TrimSpace(command.Fields["accepted_on"]),
-		})
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Updated quest %q.", result.Title),
-		}
-		navigateTo = render.SectionQuests
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandQuestCollectFull:
 		quests, err := loadTUIQuestRows(ctx, loader)
 		if err != nil {
@@ -669,7 +611,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
 
-	data, err := buildTUIShellData(ctx, loader, assets)
+	data, err := buildTUIShellData(ctx, loader)
 	if err != nil {
 		return render.CommandResult{}, err
 	}
@@ -682,8 +624,8 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	}, nil
 }
 
-func buildTUIDashboardData(ctx context.Context, loader TUIDataLoader, assets config.InitAssets) (render.DashboardData, error) {
-	data, err := buildTUIShellData(ctx, loader, assets)
+func buildTUIDashboardData(ctx context.Context, loader TUIDataLoader) (render.DashboardData, error) {
+	data, err := buildTUIShellData(ctx, loader)
 	if err != nil {
 		return render.ErrorDashboardData("Dashboard data unavailable.", err.Error()), nil
 	}
@@ -934,6 +876,90 @@ func handleEntryCommand(
 		},
 		navigateTo:    render.SectionJournal,
 		selectItemKey: result.ID,
+	}, nil
+}
+
+// handleQuestCreateOrUpdate extracts the shared quest create and update TUI
+// command logic. When create is true it calls CreateQuest; otherwise it calls
+// UpdateQuest.
+func handleQuestCreateOrUpdate(
+	ctx context.Context,
+	command render.Command,
+	databasePath string,
+	create bool,
+) (tuiCommandResult, error) {
+	rewardText := strings.TrimSpace(command.Fields["reward"])
+	if rewardText == "" {
+		rewardText = "0"
+	}
+	reward, err := currency.ParseAmount(rewardText)
+	if err != nil {
+		return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
+	}
+	advanceText := strings.TrimSpace(command.Fields["advance"])
+	if advanceText == "" {
+		advanceText = "0"
+	}
+	advance, err := currency.ParseAmount(advanceText)
+	if err != nil {
+		return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
+	}
+
+	title := strings.TrimSpace(command.Fields["title"])
+	patron := strings.TrimSpace(command.Fields["patron"])
+	description := strings.TrimSpace(command.Fields["description"])
+	bonus := strings.TrimSpace(command.Fields["bonus"])
+	notes := strings.TrimSpace(command.Fields["notes"])
+	acceptedOn := strings.TrimSpace(command.Fields["accepted_on"])
+
+	var resultTitle, resultID string
+	if create {
+		result, createErr := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+			Title:              title,
+			Patron:             patron,
+			Description:        description,
+			PromisedBaseReward: reward,
+			PartialAdvance:     advance,
+			BonusConditions:    bonus,
+			Notes:              notes,
+			Status:             strings.TrimSpace(command.Fields["status"]),
+			AcceptedOn:         acceptedOn,
+		})
+		if createErr != nil {
+			return tuiCommandResult{}, render.InputError{Message: createErr.Error()}
+		}
+		resultTitle = result.Title
+		resultID = result.ID
+	} else {
+		result, updateErr := quest.UpdateQuest(ctx, databasePath, command.ItemKey, &quest.UpdateQuestInput{
+			Title:              title,
+			Patron:             patron,
+			Description:        description,
+			PromisedBaseReward: reward,
+			PartialAdvance:     advance,
+			BonusConditions:    bonus,
+			Notes:              notes,
+			AcceptedOn:         acceptedOn,
+		})
+		if updateErr != nil {
+			return tuiCommandResult{}, render.InputError{Message: updateErr.Error()}
+		}
+		resultTitle = result.Title
+		resultID = result.ID
+	}
+
+	verb := "Created"
+	if !create {
+		verb = "Updated"
+	}
+
+	return tuiCommandResult{
+		message: render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("%s quest %q.", verb, resultTitle),
+		},
+		navigateTo:    render.SectionQuests,
+		selectItemKey: resultID,
 	}, nil
 }
 

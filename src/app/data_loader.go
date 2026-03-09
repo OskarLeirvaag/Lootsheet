@@ -19,7 +19,7 @@ import (
 type TUIDataLoader interface {
 	// DatabaseName returns a human-readable label for the underlying data source.
 	DatabaseName() string
-	GetDatabaseStatus(ctx context.Context, assets config.InitAssets) (ledger.DatabaseStatus, error)
+	GetDatabaseStatus(ctx context.Context) (ledger.DatabaseStatus, error)
 	ListAccounts(ctx context.Context) ([]ledger.AccountRecord, error)
 	GetJournalSummary(ctx context.Context) (journal.Summary, error)
 	ListBrowseJournalEntries(ctx context.Context) ([]journal.BrowseEntryRecord, error)
@@ -35,14 +35,15 @@ type TUIDataLoader interface {
 // existing free functions in the domain packages.
 type sqliteDataLoader struct {
 	databasePath string
+	assets       config.InitAssets
 }
 
 func (s *sqliteDataLoader) DatabaseName() string {
 	return filepath.Base(s.databasePath)
 }
 
-func (s *sqliteDataLoader) GetDatabaseStatus(ctx context.Context, assets config.InitAssets) (ledger.DatabaseStatus, error) {
-	return ledger.GetDatabaseStatusWithAssets(ctx, s.databasePath, assets)
+func (s *sqliteDataLoader) GetDatabaseStatus(ctx context.Context) (ledger.DatabaseStatus, error) {
+	return ledger.GetDatabaseStatusWithAssets(ctx, s.databasePath, s.assets)
 }
 
 func (s *sqliteDataLoader) ListAccounts(ctx context.Context) ([]ledger.AccountRecord, error) {

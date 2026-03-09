@@ -12,7 +12,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
-func summarizeLoot(rows []report.LootSummaryRow) []string {
+func summarizeItemRegister(rows []report.LootSummaryRow, label string) []string {
 	totalQuantity := 0
 	recognized := 0
 	var appraisedValue int64
@@ -26,32 +26,46 @@ func summarizeLoot(rows []report.LootSummaryRow) []string {
 	}
 
 	return []string{
-		fmt.Sprintf("Tracked items: %d", len(rows)),
+		fmt.Sprintf("Tracked %s: %d", label, len(rows)),
 		fmt.Sprintf("Recognized: %d", recognized),
 		fmt.Sprintf("Total quantity: %d", totalQuantity),
 		"Appraised value: " + currency.FormatAmount(appraisedValue),
 	}
 }
 
-func summarizeAssets(rows []report.LootSummaryRow) []string {
-	totalQuantity := 0
-	recognized := 0
-	var appraisedValue int64
-
-	for _, row := range rows {
-		totalQuantity += row.Quantity
-		appraisedValue += row.LatestAppraisalValue
-		if row.Status == ledger.LootStatusRecognized {
-			recognized++
-		}
+func buildItemDetailLines(row *loot.BrowseItemRecord, includeSaleState bool) []string {
+	detailLines := []string{
+		"Status: " + string(row.Status),
+		fmt.Sprintf("Quantity: %d", row.Quantity),
+		"Accounting state: " + lootAccountingState(row),
+		"Latest appraisal: " + lootLatestAppraisalText(row),
+		fmt.Sprintf("Appraisals tracked: %d", row.AppraisalCount),
 	}
-
-	return []string{
-		fmt.Sprintf("Tracked assets: %d", len(rows)),
-		fmt.Sprintf("Recognized: %d", recognized),
-		fmt.Sprintf("Total quantity: %d", totalQuantity),
-		"Appraised value: " + currency.FormatAmount(appraisedValue),
+	if row.HasRecognizedAppraisal {
+		detailLines = append(detailLines, "Recognized value: "+lootRecognizedValueText(row))
 	}
+	if includeSaleState && lootSellable(row) {
+		detailLines = append(detailLines, "Sale state: sellable from recognized basis")
+	}
+	if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedAt != "" {
+		detailLines = append(detailLines, "Appraised on: "+row.LatestAppraisal.AppraisedAt)
+	}
+	if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Appraiser) != "" {
+		detailLines = append(detailLines, "Appraiser: "+row.LatestAppraisal.Appraiser)
+	}
+	if strings.TrimSpace(row.Source) != "" {
+		detailLines = append(detailLines, "Source: "+row.Source)
+	}
+	if strings.TrimSpace(row.Holder) != "" {
+		detailLines = append(detailLines, "Holder: "+row.Holder)
+	}
+	if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Notes) != "" {
+		detailLines = append(detailLines, "Appraisal notes: "+row.LatestAppraisal.Notes)
+	}
+	if strings.TrimSpace(row.Notes) != "" {
+		detailLines = append(detailLines, "Item notes: "+row.Notes)
+	}
+	return detailLines
 }
 
 func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListItemData {
@@ -63,37 +77,7 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 			name = name + " (" + row.Source + ")"
 		}
 
-		detailLines := []string{
-			"Status: " + string(row.Status),
-			fmt.Sprintf("Quantity: %d", row.Quantity),
-			"Accounting state: " + lootAccountingState(row),
-			"Latest appraisal: " + lootLatestAppraisalText(row),
-			fmt.Sprintf("Appraisals tracked: %d", row.AppraisalCount),
-		}
-		if row.HasRecognizedAppraisal {
-			detailLines = append(detailLines, "Recognized value: "+lootRecognizedValueText(row))
-		}
-		if lootSellable(row) {
-			detailLines = append(detailLines, "Sale state: sellable from recognized basis")
-		}
-		if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedAt != "" {
-			detailLines = append(detailLines, "Appraised on: "+row.LatestAppraisal.AppraisedAt)
-		}
-		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Appraiser) != "" {
-			detailLines = append(detailLines, "Appraiser: "+row.LatestAppraisal.Appraiser)
-		}
-		if strings.TrimSpace(row.Source) != "" {
-			detailLines = append(detailLines, "Source: "+row.Source)
-		}
-		if strings.TrimSpace(row.Holder) != "" {
-			detailLines = append(detailLines, "Holder: "+row.Holder)
-		}
-		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Notes) != "" {
-			detailLines = append(detailLines, "Appraisal notes: "+row.LatestAppraisal.Notes)
-		}
-		if strings.TrimSpace(row.Notes) != "" {
-			detailLines = append(detailLines, "Item notes: "+row.Notes)
-		}
+		detailLines := buildItemDetailLines(row, true)
 
 		var actions []render.ItemActionData
 		actions = append(actions, render.ItemActionData{
@@ -182,34 +166,7 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 			name = name + " (" + row.Source + ")"
 		}
 
-		detailLines := []string{
-			"Status: " + string(row.Status),
-			fmt.Sprintf("Quantity: %d", row.Quantity),
-			"Accounting state: " + lootAccountingState(row),
-			"Latest appraisal: " + lootLatestAppraisalText(row),
-			fmt.Sprintf("Appraisals tracked: %d", row.AppraisalCount),
-		}
-		if row.HasRecognizedAppraisal {
-			detailLines = append(detailLines, "Recognized value: "+lootRecognizedValueText(row))
-		}
-		if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedAt != "" {
-			detailLines = append(detailLines, "Appraised on: "+row.LatestAppraisal.AppraisedAt)
-		}
-		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Appraiser) != "" {
-			detailLines = append(detailLines, "Appraiser: "+row.LatestAppraisal.Appraiser)
-		}
-		if strings.TrimSpace(row.Source) != "" {
-			detailLines = append(detailLines, "Source: "+row.Source)
-		}
-		if strings.TrimSpace(row.Holder) != "" {
-			detailLines = append(detailLines, "Holder: "+row.Holder)
-		}
-		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Notes) != "" {
-			detailLines = append(detailLines, "Appraisal notes: "+row.LatestAppraisal.Notes)
-		}
-		if strings.TrimSpace(row.Notes) != "" {
-			detailLines = append(detailLines, "Item notes: "+row.Notes)
-		}
+		detailLines := buildItemDetailLines(row, false)
 
 		var actions []render.ItemActionData
 		actions = append(actions, render.ItemActionData{
