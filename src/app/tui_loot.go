@@ -95,6 +95,9 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 				"notes":    row.Notes,
 			},
 		})
+		if row.Status == ledger.LootStatusHeld {
+			actions = append(actions, lootAppraiseAction(row, tuiCommandLootAppraise, today))
+		}
 		if lootRecognizable(row) {
 			appraisalDetail := "This uses the latest appraisal."
 			if row.AppraisalCount > 1 {
@@ -147,7 +150,7 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 
 		items = append(items, render.ListItemData{
 			Key:         row.ID,
-			Row:         fmt.Sprintf("%-12s qty:%-3d %-11s %s", lootRowAppraisalLabel(row), row.Quantity, string(row.Status), name),
+			Row:         lootRowLabel(row, name),
 			DetailTitle: row.Name,
 			DetailLines: detailLines,
 			Actions:     actions,
@@ -168,6 +171,18 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 
 		detailLines := buildItemDetailLines(row, false)
 
+		// Append template lines to detail panel if present.
+		if len(row.TemplateLines) > 0 {
+			detailLines = append(detailLines, "", "Entry template:")
+			for _, tl := range row.TemplateLines {
+				sideLabel := "Dr (to)"
+				if tl.Side == "credit" {
+					sideLabel = "Cr (from)"
+				}
+				detailLines = append(detailLines, fmt.Sprintf("  %s %s", sideLabel, tl.AccountCode))
+			}
+		}
+
 		var actions []render.ItemActionData
 		actions = append(actions, render.ItemActionData{
 			Trigger:      render.ActionEdit,
@@ -184,6 +199,9 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 				"notes":    row.Notes,
 			},
 		})
+		if row.Status == ledger.LootStatusHeld {
+			actions = append(actions, lootAppraiseAction(row, tuiCommandAssetAppraise, today))
+		}
 		if lootRecognizable(row) {
 			appraisalDetail := "This uses the latest appraisal."
 			if row.AppraisalCount > 1 {
@@ -206,6 +224,31 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 				},
 			})
 		}
+
+		// Edit template — always available on assets.
+		actions = append(actions, render.ItemActionData{
+			Trigger:      render.ActionEditTemplate,
+			ID:           tuiCommandAssetTemplateSave,
+			Label:        "f template",
+			Mode:         render.ItemActionModeCompose,
+			ComposeMode:  "asset_template",
+			ComposeTitle: "Edit Entry Template",
+			ComposeLines: assetTemplateToCommandLines(row.TemplateLines),
+		})
+
+		// Execute template — only if template lines exist.
+		if len(row.TemplateLines) > 0 {
+			actions = append(actions, render.ItemActionData{
+				Trigger:      render.ActionExecuteTemplate,
+				ID:           tuiCommandCreateCustom,
+				Label:        "x execute",
+				Mode:         render.ItemActionModeCompose,
+				ComposeMode:  "custom_from_template",
+				ComposeTitle: row.Name,
+				ComposeLines: assetTemplateToExecuteLines(row.TemplateLines),
+			})
+		}
+
 		actions = append(actions, render.ItemActionData{
 			Trigger:      render.ActionToggle,
 			ID:           tuiCommandAssetTransferToLoot,
@@ -220,7 +263,7 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 
 		items = append(items, render.ListItemData{
 			Key:         row.ID,
-			Row:         fmt.Sprintf("%-12s qty:%-3d %-11s %s", lootRowAppraisalLabel(row), row.Quantity, string(row.Status), name),
+			Row:         assetRowLabel(row, name),
 			DetailTitle: row.Name,
 			DetailLines: detailLines,
 			Actions:     actions,
@@ -228,6 +271,68 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 	}
 
 	return items
+}
+
+func lootRowLabel(row *loot.BrowseItemRecord, name string) string {
+	qtyPart := "       "
+	if row.Quantity > 1 {
+		qtyPart = fmt.Sprintf("qty:%-3d", row.Quantity)
+	}
+	return fmt.Sprintf("%-12s %s %-11s %s", lootRowAppraisalLabel(row), qtyPart, string(row.Status), name)
+}
+
+func assetRowLabel(row *loot.BrowseItemRecord, name string) string {
+	return fmt.Sprintf("%-12s %-11s %s", lootRowAppraisalLabel(row), string(row.Status), name)
+}
+
+func assetTemplateToCommandLines(lines []loot.AssetTemplateLineRecord) []render.CommandLine {
+	if len(lines) == 0 {
+		return nil
+	}
+	result := make([]render.CommandLine, len(lines))
+	for i, line := range lines {
+		result[i] = render.CommandLine{
+			Side:        line.Side,
+			AccountCode: line.AccountCode,
+		}
+	}
+	return result
+}
+
+func assetTemplateToExecuteLines(lines []loot.AssetTemplateLineRecord) []render.CommandLine {
+	if len(lines) == 0 {
+		return nil
+	}
+	result := make([]render.CommandLine, len(lines))
+	for i, line := range lines {
+		result[i] = render.CommandLine{
+			Side:        line.Side,
+			AccountCode: line.AccountCode,
+		}
+	}
+	return result
+}
+
+func lootAppraiseAction(row *loot.BrowseItemRecord, commandID string, today string) render.ItemActionData {
+	placeholder := "10GP"
+	helpLines := []string{
+		"Appraisal date: " + today,
+		"Enter appraised value in GP/SP/CP format.",
+	}
+	if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedValue > 0 {
+		placeholder = currency.FormatAmount(row.LatestAppraisal.AppraisedValue)
+		helpLines = append(helpLines, "Current appraisal: "+placeholder, "This will replace the current appraisal.")
+	}
+	return render.ItemActionData{
+		Trigger:     render.ActionAppraise,
+		ID:          commandID,
+		Label:       "p appraise",
+		Mode:        render.ItemActionModeInput,
+		InputTitle:  fmt.Sprintf("Appraise %q", row.Name),
+		InputPrompt: "Appraised value",
+		InputHelp:   helpLines,
+		Placeholder: placeholder,
+	}
 }
 
 func findBrowseLootItem(rows []loot.BrowseItemRecord, itemID string) (loot.BrowseItemRecord, bool) {
@@ -296,7 +401,7 @@ func lootRecognizedValueText(row *loot.BrowseItemRecord) string {
 
 func lootRowAppraisalLabel(row *loot.BrowseItemRecord) string {
 	if row == nil || row.LatestAppraisal == nil {
-		return "unknown"
+		return "—"
 	}
 
 	return currency.FormatAmount(row.LatestAppraisal.AppraisedValue)

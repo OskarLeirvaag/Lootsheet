@@ -11,38 +11,41 @@ import (
 type Action string
 
 const (
-	ActionNone          Action = ""
-	ActionQuit          Action = "quit"
-	ActionRedraw        Action = "redraw"
-	ActionNextSection   Action = "next_section"
-	ActionPrevSection   Action = "prev_section"
-	ActionShowDashboard Action = "show_dashboard"
-	ActionShowAccounts  Action = "show_accounts"
-	ActionShowJournal   Action = "show_journal"
-	ActionShowQuests    Action = "show_quests"
-	ActionShowLoot      Action = "show_loot"
-	ActionShowAssets    Action = "show_assets"
-	ActionTransfer      Action = "transfer"
-	ActionMoveUp        Action = "move_up"
-	ActionMoveDown      Action = "move_down"
-	ActionPageUp        Action = "page_up"
-	ActionPageDown      Action = "page_down"
-	ActionMoveTop       Action = "move_top"
-	ActionMoveBottom    Action = "move_bottom"
-	ActionEdit          Action = "edit"
-	ActionDelete        Action = "delete"
-	ActionToggle        Action = "toggle"
-	ActionReverse       Action = "reverse"
-	ActionCollect       Action = "collect"
-	ActionWriteOff      Action = "write_off"
-	ActionRecognize     Action = "recognize"
-	ActionSell          Action = "sell"
-	ActionNewExpense    Action = "new_expense"
-	ActionNewIncome     Action = "new_income"
-	ActionNewCustom     Action = "new_custom"
-	ActionSubmitCompose Action = "submit_compose"
-	ActionConfirm       Action = "confirm"
-	ActionHelp          Action = "help"
+	ActionNone            Action = ""
+	ActionQuit            Action = "quit"
+	ActionRedraw          Action = "redraw"
+	ActionNextSection     Action = "next_section"
+	ActionPrevSection     Action = "prev_section"
+	ActionShowDashboard   Action = "show_dashboard"
+	ActionShowAccounts    Action = "show_accounts"
+	ActionShowJournal     Action = "show_journal"
+	ActionShowQuests      Action = "show_quests"
+	ActionShowLoot        Action = "show_loot"
+	ActionShowAssets      Action = "show_assets"
+	ActionTransfer        Action = "transfer"
+	ActionMoveUp          Action = "move_up"
+	ActionMoveDown        Action = "move_down"
+	ActionPageUp          Action = "page_up"
+	ActionPageDown        Action = "page_down"
+	ActionMoveTop         Action = "move_top"
+	ActionMoveBottom      Action = "move_bottom"
+	ActionEdit            Action = "edit"
+	ActionDelete          Action = "delete"
+	ActionToggle          Action = "toggle"
+	ActionReverse         Action = "reverse"
+	ActionCollect         Action = "collect"
+	ActionWriteOff        Action = "write_off"
+	ActionAppraise        Action = "appraise"
+	ActionRecognize       Action = "recognize"
+	ActionSell            Action = "sell"
+	ActionNewExpense      Action = "new_expense"
+	ActionNewIncome       Action = "new_income"
+	ActionNewCustom       Action = "new_custom"
+	ActionEditTemplate    Action = "edit_template"
+	ActionExecuteTemplate Action = "execute_template"
+	ActionSubmitCompose   Action = "submit_compose"
+	ActionConfirm         Action = "confirm"
+	ActionHelp            Action = "help"
 )
 
 // KeyStroke matches a specific tcell key event.
@@ -189,12 +192,24 @@ func DefaultKeyMap() KeyMap {
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'w'},
 			},
 			{
+				Action: ActionAppraise,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'p'},
+			},
+			{
 				Action: ActionRecognize,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'n'},
 			},
 			{
 				Action: ActionSell,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 's'},
+			},
+			{
+				Action: ActionEditTemplate,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'f'},
+			},
+			{
+				Action: ActionExecuteTemplate,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'x'},
 			},
 			{
 				Action: ActionSubmitCompose,

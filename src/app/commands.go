@@ -98,7 +98,12 @@ func (a *Application) newTUICommand() *cobra.Command {
 
 		loader := &sqliteDataLoader{
 			databasePath: a.config.Paths.DatabasePath,
+			backupDir:    a.config.Paths.BackupDir,
 			assets:       assets,
+		}
+
+		if err := loader.EnsureReady(ctx); err != nil {
+			return err
 		}
 
 		return render.Run(ctx, &render.Options{

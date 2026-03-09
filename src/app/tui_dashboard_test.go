@@ -207,13 +207,16 @@ func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
 	}
 
 	item := data.Accounts.Items[0]
-	if len(item.Actions) != 2 {
-		t.Fatalf("account item actions = %#v, want remove and toggle actions", item.Actions)
+	if len(item.Actions) != 3 {
+		t.Fatalf("account item actions = %d, want 3 (rename, delete, toggle)", len(item.Actions))
 	}
-	if item.Actions[0].ID != tuiCommandAccountDelete || item.Actions[0].Trigger != render.ActionDelete {
-		t.Fatalf("first action = %#v, want delete", item.Actions[0])
+	if item.Actions[0].ID != tuiCommandAccountRename || item.Actions[0].Trigger != render.ActionEdit {
+		t.Fatalf("first action = %#v, want rename", item.Actions[0])
 	}
-	action := item.Actions[1]
+	if item.Actions[1].ID != tuiCommandAccountDelete || item.Actions[1].Trigger != render.ActionDelete {
+		t.Fatalf("second action = %#v, want delete", item.Actions[1])
+	}
+	action := item.Actions[2]
 	if action.ID != tuiCommandAccountDeactivate {
 		t.Fatalf("action id = %q, want %q", action.ID, tuiCommandAccountDeactivate)
 	}
@@ -373,8 +376,8 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(item.Actions) != 2 || item.Actions[1].ID != tuiCommandAccountActivate {
-			t.Fatalf("account item after deactivate = %#v, want delete + activate actions", item)
+		if len(item.Actions) != 3 || item.Actions[2].ID != tuiCommandAccountActivate {
+			t.Fatalf("account item after deactivate = %#v, want rename + delete + activate actions", item)
 		}
 		break
 	}
@@ -988,13 +991,16 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 			continue
 		}
 		found = true
-		if len(row.Actions) != 3 {
-			t.Fatalf("loot row actions = %#v, want edit, recognize, and transfer actions", row.Actions)
+		if len(row.Actions) != 4 {
+			t.Fatalf("loot row actions = %d, want 4 (edit, appraise, recognize, transfer)", len(row.Actions))
 		}
 		if row.Actions[0].Trigger != render.ActionEdit || row.Actions[0].ID != tuiCommandLootUpdate {
 			t.Fatalf("loot edit action = %#v", row.Actions[0])
 		}
-		action := row.Actions[1]
+		if row.Actions[1].Trigger != render.ActionAppraise || row.Actions[1].ID != tuiCommandLootAppraise {
+			t.Fatalf("loot appraise action = %#v", row.Actions[1])
+		}
+		action := row.Actions[2]
 		if action.Trigger != render.ActionRecognize {
 			t.Fatalf("loot action trigger = %q, want %q", action.Trigger, render.ActionRecognize)
 		}
@@ -1147,16 +1153,16 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 		switch row.Key {
 		case noAppraisal.ID:
 			foundNoAppraisal = true
-			if len(row.Actions) != 2 || row.Actions[0].ID != tuiCommandLootUpdate {
-				t.Fatalf("no-appraisal row should expose edit and transfer: %#v", row)
+			if len(row.Actions) != 3 || row.Actions[0].ID != tuiCommandLootUpdate || row.Actions[1].ID != tuiCommandLootAppraise {
+				t.Fatalf("no-appraisal row should expose edit, appraise, and transfer: %#v", row)
 			}
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: Unknown / none") {
 				t.Fatalf("no-appraisal detail = %#v", row.DetailLines)
 			}
 		case zeroAppraisal.ID:
 			foundZero = true
-			if len(row.Actions) != 2 || row.Actions[0].ID != tuiCommandLootUpdate {
-				t.Fatalf("zero-appraisal row should expose edit and transfer: %#v", row)
+			if len(row.Actions) != 3 || row.Actions[0].ID != tuiCommandLootUpdate || row.Actions[1].ID != tuiCommandLootAppraise {
+				t.Fatalf("zero-appraisal row should expose edit, appraise, and transfer: %#v", row)
 			}
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: 0 CP") {
 				t.Fatalf("zero-appraisal detail = %#v", row.DetailLines)

@@ -7,16 +7,23 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const (
+	sideDebit        = "debit"
+	sideCredit       = "credit"
+	fieldAccountCode = "account_code"
+)
+
 type composeMode string
 
 const (
-	composeModeExpense composeMode = "expense"
-	composeModeIncome  composeMode = "income"
-	composeModeCustom  composeMode = "custom"
-	composeModeAccount composeMode = "account"
-	composeModeQuest   composeMode = "quest"
-	composeModeLoot    composeMode = "loot"
-	composeModeAsset   composeMode = "asset"
+	composeModeExpense       composeMode = "expense"
+	composeModeIncome        composeMode = "income"
+	composeModeCustom        composeMode = "custom"
+	composeModeAccount       composeMode = "account"
+	composeModeQuest         composeMode = "quest"
+	composeModeLoot          composeMode = "loot"
+	composeModeAsset         composeMode = "asset"
+	composeModeAssetTemplate composeMode = "asset_template"
 )
 
 type composeLineState struct {
@@ -37,6 +44,15 @@ type composeState struct {
 	FieldErrors     map[string]string
 	Lines           []composeLineState
 	GeneralError    string
+	picker          *accountPickerState
+}
+
+type accountPickerState struct {
+	Options       []AccountOption
+	Query         string
+	Filtered      []AccountOption
+	SelectedIndex int
+	Scroll        int
 }
 
 type composeField struct {
@@ -57,7 +73,7 @@ func newExpenseCompose(previous Section, catalog *EntryCatalog) *composeState {
 			"date":                catalog.DefaultDate,
 			"description":         "",
 			"amount":              "",
-			"account_code":        "",
+			fieldAccountCode:        "",
 			"offset_account_code": defaultAccountCode(catalog.FundingAccounts, "1000"),
 			"memo":                "",
 		},
@@ -77,7 +93,7 @@ func newIncomeCompose(previous Section, catalog *EntryCatalog) *composeState {
 			"date":                catalog.DefaultDate,
 			"description":         "",
 			"amount":              "",
-			"account_code":        "",
+			fieldAccountCode:        "",
 			"offset_account_code": defaultAccountCode(catalog.DepositAccounts, "1000"),
 			"memo":                "",
 		},
@@ -96,8 +112,8 @@ func newCustomCompose(previous Section) *composeState {
 		},
 		FieldErrors: make(map[string]string),
 		Lines: []composeLineState{
-			{Side: "debit"},
-			{Side: "credit"},
+			{Side: sideDebit},
+			{Side: sideCredit},
 		},
 	}
 }
@@ -190,6 +206,43 @@ func newLootEditCompose(previous Section, itemKey string, fields map[string]stri
 	return newEditCompose(newLootCompose(previous), "loot.update", itemKey, "Edit Loot", fields)
 }
 
+func newAssetTemplateCompose(previous Section, itemKey string, lines []composeLineState) *composeState {
+	if len(lines) == 0 {
+		lines = []composeLineState{
+			{Side: sideDebit},
+			{Side: sideCredit},
+		}
+	}
+	return &composeState{
+		Mode:            composeModeAssetTemplate,
+		PreviousSection: previous,
+		CommandID:       "asset.template.save",
+		ItemKey:         itemKey,
+		Title:           "Edit Entry Template",
+		Fields:          make(map[string]string),
+		FieldErrors:     make(map[string]string),
+		Lines:           lines,
+	}
+}
+
+func newCustomComposeFromTemplate(previous Section, catalog *EntryCatalog, assetName string, lines []composeLineState) *composeState {
+	if catalog == nil {
+		catalog = &EntryCatalog{}
+	}
+	return &composeState{
+		Mode:            composeModeCustom,
+		PreviousSection: previous,
+		CommandID:       "entry.custom.create",
+		Title:           assetName,
+		Fields: map[string]string{
+			"date":        catalog.DefaultDate,
+			"description": assetName,
+		},
+		FieldErrors: make(map[string]string),
+		Lines:       lines,
+	}
+}
+
 func defaultAccountCode(options []AccountOption, preferred string) string {
 	preferred = strings.TrimSpace(preferred)
 	for index := range options {
@@ -242,6 +295,12 @@ func (s *Shell) openComposeFromAction(itemKey string, action *ItemActionData) bo
 		s.compose = newLootEditCompose(s.Section, itemKey, action.ComposeFields)
 	case "asset":
 		s.compose = newAssetEditCompose(s.Section, itemKey, action.ComposeFields)
+	case "asset_template":
+		lines := commandLinesToComposeLines(action.ComposeLines)
+		s.compose = newAssetTemplateCompose(s.Section, itemKey, lines)
+	case "custom_from_template":
+		lines := commandLinesToComposeLines(action.ComposeLines)
+		s.compose = newCustomComposeFromTemplate(s.Section, &s.Data.EntryCatalog, strings.TrimSpace(action.ComposeTitle), lines)
 	default:
 		return false
 	}
@@ -250,6 +309,22 @@ func (s *Shell) openComposeFromAction(itemKey string, action *ItemActionData) bo
 		s.compose.Title = strings.TrimSpace(action.ComposeTitle)
 	}
 	return true
+}
+
+func commandLinesToComposeLines(lines []CommandLine) []composeLineState {
+	if len(lines) == 0 {
+		return nil
+	}
+	result := make([]composeLineState, len(lines))
+	for i, line := range lines {
+		result[i] = composeLineState{
+			Side:        strings.TrimSpace(line.Side),
+			AccountCode: strings.TrimSpace(line.AccountCode),
+			Amount:      strings.TrimSpace(line.Amount),
+			Memo:        strings.TrimSpace(line.Memo),
+		}
+	}
+	return result
 }
 
 func (s *Shell) openComposeForAction(action Action) bool {
@@ -289,6 +364,10 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 		return handleResult{}, false
 	}
 
+	if s.compose.picker != nil {
+		return s.handlePickerKeyEvent(event)
+	}
+
 	switch event.Key() {
 	case tcell.KeyUp, tcell.KeyLeft:
 		s.composeAdvance(-1)
@@ -308,35 +387,79 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 	case tcell.KeyCtrlU:
 		s.composeClearCurrent()
 		return handleResult{Redraw: true}, true
+	case tcell.KeyCtrlA:
+		if s.openAccountPicker() {
+			return handleResult{Redraw: true}, true
+		}
+		return handleResult{}, true
 	case tcell.KeyCtrlN:
-		if s.compose.Mode == composeModeCustom && len(s.compose.Lines) < 8 {
-			s.compose.Lines = append(s.compose.Lines, composeLineState{Side: "debit"})
-			s.compose.FieldIndex = s.composeFieldCount() - 4
+		switch s.compose.Mode {
+		case composeModeCustom:
+			if len(s.compose.Lines) < 8 {
+				s.compose.Lines = append(s.compose.Lines, composeLineState{Side: sideDebit})
+				s.compose.FieldIndex = s.composeFieldCount() - 4
+			}
+		case composeModeAssetTemplate:
+			if len(s.compose.Lines) < 8 {
+				s.compose.Lines = append(s.compose.Lines, composeLineState{Side: sideDebit})
+				s.compose.FieldIndex = s.composeFieldCount() - 2
+			}
+		default:
 		}
 		return handleResult{Redraw: true}, true
 	case tcell.KeyCtrlD:
-		if s.compose.Mode == composeModeCustom && len(s.compose.Lines) > 2 {
-			lineIndex, column := s.composeCurrentLinePosition()
-			if lineIndex >= 0 && lineIndex < len(s.compose.Lines) {
-				s.compose.Lines = append(s.compose.Lines[:lineIndex], s.compose.Lines[lineIndex+1:]...)
-				if len(s.compose.Lines) == 0 {
-					s.compose.Lines = []composeLineState{{Side: "debit"}, {Side: "credit"}}
+		switch s.compose.Mode {
+		case composeModeCustom:
+			if len(s.compose.Lines) > 2 {
+				lineIndex, column := s.composeCurrentLinePosition()
+				if lineIndex >= 0 && lineIndex < len(s.compose.Lines) {
+					s.compose.Lines = append(s.compose.Lines[:lineIndex], s.compose.Lines[lineIndex+1:]...)
+					if len(s.compose.Lines) == 0 {
+						s.compose.Lines = []composeLineState{{Side: sideDebit}, {Side: sideCredit}}
+					}
+					if lineIndex >= len(s.compose.Lines) {
+						lineIndex = len(s.compose.Lines) - 1
+					}
+					s.compose.FieldIndex = 2 + lineIndex*4 + column
 				}
-				if lineIndex >= len(s.compose.Lines) {
-					lineIndex = len(s.compose.Lines) - 1
-				}
-				s.compose.FieldIndex = 2 + lineIndex*4 + column
 			}
+		case composeModeAssetTemplate:
+			if len(s.compose.Lines) > 2 {
+				lineIndex, column := s.composeCurrentTemplateLinePosition()
+				if lineIndex >= 0 && lineIndex < len(s.compose.Lines) {
+					s.compose.Lines = append(s.compose.Lines[:lineIndex], s.compose.Lines[lineIndex+1:]...)
+					if len(s.compose.Lines) == 0 {
+						s.compose.Lines = []composeLineState{{Side: sideDebit}, {Side: sideCredit}}
+					}
+					if lineIndex >= len(s.compose.Lines) {
+						lineIndex = len(s.compose.Lines) - 1
+					}
+					s.compose.FieldIndex = lineIndex*2 + column
+				}
+			}
+		default:
 		}
 		return handleResult{Redraw: true}, true
 	case tcell.KeyRune:
 		if s.compose.Mode == composeModeCustom {
 			lineIndex, column := s.composeCurrentLinePosition()
 			if lineIndex >= 0 && column == 0 && event.Rune() == ' ' {
-				if s.compose.Lines[lineIndex].Side == "debit" {
-					s.compose.Lines[lineIndex].Side = "credit"
+				if s.compose.Lines[lineIndex].Side == sideDebit {
+					s.compose.Lines[lineIndex].Side = sideCredit
 				} else {
-					s.compose.Lines[lineIndex].Side = "debit"
+					s.compose.Lines[lineIndex].Side = sideDebit
+				}
+				s.clearErrorForCurrentField()
+				return handleResult{Redraw: true}, true
+			}
+		}
+		if s.compose.Mode == composeModeAssetTemplate {
+			lineIndex, column := s.composeCurrentTemplateLinePosition()
+			if lineIndex >= 0 && column == 0 && event.Rune() == ' ' {
+				if s.compose.Lines[lineIndex].Side == sideDebit {
+					s.compose.Lines[lineIndex].Side = sideCredit
+				} else {
+					s.compose.Lines[lineIndex].Side = sideDebit
 				}
 				s.clearErrorForCurrentField()
 				return handleResult{Redraw: true}, true
@@ -362,7 +485,8 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 		return handleResult{Redraw: true}, true
 	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer,
+		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
+		ActionEditTemplate, ActionExecuteTemplate,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom:
 		return handleResult{}, false
 	case ActionHelp:
@@ -383,7 +507,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "date", Label: "Date", Placeholder: "YYYY-MM-DD"},
 			{ID: "description", Label: "Description", Placeholder: "Restock arrows"},
 			{ID: "amount", Label: "Amount", Placeholder: "2SP5CP"},
-			{ID: "account_code", Label: "Expense account", Placeholder: "5100"},
+			{ID: fieldAccountCode, Label: "Expense account", Placeholder: "5100"},
 			{ID: "offset_account_code", Label: "Paid from", Placeholder: "1000"},
 			{ID: "memo", Label: "Memo", Placeholder: "Quiver refill"},
 		}
@@ -392,7 +516,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "date", Label: "Date", Placeholder: "YYYY-MM-DD"},
 			{ID: "description", Label: "Description", Placeholder: "Goblin bounty"},
 			{ID: "amount", Label: "Amount", Placeholder: "25GP"},
-			{ID: "account_code", Label: "Income account", Placeholder: "4000"},
+			{ID: fieldAccountCode, Label: "Income account", Placeholder: "4000"},
 			{ID: "offset_account_code", Label: "Deposit to", Placeholder: "1000"},
 			{ID: "memo", Label: "Memo", Placeholder: "Mayor payout"},
 		}
@@ -442,6 +566,8 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "holder", Label: "Holder", Placeholder: "Wizard"},
 			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
 		}
+	case composeModeAssetTemplate:
+		return nil
 	default:
 		return []composeField{
 			{ID: "date", Label: "Date", Placeholder: "YYYY-MM-DD"},
@@ -454,10 +580,14 @@ func (s *Shell) composeFieldCount() int {
 	if s.compose == nil {
 		return 0
 	}
-	if s.compose.Mode != composeModeCustom {
+	switch s.compose.Mode {
+	case composeModeCustom:
+		return len(s.composeFieldDefinitions()) + len(s.compose.Lines)*4
+	case composeModeAssetTemplate:
+		return len(s.compose.Lines) * 2
+	default:
 		return len(s.composeFieldDefinitions())
 	}
-	return len(s.composeFieldDefinitions()) + len(s.compose.Lines)*4
 }
 
 func (s *Shell) composeAdvance(delta int) {
@@ -480,6 +610,17 @@ func (s *Shell) composeCurrentFieldID() string {
 	if s.compose == nil {
 		return ""
 	}
+	if s.compose.Mode == composeModeAssetTemplate {
+		_, column := s.composeCurrentTemplateLinePosition()
+		switch column {
+		case 0:
+			return "side"
+		case 1:
+			return fieldAccountCode
+		default:
+			return ""
+		}
+	}
 	fields := s.composeFieldDefinitions()
 	if s.compose.FieldIndex < len(fields) {
 		return fields[s.compose.FieldIndex].ID
@@ -492,7 +633,7 @@ func (s *Shell) composeCurrentFieldID() string {
 	case 0:
 		return "side"
 	case 1:
-		return "account_code"
+		return fieldAccountCode
 	case 2:
 		return "amount"
 	case 3:
@@ -513,6 +654,13 @@ func (s *Shell) composeCurrentLinePosition() (int, int) {
 	return offset / 4, offset % 4
 }
 
+func (s *Shell) composeCurrentTemplateLinePosition() (int, int) {
+	if s.compose == nil || s.compose.Mode != composeModeAssetTemplate {
+		return -1, -1
+	}
+	return s.compose.FieldIndex / 2, s.compose.FieldIndex % 2
+}
+
 type fieldOp func(string) string
 
 func (s *Shell) composeEditCurrentField(op fieldOp) {
@@ -520,10 +668,28 @@ func (s *Shell) composeEditCurrentField(op fieldOp) {
 		return
 	}
 	fieldID := s.composeCurrentFieldID()
+
+	if s.compose.Mode == composeModeAssetTemplate {
+		lineIndex, column := s.composeCurrentTemplateLinePosition()
+		if lineIndex < 0 || lineIndex >= len(s.compose.Lines) {
+			return
+		}
+		switch column {
+		case 0:
+			// side — toggled with space, not typed
+			return
+		case 1:
+			s.compose.Lines[lineIndex].AccountCode = op(s.compose.Lines[lineIndex].AccountCode)
+		}
+		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
+		s.compose.GeneralError = ""
+		return
+	}
+
 	switch fieldID {
 	case "side":
 		return
-	case "date", "description", "amount", "account_code", "offset_account_code", "memo",
+	case "date", "description", "amount", fieldAccountCode, "offset_account_code", "memo",
 		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
 		"source", "quantity", "holder":
 		s.compose.Fields[fieldID] = op(s.compose.Fields[fieldID])
@@ -575,8 +741,13 @@ func (s *Shell) clearErrorForCurrentField() {
 		return
 	}
 	if fieldID == "side" {
-		lineIndex, column := s.composeCurrentLinePosition()
-		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
+		if s.compose.Mode == composeModeAssetTemplate {
+			lineIndex, column := s.composeCurrentTemplateLinePosition()
+			delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
+		} else {
+			lineIndex, column := s.composeCurrentLinePosition()
+			delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
+		}
 		return
 	}
 	delete(s.compose.FieldErrors, fieldID)
@@ -592,6 +763,130 @@ func (s *Shell) composeLineFieldKey(index int, column int) string {
 		return fmt.Sprintf("line_%d_amount", index)
 	default:
 		return fmt.Sprintf("line_%d_memo", index)
+	}
+}
+
+func (s *Shell) pickerAccountsForCurrentField() []AccountOption {
+	if s.compose == nil {
+		return nil
+	}
+	fieldID := s.composeCurrentFieldID()
+	switch s.compose.Mode {
+	case composeModeExpense:
+		switch fieldID {
+		case fieldAccountCode:
+			return s.Data.EntryCatalog.ExpenseAccounts
+		case "offset_account_code":
+			return s.Data.EntryCatalog.FundingAccounts
+		}
+	case composeModeIncome:
+		switch fieldID {
+		case fieldAccountCode:
+			return s.Data.EntryCatalog.IncomeAccounts
+		case "offset_account_code":
+			return s.Data.EntryCatalog.DepositAccounts
+		}
+	case composeModeCustom, composeModeAssetTemplate:
+		if fieldID == fieldAccountCode {
+			return s.Data.EntryCatalog.AllAccounts
+		}
+	case composeModeAccount:
+		if fieldID == "code" || fieldID == "name" {
+			return s.Data.EntryCatalog.AllAccounts
+		}
+	case composeModeQuest, composeModeLoot, composeModeAsset:
+	}
+	return nil
+}
+
+func (s *Shell) openAccountPicker() bool {
+	options := s.pickerAccountsForCurrentField()
+	if len(options) == 0 {
+		return false
+	}
+	s.compose.picker = &accountPickerState{
+		Options:  options,
+		Filtered: options,
+	}
+	return true
+}
+
+func (s *Shell) pickerRefilter() {
+	p := s.compose.picker
+	if p == nil {
+		return
+	}
+	if p.Query == "" {
+		p.Filtered = p.Options
+	} else {
+		query := strings.ToLower(p.Query)
+		filtered := make([]AccountOption, 0, len(p.Options))
+		for _, opt := range p.Options {
+			if strings.Contains(strings.ToLower(opt.Code), query) ||
+				strings.Contains(strings.ToLower(opt.Name), query) ||
+				strings.Contains(strings.ToLower(opt.Type), query) {
+				filtered = append(filtered, opt)
+			}
+		}
+		p.Filtered = filtered
+	}
+	if p.SelectedIndex >= len(p.Filtered) {
+		p.SelectedIndex = max(0, len(p.Filtered)-1)
+	}
+	p.Scroll = 0
+}
+
+func (s *Shell) pickerApplySelection(code string) {
+	s.composeEditCurrentField(func(_ string) string { return code })
+}
+
+func (s *Shell) handlePickerKeyEvent(event *tcell.EventKey) (handleResult, bool) {
+	p := s.compose.picker
+	if p == nil {
+		return handleResult{}, false
+	}
+
+	switch event.Key() {
+	case tcell.KeyEsc:
+		s.compose.picker = nil
+		return handleResult{Redraw: true}, true
+	case tcell.KeyEnter:
+		if len(p.Filtered) > 0 && p.SelectedIndex < len(p.Filtered) {
+			s.pickerApplySelection(p.Filtered[p.SelectedIndex].Code)
+		}
+		s.compose.picker = nil
+		return handleResult{Redraw: true}, true
+	case tcell.KeyUp:
+		if p.SelectedIndex > 0 {
+			p.SelectedIndex--
+		}
+		return handleResult{Redraw: true}, true
+	case tcell.KeyDown:
+		if p.SelectedIndex < len(p.Filtered)-1 {
+			p.SelectedIndex++
+		}
+		return handleResult{Redraw: true}, true
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		if len(p.Query) > 0 {
+			p.Query = trimLastRune(p.Query)
+			s.pickerRefilter()
+		}
+		return handleResult{Redraw: true}, true
+	case tcell.KeyCtrlU:
+		p.Query = ""
+		s.pickerRefilter()
+		return handleResult{Redraw: true}, true
+	case tcell.KeyRune:
+		r := event.Rune()
+		if r == 'q' && p.Query == "" {
+			s.compose.picker = nil
+			return handleResult{Redraw: true}, true
+		}
+		p.Query += string(r)
+		s.pickerRefilter()
+		return handleResult{Redraw: true}, true
+	default:
+		return handleResult{}, true
 	}
 }
 
@@ -635,7 +930,7 @@ func (s *Shell) composeCommand() (*Command, bool) {
 	required := []string{"date", "description"}
 	switch s.compose.Mode {
 	case composeModeExpense, composeModeIncome:
-		required = append(required, "amount", "account_code", "offset_account_code")
+		required = append(required, "amount", fieldAccountCode, "offset_account_code")
 	case composeModeAccount:
 		required = []string{"code", "name", "account_type"}
 	case composeModeQuest:
@@ -648,6 +943,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 	case composeModeAsset:
 		required = []string{"name", "quantity"}
 	case composeModeCustom:
+	case composeModeAssetTemplate:
+		required = nil
 	}
 	for _, key := range required {
 		if strings.TrimSpace(command.Fields[key]) == "" {
@@ -655,7 +952,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 		}
 	}
 
-	if s.compose.Mode == composeModeCustom {
+	switch s.compose.Mode {
+	case composeModeCustom:
 		if len(s.compose.Lines) < 2 {
 			s.compose.GeneralError = "Custom entry must contain at least 2 lines."
 		}
@@ -674,6 +972,21 @@ func (s *Shell) composeCommand() (*Command, bool) {
 				Memo:        strings.TrimSpace(line.Memo),
 			})
 		}
+	case composeModeAssetTemplate:
+		if len(s.compose.Lines) < 2 {
+			s.compose.GeneralError = "Template must contain at least 2 lines."
+		}
+		for index := range s.compose.Lines {
+			line := s.compose.Lines[index]
+			if strings.TrimSpace(line.AccountCode) == "" {
+				s.compose.FieldErrors[s.composeLineFieldKey(index, 1)] = "Required."
+			}
+			command.Lines = append(command.Lines, CommandLine{
+				Side:        strings.TrimSpace(line.Side),
+				AccountCode: strings.TrimSpace(line.AccountCode),
+			})
+		}
+	default:
 	}
 
 	if len(s.compose.FieldErrors) > 0 || strings.TrimSpace(s.compose.GeneralError) != "" {
@@ -704,6 +1017,83 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 	ss := s.Section.Style(theme)
 	DrawPanel(buffer, left, theme, ss.Panel(s.composeTitle(), s.composeFormLines()))
 	DrawPanel(buffer, right, theme, ss.Panel("Preview", s.composePreviewLines()))
+
+	if s.compose.picker != nil {
+		s.renderAccountPicker(buffer, rect, theme)
+	}
+}
+
+func (s *Shell) renderAccountPicker(buffer *Buffer, rect Rect, theme *Theme) {
+	p := s.compose.picker
+	if p == nil || rect.Empty() {
+		return
+	}
+
+	maxVisible := 10
+	viewH := min(maxVisible, max(1, len(p.Filtered)))
+	totalH := viewH + 6 // border(2) + search(1) + gap(1) + viewH + help(1) + gap(1)
+	width := clampInt(rect.W/2, 36, 56)
+
+	modalRect := Rect{
+		X: rect.X + (rect.W-width)/2,
+		Y: rect.Y + (rect.H-totalH)/2,
+		W: width,
+		H: totalH,
+	}
+	modalRect = modalRect.Intersect(rect)
+	if modalRect.Empty() {
+		return
+	}
+
+	accent := s.sectionStyle(theme)
+	DrawPanel(buffer, modalRect, theme, Panel{
+		Title:       "Pick Account",
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
+		Texture:     PanelTextureNone,
+	})
+
+	content := panelContentRect(modalRect, buffer.Bounds())
+	if content.Empty() {
+		return
+	}
+
+	y := content.Y
+	searchText := "/ " + p.Query + "_"
+	buffer.WriteString(content.X, y, theme.Text, clipText(searchText, content.W))
+	y++
+
+	// Adjust scroll to keep selection visible.
+	if p.SelectedIndex < p.Scroll {
+		p.Scroll = p.SelectedIndex
+	}
+	if p.SelectedIndex >= p.Scroll+viewH {
+		p.Scroll = p.SelectedIndex - viewH + 1
+	}
+	maxScroll := max(0, len(p.Filtered)-viewH)
+	p.Scroll = clampInt(p.Scroll, 0, maxScroll)
+
+	if len(p.Filtered) == 0 {
+		buffer.WriteString(content.X, y, theme.Muted, clipText("  No matching accounts.", content.W))
+	} else {
+		for row := 0; row < viewH && p.Scroll+row < len(p.Filtered); row++ {
+			idx := p.Scroll + row
+			opt := p.Filtered[idx]
+			lineRect := Rect{X: content.X, Y: y + row, W: content.W, H: 1}
+			style := theme.Text
+			prefix := "  "
+			if idx == p.SelectedIndex {
+				buffer.FillRect(lineRect, ' ', theme.SelectedRow)
+				style = theme.SelectedRow
+				prefix = "> "
+			}
+			label := fmt.Sprintf("%s%s %s (%s)", prefix, opt.Code, opt.Name, opt.Type)
+			buffer.WriteString(content.X, y+row, style, clipText(label, content.W))
+		}
+	}
+
+	helpY := content.Y + content.H - 1
+	buffer.WriteString(content.X, helpY, theme.Muted, clipText("↑↓ select  Enter pick  Esc cancel", content.W))
 }
 
 func (s *Shell) composeTitle() string {
@@ -734,6 +1124,11 @@ func (s *Shell) composeTitle() string {
 			return s.compose.Title
 		}
 		return "Custom Journal Entry"
+	case composeModeAssetTemplate:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
+		return "Edit Entry Template"
 	}
 
 	return "Compose"
@@ -758,7 +1153,8 @@ func (s *Shell) composeFormLines() []string {
 		}
 	}
 
-	if s.compose.Mode == composeModeCustom {
+	switch s.compose.Mode {
+	case composeModeCustom:
 		lines = append(lines, "", "Lines:")
 		for index := range s.compose.Lines {
 			line := s.compose.Lines[index]
@@ -786,6 +1182,31 @@ func (s *Shell) composeFormLines() []string {
 				}
 			}
 		}
+	case composeModeAssetTemplate:
+		lines = append(lines, "Lines:")
+		for index := range s.compose.Lines {
+			line := s.compose.Lines[index]
+			for column, label := range []string{"Side", "Account"} {
+				prefix := "  "
+				if s.compose.FieldIndex == index*2+column {
+					prefix = "> "
+				}
+				value := []string{sideHint(line.Side), line.AccountCode}[column]
+				if strings.TrimSpace(value) == "" {
+					switch column {
+					case 0:
+						value = "[debit|credit]"
+					default:
+						value = "[account code]"
+					}
+				}
+				lines = append(lines, fmt.Sprintf("%sL%d %s: %s", prefix, index+1, label, value))
+				if errText := strings.TrimSpace(s.compose.FieldErrors[s.composeLineFieldKey(index, column)]); errText != "" {
+					lines = append(lines, "   Error: "+errText)
+				}
+			}
+		}
+	default:
 	}
 
 	if strings.TrimSpace(s.compose.GeneralError) != "" {
@@ -796,10 +1217,19 @@ func (s *Shell) composeFormLines() []string {
 }
 
 func (s *Shell) composeHelpText() string {
-	if s.compose.Mode == composeModeCustom {
-		return "Tab/arrows move  Enter submit  Ctrl+N add line  Ctrl+D delete line  Space toggle side  Esc cancel"
+	if s.compose.picker != nil {
+		return "Type to filter  ↑↓ select  Enter pick  Esc cancel"
 	}
-	return "Tab/arrows move  Enter submit  Esc cancel"
+	pickerHint := ""
+	if s.pickerAccountsForCurrentField() != nil {
+		pickerHint = "  Ctrl+A pick account"
+	}
+	switch s.compose.Mode {
+	case composeModeCustom, composeModeAssetTemplate:
+		return "Tab/arrows move  Enter submit  Ctrl+N add  Ctrl+D del  Space toggle" + pickerHint + "  Esc cancel"
+	default:
+		return "Tab/arrows move  Enter submit" + pickerHint + "  Esc cancel"
+	}
 }
 
 func (s *Shell) composePreviewLines() []string {
@@ -813,7 +1243,7 @@ func (s *Shell) composePreviewLines() []string {
 		lines = append(lines,
 			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
 			"Description: "+displayComposeValue(s.compose.Fields["description"], "required"),
-			"Dr "+displayComposeValue(s.compose.Fields["account_code"], "expense account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
+			"Dr "+displayComposeValue(s.compose.Fields[fieldAccountCode], "expense account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"Cr "+displayComposeValue(s.compose.Fields["offset_account_code"], "funding account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"",
 			"Expense accounts:",
@@ -826,7 +1256,7 @@ func (s *Shell) composePreviewLines() []string {
 			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
 			"Description: "+displayComposeValue(s.compose.Fields["description"], "required"),
 			"Dr "+displayComposeValue(s.compose.Fields["offset_account_code"], "deposit account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
-			"Cr "+displayComposeValue(s.compose.Fields["account_code"], "income account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
+			"Cr "+displayComposeValue(s.compose.Fields[fieldAccountCode], "income account")+" "+displayComposeValue(s.compose.Fields["amount"], "amount"),
 			"",
 			"Income accounts:",
 		)
@@ -885,6 +1315,29 @@ func (s *Shell) composePreviewLines() []string {
 			"Asset is created as held and off-ledger.",
 			"Transfer to loot register when ready to sell.",
 		)
+	case composeModeAssetTemplate:
+		lines = append(lines, "Template structure:", "")
+		var debitCount, creditCount int
+		for index := range s.compose.Lines {
+			line := s.compose.Lines[index]
+			sideLabel := "Dr (to)"
+			if line.Side == sideCredit {
+				sideLabel = "Cr (from)"
+			}
+			lines = append(lines, fmt.Sprintf("L%d %s %s", index+1, sideLabel, displayComposeValue(line.AccountCode, "account")))
+			if line.Side == sideDebit {
+				debitCount++
+			} else {
+				creditCount++
+			}
+		}
+		lines = append(lines,
+			"", fmt.Sprintf("Line counts: %d debit / %d credit", debitCount, creditCount),
+			"", "Dr (to)   = money flows into this account",
+			"Cr (from) = money flows out of this account",
+			"Amounts are entered when executing the template.",
+			"", "Active accounts:")
+		lines = append(lines, accountOptionLines(s.Data.EntryCatalog.AllAccounts)...)
 	default:
 		lines = append(lines,
 			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
@@ -896,10 +1349,10 @@ func (s *Shell) composePreviewLines() []string {
 		for index := range s.compose.Lines {
 			line := s.compose.Lines[index]
 			lines = append(lines, fmt.Sprintf("L%d %s %s %s", index+1, displayComposeValue(line.Side, "side"), displayComposeValue(line.AccountCode, "account"), displayComposeValue(line.Amount, "amount")))
-			if line.Side == "debit" {
+			if line.Side == sideDebit {
 				debitCount++
 			}
-			if line.Side == "credit" {
+			if line.Side == sideCredit {
 				creditCount++
 			}
 		}
@@ -908,6 +1361,13 @@ func (s *Shell) composePreviewLines() []string {
 	}
 
 	return lines
+}
+
+func sideHint(side string) string {
+	if side == sideDebit {
+		return "debit (to)"
+	}
+	return "credit (from)"
 }
 
 func displayComposeValue(value string, placeholder string) string {

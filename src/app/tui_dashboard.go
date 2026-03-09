@@ -19,6 +19,7 @@ import (
 
 const (
 	tuiCommandAccountCreate       = "account.create"
+	tuiCommandAccountRename       = "account.rename"
 	tuiCommandAccountActivate     = "account.activate"
 	tuiCommandAccountDeactivate   = "account.deactivate"
 	tuiCommandAccountDelete       = "account.delete"
@@ -32,13 +33,16 @@ const (
 	tuiCommandQuestWriteOffFull   = "quest.writeoff_full"
 	tuiCommandLootCreate          = "loot.create"
 	tuiCommandLootUpdate          = "loot.update"
+	tuiCommandLootAppraise        = "loot.appraise"
 	tuiCommandLootRecognize       = "loot.recognize_latest"
 	tuiCommandLootSell            = "loot.sell"
 	tuiCommandLootTransferToAsset = "loot.transfer_to_asset"
 	tuiCommandAssetCreate         = "asset.create"
 	tuiCommandAssetUpdate         = "asset.update"
+	tuiCommandAssetAppraise       = "asset.appraise"
 	tuiCommandAssetRecognize      = "asset.recognize_latest"
 	tuiCommandAssetTransferToLoot = "asset.transfer_to_loot"
+	tuiCommandAssetTemplateSave   = "asset.template.save"
 )
 
 var tuiNow = time.Now
@@ -138,6 +142,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	} else {
 		data.Dashboard.AccountsLines = summarizeAccounts(accounts)
 		data.Accounts.SummaryLines = summarizeAccounts(accounts)
+		data.Accounts.ListHeaderRow = fmt.Sprintf("%-4s %-9s %-8s %s", "CODE", "TYPE", "STATUS", "NAME")
 		data.Accounts.Items = buildAccountItems(accounts)
 		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
@@ -162,6 +167,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		data.Journal.EmptyLines = unavailablePanelLines(err)
 		panelErrors = append(panelErrors, "journal")
 	} else {
+		data.Journal.ListHeaderRow = fmt.Sprintf("#%-4s %-10s %-8s %s", "NUM", "DATE", "STATUS", "DESCRIPTION")
 		data.Journal.Items = buildJournalItems(journalEntries)
 	}
 
@@ -206,6 +212,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			data.Quests.EmptyLines = unavailablePanelLines(questErr)
 			panelErrors = append(panelErrors, "quests")
 		} else {
+			data.Quests.ListHeaderRow = fmt.Sprintf("%-12s %-14s %-12s %s", "REWARD", "STATUS", "OUTSTANDING", "TITLE")
 			data.Quests.Items = buildQuestItems(questRows, tuiToday())
 		}
 	}
@@ -232,6 +239,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			data.Loot.EmptyLines = unavailablePanelLines(browseErr)
 			panelErrors = append(panelErrors, "loot")
 		} else {
+			data.Loot.ListHeaderRow = fmt.Sprintf("%-12s %-7s %-11s %s", "VALUE", "QTY", "STATUS", "NAME")
 			data.Loot.Items = buildLootItems(browseItems, tuiToday())
 		}
 	}
@@ -258,6 +266,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			data.Assets.EmptyLines = unavailablePanelLines(assetBrowseErr)
 			panelErrors = append(panelErrors, "assets")
 		} else {
+			data.Assets.ListHeaderRow = fmt.Sprintf("%-12s %-11s %s", "VALUE", "STATUS", "NAME")
 			data.Assets.Items = buildAssetItems(assetBrowseItems, tuiToday())
 		}
 	}
@@ -303,6 +312,16 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		navigateTo = render.SectionAccounts
 		selectItemKey = result.Code
+	case tuiCommandAccountRename:
+		newName := strings.TrimSpace(command.Fields["name"])
+		if err := account.RenameAccount(ctx, databasePath, command.ItemKey, newName); err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Renamed account %s to %q.", command.ItemKey, newName),
+		}
+		selectItemKey = command.ItemKey
 	case tuiCommandAccountActivate:
 		if err := account.ActivateAccount(ctx, databasePath, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
@@ -489,6 +508,25 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = result.message
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
+	case tuiCommandLootAppraise:
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return render.CommandResult{}, render.InputError{Message: "Appraised value is required."}
+		}
+		amount, err := currency.ParseAmount(amountText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+		if amount < 0 {
+			return render.CommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
+		}
+		if _, err := loot.AppraiseLootItem(ctx, databasePath, command.ItemKey, amount, "", today, ""); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Appraised loot item at %s.", currency.FormatAmount(amount)),
+		}
 	case tuiCommandLootRecognize:
 		items, err := loader.ListBrowseLootItems(ctx, "loot")
 		if err != nil {
@@ -574,6 +612,25 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = result.message
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
+	case tuiCommandAssetAppraise:
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return render.CommandResult{}, render.InputError{Message: "Appraised value is required."}
+		}
+		amount, err := currency.ParseAmount(amountText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+		if amount < 0 {
+			return render.CommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
+		}
+		if _, err := loot.AppraiseLootItem(ctx, databasePath, command.ItemKey, amount, "", today, ""); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Appraised asset at %s.", currency.FormatAmount(amount)),
+		}
 	case tuiCommandAssetRecognize:
 		items, err := loader.ListBrowseLootItems(ctx, "asset")
 		if err != nil {
@@ -606,6 +663,23 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  "Transferred item to loot register.",
 		}
 		navigateTo = render.SectionLoot
+		selectItemKey = command.ItemKey
+	case tuiCommandAssetTemplateSave:
+		lines := make([]loot.AssetTemplateLineRecord, 0, len(command.Lines))
+		for _, cl := range command.Lines {
+			lines = append(lines, loot.AssetTemplateLineRecord{
+				Side:        strings.TrimSpace(cl.Side),
+				AccountCode: strings.TrimSpace(cl.AccountCode),
+			})
+		}
+		if err := loot.SaveAssetTemplate(ctx, databasePath, command.ItemKey, lines); err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  "Saved entry template.",
+		}
+		navigateTo = render.SectionAssets
 		selectItemKey = command.ItemKey
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)

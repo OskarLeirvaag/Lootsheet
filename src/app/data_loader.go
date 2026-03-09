@@ -35,7 +35,25 @@ type TUIDataLoader interface {
 // existing free functions in the domain packages.
 type sqliteDataLoader struct {
 	databasePath string
+	backupDir    string
 	assets       config.InitAssets
+}
+
+// EnsureReady auto-migrates the database if it is upgradeable. This lets the
+// TUI (and any other caller) work immediately after a binary upgrade without
+// requiring a manual `lootsheet db migrate`.
+func (s *sqliteDataLoader) EnsureReady(ctx context.Context) error {
+	status, err := s.GetDatabaseStatus(ctx)
+	if err != nil {
+		return err
+	}
+
+	if status.State != ledger.DatabaseStateUpgradeable {
+		return nil
+	}
+
+	_, err = ledger.MigrateSQLiteDatabase(ctx, s.databasePath, s.backupDir, s.assets)
+	return err
 }
 
 func (s *sqliteDataLoader) DatabaseName() string {

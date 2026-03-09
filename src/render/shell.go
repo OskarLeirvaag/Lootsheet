@@ -116,7 +116,8 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		switch action {
 		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer,
+			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
+			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 			return handleResult{}
 		case ActionQuit:
@@ -210,7 +211,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.openComposeForAction(ActionNewCustom) {
 			return handleResult{Redraw: true}
 		}
-	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer:
+	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
 		}
@@ -265,7 +266,8 @@ func (s *Shell) handleInputAction(action Action) handleResult {
 	switch action {
 	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
-		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionRecognize, ActionSell, ActionTransfer,
+		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
+		ActionEditTemplate, ActionExecuteTemplate,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
 		return handleResult{}
 	case ActionQuit:
@@ -741,25 +743,37 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 		return
 	}
 
-	s.viewHeights[section] = content.H
-
-	scroll := min(selectedIndex, s.scrolls[section])
-	if selectedIndex >= scroll+content.H {
-		scroll = selectedIndex - content.H + 1
+	// Reserve one row for the column header if present.
+	listContent := content
+	if data.ListHeaderRow != "" && content.H > 2 {
+		buffer.WriteString(content.X, content.Y, theme.Muted, clipText("  "+data.ListHeaderRow, content.W))
+		listContent = Rect{X: content.X, Y: content.Y + 1, W: content.W, H: content.H - 1}
 	}
 
-	maxScroll := max(0, len(items)-content.H)
+	s.viewHeights[section] = listContent.H
+
+	scroll := min(selectedIndex, s.scrolls[section])
+	if selectedIndex >= scroll+listContent.H {
+		scroll = selectedIndex - listContent.H + 1
+	}
+
+	maxScroll := max(0, len(items)-listContent.H)
 	scroll = clampInt(scroll, 0, maxScroll)
 	s.scrolls[section] = scroll
 
-	end := min(len(items), scroll+content.H)
+	end := min(len(items), scroll+listContent.H)
 	title = fmt.Sprintf("%s %d-%d/%d", section.Title(), scroll+1, end, len(items))
 	DrawPanel(buffer, rect, theme, ss.Panel(title, nil))
 
-	for row := 0; row < content.H && scroll+row < len(items); row++ {
+	// Re-draw header after panel redraw.
+	if data.ListHeaderRow != "" && content.H > 2 {
+		buffer.WriteString(content.X, content.Y, theme.Muted, clipText("  "+data.ListHeaderRow, content.W))
+	}
+
+	for row := 0; row < listContent.H && scroll+row < len(items); row++ {
 		index := scroll + row
 		item := items[index]
-		lineRect := Rect{X: content.X, Y: content.Y + row, W: content.W, H: 1}
+		lineRect := Rect{X: listContent.X, Y: listContent.Y + row, W: listContent.W, H: 1}
 
 		style := theme.Text
 		prefix := "  "
@@ -770,7 +784,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 		}
 
 		line := prefix + item.Row
-		buffer.WriteString(content.X, content.Y+row, style, clipText(line, content.W))
+		buffer.WriteString(listContent.X, listContent.Y+row, style, clipText(line, listContent.W))
 	}
 }
 

@@ -41,6 +41,7 @@ type ItemActionData struct {
 	ComposeMode   string
 	ComposeTitle  string
 	ComposeFields map[string]string
+	ComposeLines  []CommandLine
 }
 
 // ListItemData is a structured row plus detail content for list-style screens.
@@ -54,10 +55,11 @@ type ListItemData struct {
 
 // ListScreenData is the neutral view model for list-style TUI sections.
 type ListScreenData struct {
-	HeaderLines  []string
-	SummaryLines []string
-	Items        []ListItemData
-	EmptyLines   []string
+	HeaderLines   []string
+	SummaryLines  []string
+	ListHeaderRow string
+	Items         []ListItemData
+	EmptyLines    []string
 }
 
 // ShellData contains the full TUI snapshot.

@@ -60,6 +60,21 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 			}
 		}
 
+		renameAction := render.ItemActionData{
+			Trigger:     render.ActionEdit,
+			ID:          tuiCommandAccountRename,
+			Label:       "u rename",
+			Mode:        render.ItemActionModeInput,
+			InputTitle:  fmt.Sprintf("Rename account %s", record.Code),
+			InputPrompt: "New name",
+			Placeholder: record.Name,
+			InputHelp: []string{
+				"Code: " + record.Code + " (immutable)",
+				"Type: " + string(record.Type) + " (immutable)",
+				"Current name: " + record.Name,
+			},
+		}
+
 		deleteAction := render.ItemActionData{
 			Trigger:      render.ActionDelete,
 			ID:           tuiCommandAccountDelete,
@@ -82,7 +97,7 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 				"Code: " + record.Code + " (immutable)",
 				"Used accounts may be marked inactive. Accounts with postings cannot be deleted.",
 			},
-			Actions: []render.ItemActionData{deleteAction, toggleAction},
+			Actions: []render.ItemActionData{renameAction, deleteAction, toggleAction},
 		})
 	}
 
