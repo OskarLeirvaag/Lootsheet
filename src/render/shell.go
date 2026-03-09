@@ -561,6 +561,13 @@ func sectionTexture(section Section) PanelTexture {
 	return PanelTextureBrick
 }
 
+func sectionBorders(section Section) *BorderSet {
+	if section == SectionAssets {
+		return &runicBorders
+	}
+	return nil
+}
+
 func (s *Shell) footerHelpText(keymap KeyMap) string {
 	if s.input != nil {
 		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel  q cancel"
@@ -693,6 +700,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 	}
 	accent := s.styleForSection(theme, section)
 	tex := sectionTexture(section)
+	brd := sectionBorders(section)
 
 	if rect.W < 48 || rect.H < 10 {
 		DrawPanel(buffer, rect, theme, Panel{
@@ -704,6 +712,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 			BorderStyle: &accent,
 			TitleStyle:  &accent,
 			Texture:     tex,
+			Borders:     brd,
 		})
 		return
 	}
@@ -734,6 +743,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
 		Texture:     tex,
+		Borders:     brd,
 	})
 
 	selectedIndex := s.currentSelectionIndex(section)
@@ -760,6 +770,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
 		Texture:     tex,
+		Borders:     brd,
 	})
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
@@ -770,6 +781,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 	title := section.Title()
 	accent := s.styleForSection(theme, section)
 	tex := sectionTexture(section)
+	brd := sectionBorders(section)
 	if len(items) == 0 {
 		DrawPanel(buffer, rect, theme, Panel{
 			Title:       title,
@@ -777,6 +789,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 			BorderStyle: &accent,
 			TitleStyle:  &accent,
 			Texture:     tex,
+			Borders:     brd,
 		})
 		s.viewHeights[section] = 0
 		s.scrolls[section] = 0
@@ -788,6 +801,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
 		Texture:     tex,
+		Borders:     brd,
 	})
 
 	content := panelContentRect(rect, buffer.Bounds())
@@ -816,6 +830,8 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 		Title:       title,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     tex,
+		Borders:     brd,
 	})
 
 	for row := 0; row < content.H && scroll+row < len(items); row++ {
@@ -866,6 +882,7 @@ func (s *Shell) renderConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
 		Lines:       lines,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     PanelTextureNone,
 	})
 }
 
@@ -909,6 +926,7 @@ func (s *Shell) renderInputModal(buffer *Buffer, rect Rect, theme *Theme) {
 		Lines:       lines,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     PanelTextureNone,
 	})
 }
 
@@ -939,6 +957,7 @@ func (s *Shell) renderGlossaryModal(buffer *Buffer, rect Rect, theme *Theme) {
 		Lines:       lines,
 		BorderStyle: &accent,
 		TitleStyle:  &accent,
+		Texture:     PanelTextureNone,
 	})
 }
 

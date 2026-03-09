@@ -61,6 +61,14 @@ func (b *Buffer) Set(x int, y int, value rune, style tcell.Style) {
 	b.cells[(y*b.width)+x] = Cell{Rune: value, Style: style}
 }
 
+// Get returns the cell at the given position, or a zero Cell if out of bounds.
+func (b *Buffer) Get(x int, y int) Cell {
+	if b == nil || x < 0 || y < 0 || x >= b.width || y >= b.height {
+		return Cell{}
+	}
+	return b.cells[(y*b.width)+x]
+}
+
 // FillRect fills a visible sub-rectangle.
 func (b *Buffer) FillRect(rect Rect, value rune, style tcell.Style) {
 	if b == nil {

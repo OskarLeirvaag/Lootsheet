@@ -754,14 +754,30 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
-	left, right := rect.SplitVertical(maxInt(38, rect.W/2), 1)
+	leftWidth := maxInt(38, rect.W/2)
+	left, right := rect.SplitVertical(leftWidth, 1)
+	gapX := left.X + left.W
+	if gapX < right.X {
+		buffer.FillRect(Rect{X: gapX, Y: rect.Y, W: right.X - gapX, H: rect.H}, ' ', theme.Panel)
+	}
+	accent := s.styleForSection(theme, s.Section)
+	tex := sectionTexture(s.Section)
+	brd := sectionBorders(s.Section)
 	DrawPanel(buffer, left, theme, Panel{
-		Title: s.composeTitle(),
-		Lines: s.composeFormLines(),
+		Title:       s.composeTitle(),
+		Lines:       s.composeFormLines(),
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
+		Texture:     tex,
+		Borders:     brd,
 	})
 	DrawPanel(buffer, right, theme, Panel{
-		Title: "Preview",
-		Lines: s.composePreviewLines(),
+		Title:       "Preview",
+		Lines:       s.composePreviewLines(),
+		BorderStyle: &accent,
+		TitleStyle:  &accent,
+		Texture:     tex,
+		Borders:     brd,
 	})
 }
 
