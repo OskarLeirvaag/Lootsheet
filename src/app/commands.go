@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/OskarLeirvaag/Lootsheet/src/report"
 	"github.com/spf13/cobra"
 )
@@ -78,6 +80,30 @@ func (a *Application) newDatabaseCommand() *cobra.Command {
 func (a *Application) newInitCommand() *cobra.Command {
 	return a.newNoArgsLeafCommand("init", "Initialize a fresh LootSheet database", initHelpText, func(ctx context.Context) error {
 		return a.runInit(ctx)
+	})
+}
+
+func (a *Application) newTUICommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tui",
+		Short: "Open the full-screen terminal TUI shell",
+		Long:  tuiHelpText,
+	}
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		assets, err := config.LoadInitAssets()
+		if err != nil {
+			return err
+		}
+
+		return render.Run(ctx, &render.Options{
+			ShellLoader: func(ctx context.Context) (render.ShellData, error) {
+				return buildTUIShellData(ctx, a.config.Paths.DatabasePath, assets)
+			},
+			CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
+				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, assets)
+			},
+		})
 	})
 }
 
