@@ -8,7 +8,7 @@ import (
 func TestDashboardRenderShowsPanelsAndFooterHelp(t *testing.T) {
 	theme := DefaultTheme()
 	keymap := DefaultKeyMap()
-	buffer := NewBuffer(80, 24, theme.Base)
+	buffer := NewBuffer(120, 30, theme.Base)
 
 	(&Dashboard{}).Render(buffer, &theme, keymap)
 
@@ -20,6 +20,7 @@ func TestDashboardRenderShowsPanelsAndFooterHelp(t *testing.T) {
 		"Party Hoard",
 		"Ledger Snapshot",
 		"Quest Register",
+		"Asset Register",
 		"e  I have an expense",
 		"q quit",
 		"Esc quit",
@@ -46,7 +47,7 @@ func TestDashboardRenderFallsBackForSmallTerminals(t *testing.T) {
 func TestDashboardRenderUsesProvidedData(t *testing.T) {
 	theme := DefaultTheme()
 	keymap := DefaultKeyMap()
-	buffer := NewBuffer(80, 24, theme.Base)
+	buffer := NewBuffer(120, 30, theme.Base)
 
 	(&Dashboard{
 		Data: DashboardData{
@@ -58,6 +59,7 @@ func TestDashboardRenderUsesProvidedData(t *testing.T) {
 			LedgerLines:     []string{"Status: BALANCED"},
 			QuestLines:      []string{"Receivables: 1"},
 			LootLines:       []string{"Tracked items: 1"},
+			AssetLines:      []string{"Tracked assets: 2"},
 		},
 	}).Render(buffer, &theme, keymap)
 
@@ -71,6 +73,7 @@ func TestDashboardRenderUsesProvidedData(t *testing.T) {
 		"Status: BALANCED",
 		"Receivables: 1",
 		"Unsold loot: 8 GP",
+		"Tracked assets: 2",
 	} {
 		if !strings.Contains(output, token) {
 			t.Fatalf("dashboard output missing %q:\n%s", token, output)

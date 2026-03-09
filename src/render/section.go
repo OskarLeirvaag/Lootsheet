@@ -9,6 +9,7 @@ const (
 	SectionJournal
 	SectionQuests
 	SectionLoot
+	SectionAssets
 )
 
 var orderedSections = []Section{
@@ -17,6 +18,7 @@ var orderedSections = []Section{
 	SectionJournal,
 	SectionQuests,
 	SectionLoot,
+	SectionAssets,
 }
 
 // Title returns the user-facing section name.
@@ -30,6 +32,8 @@ func (s Section) Title() string {
 		return "Quests"
 	case SectionLoot:
 		return "Loot"
+	case SectionAssets:
+		return "Assets"
 	default:
 		return "Dashboard"
 	}

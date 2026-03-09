@@ -11,7 +11,7 @@ func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet")
+	item, err := CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create item: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
 		t.Fatalf("second appraisal: %v", err)
 	}
 
-	rows, err := ListBrowseItems(ctx, databasePath)
+	rows, err := ListBrowseItems(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list browse items: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *test
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 1, "", "")
+	item, err := CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create item: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *test
 		t.Fatalf("recognize appraisal: %v", err)
 	}
 
-	rows, err := ListBrowseItems(ctx, databasePath)
+	rows, err := ListBrowseItems(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list browse items: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestListBrowseItemsExcludesSoldItems(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "")
+	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create item: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestListBrowseItemsExcludesSoldItems(t *testing.T) {
 		t.Fatalf("sell item: %v", err)
 	}
 
-	rows, err := ListBrowseItems(ctx, databasePath)
+	rows, err := ListBrowseItems(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list browse items: %v", err)
 	}

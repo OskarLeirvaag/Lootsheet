@@ -21,7 +21,7 @@ func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 		"LootSheet TUI",
 		"Section: Dashboard",
 		"Sections: [Dashboard]   Accounts     Journal      Quests       Loot",
-		"1-5 jump",
+		"1-6 jump",
 		"e/i/a entry",
 		"? terms",
 		"q quit",

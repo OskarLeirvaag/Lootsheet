@@ -32,10 +32,15 @@ const (
 	tuiCommandQuestUpdate       = "quest.update"
 	tuiCommandQuestCollectFull  = "quest.collect_full"
 	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
-	tuiCommandLootCreate        = "loot.create"
-	tuiCommandLootUpdate        = "loot.update"
-	tuiCommandLootRecognize     = "loot.recognize_latest"
-	tuiCommandLootSell          = "loot.sell"
+	tuiCommandLootCreate             = "loot.create"
+	tuiCommandLootUpdate             = "loot.update"
+	tuiCommandLootRecognize          = "loot.recognize_latest"
+	tuiCommandLootSell               = "loot.sell"
+	tuiCommandLootTransferToAsset    = "loot.transfer_to_asset"
+	tuiCommandAssetCreate            = "asset.create"
+	tuiCommandAssetUpdate            = "asset.update"
+	tuiCommandAssetRecognize         = "asset.recognize_latest"
+	tuiCommandAssetTransferToLoot    = "asset.transfer_to_loot"
 )
 
 var tuiNow = time.Now
@@ -69,7 +74,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
 				fmt.Sprintf("Read-only snapshot from %s.", databaseName),
-				"Use arrows, Tab, or 1-5 to move between boxed screens. Use e/i/a for guided entry creation.",
+				"Use arrows, Tab, or 1-6 to move between boxed screens. Use e/i/a for guided entry creation.",
 			},
 			HoardLines: []string{
 				"To share now: awaiting ledger snapshot.",
@@ -119,6 +124,16 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 			EmptyLines: []string{
 				"No loot tracked yet.",
 				"Recognition appears for held items with a latest appraisal of at least 1 CP. Sale appears for recognized items.",
+			},
+		},
+		Assets: render.ListScreenData{
+			HeaderLines: []string{
+				fmt.Sprintf("Party asset register from %s.", databaseName),
+				"Select an asset to inspect it. `a` adds, `u` edits, `n` recognizes the latest appraisal, and `t` transfers to loot.",
+			},
+			EmptyLines: []string{
+				"No assets tracked yet.",
+				"Assets are high-value items the party keeps. Transfer to loot when ready to sell.",
 			},
 		},
 	}
@@ -205,7 +220,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 		}
 	}
 
-	lootRows, err := report.GetLootSummary(ctx, databasePath)
+	lootRows, err := report.GetLootSummary(ctx, databasePath, "loot")
 	lootSummaryAvailable := false
 	if err != nil {
 		data.Dashboard.LootLines = unavailablePanelLines(err)
@@ -218,7 +233,7 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 	}
 
 	if lootSummaryAvailable {
-		browseItems, browseErr := loot.ListBrowseItems(ctx, databasePath)
+		browseItems, browseErr := loot.ListBrowseItems(ctx, databasePath, "loot")
 		if browseErr != nil {
 			if len(data.Loot.SummaryLines) == 0 {
 				data.Loot = unavailableSectionData("Loot register unavailable.", browseErr.Error())
@@ -228,6 +243,32 @@ func buildTUIShellData(ctx context.Context, databasePath string, assets config.I
 			panelErrors = append(panelErrors, "loot")
 		} else {
 			data.Loot.Items = buildLootItems(browseItems, tuiToday())
+		}
+	}
+
+	assetRows, assetSummaryErr := report.GetLootSummary(ctx, databasePath, "asset")
+	assetSummaryAvailable := false
+	if assetSummaryErr != nil {
+		data.Dashboard.AssetLines = unavailablePanelLines(assetSummaryErr)
+		data.Assets = unavailableSectionData("Asset register unavailable.", assetSummaryErr.Error())
+		panelErrors = append(panelErrors, "assets")
+	} else {
+		data.Dashboard.AssetLines = summarizeAssets(assetRows)
+		data.Assets.SummaryLines = summarizeAssets(assetRows)
+		assetSummaryAvailable = true
+	}
+
+	if assetSummaryAvailable {
+		assetBrowseItems, assetBrowseErr := loot.ListBrowseItems(ctx, databasePath, "asset")
+		if assetBrowseErr != nil {
+			if len(data.Assets.SummaryLines) == 0 {
+				data.Assets = unavailableSectionData("Asset register unavailable.", assetBrowseErr.Error())
+			}
+			data.Assets.Items = nil
+			data.Assets.EmptyLines = unavailablePanelLines(assetBrowseErr)
+			panelErrors = append(panelErrors, "assets")
+		} else {
+			data.Assets.Items = buildAssetItems(assetBrowseItems, tuiToday())
 		}
 	}
 
@@ -537,6 +578,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			quantity,
 			strings.TrimSpace(command.Fields["holder"]),
 			strings.TrimSpace(command.Fields["notes"]),
+			"loot",
 		)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: err.Error()}
@@ -576,7 +618,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionLoot
 		selectItemKey = result.ID
 	case tuiCommandLootRecognize:
-		items, err := loot.ListBrowseItems(ctx, databasePath)
+		items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -599,7 +641,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Recognized loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	case tuiCommandLootSell:
-		items, err := loot.ListBrowseItems(ctx, databasePath)
+		items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -634,6 +676,108 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Sold loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
+	case tuiCommandLootTransferToAsset:
+		if err := loot.TransferItemType(ctx, databasePath, command.ItemKey, "asset"); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Transferred item to asset register."),
+		}
+		navigateTo = render.SectionAssets
+		selectItemKey = command.ItemKey
+	case tuiCommandAssetCreate:
+		quantityText := strings.TrimSpace(command.Fields["quantity"])
+		if quantityText == "" {
+			quantityText = "1"
+		}
+		quantity, err := strconv.Atoi(quantityText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+		}
+		if quantity <= 0 {
+			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
+		}
+		result, err := loot.CreateLootItem(
+			ctx,
+			databasePath,
+			strings.TrimSpace(command.Fields["name"]),
+			strings.TrimSpace(command.Fields["source"]),
+			quantity,
+			strings.TrimSpace(command.Fields["holder"]),
+			strings.TrimSpace(command.Fields["notes"]),
+			"asset",
+		)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Created asset %q.", result.Name),
+		}
+		navigateTo = render.SectionAssets
+		selectItemKey = result.ID
+	case tuiCommandAssetUpdate:
+		quantityText := strings.TrimSpace(command.Fields["quantity"])
+		if quantityText == "" {
+			quantityText = "1"
+		}
+		quantity, err := strconv.Atoi(quantityText)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+		}
+		if quantity <= 0 {
+			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
+		}
+		result, err := loot.UpdateLootItem(ctx, databasePath, command.ItemKey, &loot.UpdateLootItemInput{
+			Name:     strings.TrimSpace(command.Fields["name"]),
+			Source:   strings.TrimSpace(command.Fields["source"]),
+			Quantity: quantity,
+			Holder:   strings.TrimSpace(command.Fields["holder"]),
+			Notes:    strings.TrimSpace(command.Fields["notes"]),
+		})
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Updated asset %q.", result.Name),
+		}
+		navigateTo = render.SectionAssets
+		selectItemKey = result.ID
+	case tuiCommandAssetRecognize:
+		items, err := loot.ListBrowseItems(ctx, databasePath, "asset")
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+
+		item, ok := findBrowseLootItem(items, command.ItemKey)
+		if !ok {
+			return render.CommandResult{}, fmt.Errorf("asset %q does not exist", command.ItemKey)
+		}
+		if !lootRecognizable(&item) {
+			return render.CommandResult{}, fmt.Errorf("asset %q cannot be recognized right now", command.ItemKey)
+		}
+
+		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, item.LatestAppraisal.ID, today, "")
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Recognized asset %q as entry #%d.", item.Name, result.EntryNumber),
+		}
+	case tuiCommandAssetTransferToLoot:
+		if err := loot.TransferItemType(ctx, databasePath, command.ItemKey, "loot"); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Transferred item to loot register."),
+		}
+		navigateTo = render.SectionLoot
+		selectItemKey = command.ItemKey
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
@@ -679,11 +823,13 @@ func unavailableShellData(status *ledger.DatabaseStatus, detail string) render.S
 			LedgerLines:     []string{"No ledger totals loaded.", stateLine},
 			QuestLines:      []string{"No quest register data loaded.", stateLine},
 			LootLines:       []string{"No loot register data loaded.", stateLine},
+			AssetLines:      []string{"No asset register data loaded.", stateLine},
 		},
 		Accounts: unavailableSectionData(stateLine, detail),
 		Journal:  unavailableSectionData(stateLine, detail),
 		Quests:   unavailableSectionData(stateLine, detail),
 		Loot:     unavailableSectionData(stateLine, detail),
+		Assets:   unavailableSectionData(stateLine, detail),
 	}
 }
 
@@ -1246,6 +1392,138 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 				Placeholder: tools.FormatAmount(row.RecognizedAppraisalValue),
 			})
 		}
+		actions = append(actions, render.ItemActionData{
+			Trigger:      render.ActionToggle,
+			ID:           tuiCommandLootTransferToAsset,
+			Label:        "t to assets",
+			Mode:         render.ItemActionModeConfirm,
+			ConfirmTitle: fmt.Sprintf("Transfer %q to assets?", row.Name),
+			ConfirmLines: []string{
+				"Move this item to the asset register for keeping.",
+				"The item will appear in the Assets tab.",
+			},
+		})
+
+		items = append(items, render.ListItemData{
+			Key:         row.ID,
+			Row:         fmt.Sprintf("%-12s qty:%-3d %-11s %s", lootRowAppraisalLabel(row), row.Quantity, string(row.Status), name),
+			DetailTitle: row.Name,
+			DetailLines: detailLines,
+			Actions:     actions,
+		})
+	}
+
+	return items
+}
+
+func summarizeAssets(rows []report.LootSummaryRow) []string {
+	totalQuantity := 0
+	recognized := 0
+	var appraisedValue int64
+
+	for _, row := range rows {
+		totalQuantity += row.Quantity
+		appraisedValue += row.LatestAppraisalValue
+		if row.Status == ledger.LootStatusRecognized {
+			recognized++
+		}
+	}
+
+	return []string{
+		fmt.Sprintf("Tracked assets: %d", len(rows)),
+		fmt.Sprintf("Recognized: %d", recognized),
+		fmt.Sprintf("Total quantity: %d", totalQuantity),
+		"Appraised value: " + tools.FormatAmount(appraisedValue),
+	}
+}
+
+func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListItemData {
+	items := make([]render.ListItemData, 0, len(rows))
+	for index := range rows {
+		row := &rows[index]
+		name := row.Name
+		if strings.TrimSpace(row.Source) != "" {
+			name = name + " (" + row.Source + ")"
+		}
+
+		detailLines := []string{
+			"Status: " + string(row.Status),
+			fmt.Sprintf("Quantity: %d", row.Quantity),
+			"Accounting state: " + lootAccountingState(row),
+			"Latest appraisal: " + lootLatestAppraisalText(row),
+			fmt.Sprintf("Appraisals tracked: %d", row.AppraisalCount),
+		}
+		if row.HasRecognizedAppraisal {
+			detailLines = append(detailLines, "Recognized value: "+lootRecognizedValueText(row))
+		}
+		if row.LatestAppraisal != nil && row.LatestAppraisal.AppraisedAt != "" {
+			detailLines = append(detailLines, "Appraised on: "+row.LatestAppraisal.AppraisedAt)
+		}
+		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Appraiser) != "" {
+			detailLines = append(detailLines, "Appraiser: "+row.LatestAppraisal.Appraiser)
+		}
+		if strings.TrimSpace(row.Source) != "" {
+			detailLines = append(detailLines, "Source: "+row.Source)
+		}
+		if strings.TrimSpace(row.Holder) != "" {
+			detailLines = append(detailLines, "Holder: "+row.Holder)
+		}
+		if row.LatestAppraisal != nil && strings.TrimSpace(row.LatestAppraisal.Notes) != "" {
+			detailLines = append(detailLines, "Appraisal notes: "+row.LatestAppraisal.Notes)
+		}
+		if strings.TrimSpace(row.Notes) != "" {
+			detailLines = append(detailLines, "Item notes: "+row.Notes)
+		}
+
+		var actions []render.ItemActionData
+		actions = append(actions, render.ItemActionData{
+			Trigger:      render.ActionEdit,
+			ID:           tuiCommandAssetUpdate,
+			Label:        "u edit",
+			Mode:         render.ItemActionModeCompose,
+			ComposeMode:  "asset",
+			ComposeTitle: "Edit Asset",
+			ComposeFields: map[string]string{
+				"name":     row.Name,
+				"source":   row.Source,
+				"quantity": strconv.Itoa(row.Quantity),
+				"holder":   row.Holder,
+				"notes":    row.Notes,
+			},
+		})
+		if lootRecognizable(row) {
+			appraisalDetail := "This uses the latest appraisal."
+			if row.AppraisalCount > 1 {
+				appraisalDetail = fmt.Sprintf("This uses the latest of %d appraisals.", row.AppraisalCount)
+			}
+
+			actions = append(actions, render.ItemActionData{
+				Trigger:      render.ActionRecognize,
+				ID:           tuiCommandAssetRecognize,
+				Label:        "n recognize",
+				Mode:         render.ItemActionModeConfirm,
+				ConfirmTitle: fmt.Sprintf("Recognize %q?", row.Name),
+				ConfirmLines: []string{
+					"Latest appraisal: " + lootLatestAppraisalText(row),
+					"Appraisal date: " + row.LatestAppraisal.AppraisedAt,
+					"Recognition date: " + today,
+					appraisalDetail,
+					"A new posted journal entry will be created.",
+					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Recognize loot appraisal: %s", row.LatestAppraisal.ID)),
+				},
+			})
+		}
+		actions = append(actions, render.ItemActionData{
+			Trigger:      render.ActionToggle,
+			ID:           tuiCommandAssetTransferToLoot,
+			Label:        "t to loot",
+			Mode:         render.ItemActionModeConfirm,
+			ConfirmTitle: fmt.Sprintf("Transfer %q to loot?", row.Name),
+			ConfirmLines: []string{
+				"Move this item to the loot register for sale.",
+				"The item will appear in the Loot tab.",
+			},
+		})
 
 		items = append(items, render.ListItemData{
 			Key:         row.ID,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
@@ -24,6 +25,7 @@ type BrowseItemRecord struct {
 	Name                     string
 	Source                   string
 	Status                   ledger.LootStatus
+	ItemType                 string
 	Quantity                 int
 	Holder                   string
 	Notes                    string
@@ -33,8 +35,13 @@ type BrowseItemRecord struct {
 	LatestAppraisal          *BrowseAppraisalRecord
 }
 
-// ListBrowseItems returns held and recognized loot items with latest-appraisal detail.
-func ListBrowseItems(ctx context.Context, databasePath string) ([]BrowseItemRecord, error) {
+// ListBrowseItems returns held and recognized items of the given type with latest-appraisal detail.
+func ListBrowseItems(ctx context.Context, databasePath string, itemType string) ([]BrowseItemRecord, error) {
+	itemType = strings.TrimSpace(itemType)
+	if itemType == "" {
+		itemType = "loot"
+	}
+
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]BrowseItemRecord, error) {
 		itemRows, err := db.QueryContext(ctx, `
 			SELECT
@@ -42,13 +49,14 @@ func ListBrowseItems(ctx context.Context, databasePath string) ([]BrowseItemReco
 				name,
 				source,
 				status,
+				item_type,
 				quantity,
 				holder,
 				notes
 			FROM loot_items
-			WHERE status IN ('held', 'recognized')
+			WHERE item_type = ? AND status IN ('held', 'recognized')
 			ORDER BY status, name, created_at, id
-		`)
+		`, itemType)
 		if err != nil {
 			return nil, fmt.Errorf("query loot browse items: %w", err)
 		}
@@ -65,6 +73,7 @@ func ListBrowseItems(ctx context.Context, databasePath string) ([]BrowseItemReco
 				&item.Name,
 				&item.Source,
 				&status,
+				&item.ItemType,
 				&item.Quantity,
 				&item.Holder,
 				&item.Notes,

@@ -67,6 +67,7 @@ type ShellData struct {
 	Journal      ListScreenData
 	Quests       ListScreenData
 	Loot         ListScreenData
+	Assets       ListScreenData
 	EntryCatalog EntryCatalog
 }
 
@@ -78,6 +79,7 @@ func DefaultShellData() ShellData {
 		Journal:   defaultListScreenData(SectionJournal),
 		Quests:    defaultListScreenData(SectionQuests),
 		Loot:      defaultListScreenData(SectionLoot),
+		Assets:    defaultListScreenData(SectionAssets),
 	}
 }
 
@@ -112,6 +114,11 @@ func ErrorShellData(summary string, detail string) ShellData {
 			SummaryLines: []string{"Loot data unavailable.", detail},
 			EmptyLines:   []string{"No loot rows loaded.", detail},
 		},
+		Assets: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Asset data unavailable.", detail},
+			EmptyLines:   []string{"No asset rows loaded.", detail},
+		},
 	}
 }
 
@@ -137,6 +144,9 @@ func resolveShellData(data *ShellData) ShellData {
 	if listScreenDataEmpty(&resolved.Loot) {
 		resolved.Loot = defaultListScreenData(SectionLoot)
 	}
+	if listScreenDataEmpty(&resolved.Assets) {
+		resolved.Assets = defaultListScreenData(SectionAssets)
+	}
 
 	return resolved
 }
@@ -150,7 +160,8 @@ func shellDataEmpty(data *ShellData) bool {
 		listScreenDataEmpty(&data.Accounts) &&
 		listScreenDataEmpty(&data.Journal) &&
 		listScreenDataEmpty(&data.Quests) &&
-		listScreenDataEmpty(&data.Loot)
+		listScreenDataEmpty(&data.Loot) &&
+		listScreenDataEmpty(&data.Assets)
 }
 
 func listScreenDataEmpty(data *ListScreenData) bool {
@@ -226,6 +237,21 @@ func defaultListScreenData(section Section) ListScreenData {
 			EmptyLines: []string{
 				"No loot rows loaded yet.",
 				"App-side adapters fill this screen with live loot data and actions.",
+			},
+		}
+	case SectionAssets:
+		return ListScreenData{
+			HeaderLines: []string{
+				"Party asset register shell.",
+				"High-value items the party intends to keep.",
+			},
+			SummaryLines: []string{
+				"Assets share the loot appraisal system.",
+				"Transfer items to the loot register when ready to sell.",
+			},
+			EmptyLines: []string{
+				"No asset rows loaded yet.",
+				"App-side adapters fill this screen with live asset data and actions.",
 			},
 		}
 	default:

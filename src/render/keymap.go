@@ -21,6 +21,8 @@ const (
 	ActionShowJournal   Action = "show_journal"
 	ActionShowQuests    Action = "show_quests"
 	ActionShowLoot      Action = "show_loot"
+	ActionShowAssets    Action = "show_assets"
+	ActionTransfer      Action = "transfer"
 	ActionMoveUp        Action = "move_up"
 	ActionMoveDown      Action = "move_down"
 	ActionPageUp        Action = "page_up"
@@ -127,7 +129,7 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionShowDashboard,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '1'},
-				Label:  "1-5 jump",
+				Label:  "1-6 jump",
 			},
 			{
 				Action: ActionShowAccounts,
@@ -144,6 +146,10 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionShowLoot,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
+			},
+			{
+				Action: ActionShowAssets,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '6'},
 			},
 			{
 				Action: ActionNewExpense,

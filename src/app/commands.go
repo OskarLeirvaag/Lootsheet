@@ -180,7 +180,7 @@ func (a *Application) newLootCommand() *cobra.Command {
 	cmd.AddCommand(
 		a.newLootCreateCommand(),
 		a.newNoArgsLeafCommand("list", "List tracked loot items", lootListHelpText, func(ctx context.Context) error {
-			return loot.RunList(ctx, a.handlerContext())
+			return loot.RunList(ctx, a.handlerContext(), "loot")
 		}),
 		a.newLootAppraiseCommand(),
 		a.newLootRecognizeCommand(),

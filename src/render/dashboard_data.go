@@ -10,6 +10,7 @@ type DashboardData struct {
 	LedgerLines     []string
 	QuestLines      []string
 	LootLines       []string
+	AssetLines      []string
 }
 
 // DefaultDashboardData returns the placeholder content used when no adapter is wired yet.
@@ -51,6 +52,10 @@ func DefaultDashboardData() DashboardData {
 			"Unrealized appraisals stay off-ledger until recognized.",
 			"Loot recognition is the next interactive TUI workflow.",
 		},
+		AssetLines: []string{
+			"High-value items the party keeps.",
+			"Transfer to loot when ready to sell.",
+		},
 	}
 }
 
@@ -72,6 +77,7 @@ func ErrorDashboardData(summary string, detail string) DashboardData {
 		LedgerLines:     []string{"Ledger snapshot unavailable.", detail},
 		QuestLines:      []string{"Quest register unavailable.", detail},
 		LootLines:       []string{"Loot register unavailable.", detail},
+		AssetLines:      []string{"Asset register unavailable.", detail},
 	}
 }
 
@@ -99,5 +105,6 @@ func dashboardDataEmpty(data *DashboardData) bool {
 		len(data.QuickEntryLines) == 0 &&
 		len(data.LedgerLines) == 0 &&
 		len(data.QuestLines) == 0 &&
-		len(data.LootLines) == 0
+		len(data.LootLines) == 0 &&
+		len(data.AssetLines) == 0
 }

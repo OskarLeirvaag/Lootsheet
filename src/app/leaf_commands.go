@@ -507,7 +507,7 @@ func (a *Application) newLootCreateCommand() *cobra.Command {
 			return fmt.Errorf("--name is required")
 		}
 
-		return loot.RunCreate(ctx, a.handlerContext(), name, source, quantity, holder, notes)
+		return loot.RunCreate(ctx, a.handlerContext(), name, source, quantity, holder, notes, "loot")
 	})
 }
 

@@ -10,24 +10,60 @@ import (
 )
 
 var (
-	brickOnce    sync.Once
-	brickCached  [][]rune
+	brickOnce   sync.Once
+	brickCached [][]rune
+	leafOnce    sync.Once
+	leafCached  [][]rune
 )
 
 func brickPattern() [][]rune {
 	brickOnce.Do(func() {
-		data, err := texture.FS.ReadFile("bricks.ascii")
-		if err != nil {
-			return
-		}
-		lines := strings.Split(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n")
-		brickCached = make([][]rune, len(lines))
-		for i, line := range lines {
-			brickCached[i] = []rune(line)
-		}
+		brickCached = loadTexturePattern("bricks.ascii")
 	})
 	return brickCached
 }
+
+func leafPattern() [][]rune {
+	leafOnce.Do(func() {
+		leafCached = loadTexturePattern("tri-leaves.ascii")
+	})
+	return leafCached
+}
+
+func loadTexturePattern(name string) [][]rune {
+	data, err := texture.FS.ReadFile(name)
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n")
+	pattern := make([][]rune, len(lines))
+	maxW := 0
+	for i, line := range lines {
+		pattern[i] = []rune(line)
+		if len(pattern[i]) > maxW {
+			maxW = len(pattern[i])
+		}
+	}
+	for i, row := range pattern {
+		if len(row) < maxW {
+			padded := make([]rune, maxW)
+			copy(padded, row)
+			for j := len(row); j < maxW; j++ {
+				padded[j] = ' '
+			}
+			pattern[i] = padded
+		}
+	}
+	return pattern
+}
+
+// PanelTexture selects the background fill pattern for a panel.
+type PanelTexture int
+
+const (
+	PanelTextureBrick PanelTexture = iota
+	PanelTextureLeaf
+)
 
 // Panel describes a boxed panel and its body lines.
 type Panel struct {
@@ -35,6 +71,7 @@ type Panel struct {
 	Lines       []string
 	BorderStyle *tcell.Style
 	TitleStyle  *tcell.Style
+	Texture     PanelTexture
 }
 
 // DrawPanel renders a simple boxed panel into the frame buffer.
@@ -49,8 +86,18 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 	}
 
 	buffer.FillRect(visible, ' ', theme.Panel)
-	if pattern := brickPattern(); pattern != nil {
-		buffer.FillTexture(visible, pattern, theme.Brick)
+	var pattern [][]rune
+	var texStyle tcell.Style
+	switch panel.Texture {
+	case PanelTextureLeaf:
+		pattern = leafPattern()
+		texStyle = theme.Leaf
+	default:
+		pattern = brickPattern()
+		texStyle = theme.Brick
+	}
+	if pattern != nil {
+		buffer.FillTexture(visible, pattern, texStyle)
 	}
 
 	borderStyle := theme.Border

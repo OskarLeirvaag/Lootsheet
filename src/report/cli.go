@@ -144,7 +144,7 @@ func RunPromisedQuests(ctx context.Context, hctx ledger.HandlerContext) error {
 
 // RunLootSummary generates and displays the loot summary report.
 func RunLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
-	rows, err := GetLootSummary(ctx, hctx.DatabasePath)
+	rows, err := GetLootSummary(ctx, hctx.DatabasePath, "loot")
 	if err != nil {
 		return err
 	}

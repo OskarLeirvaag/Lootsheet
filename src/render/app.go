@@ -122,6 +122,17 @@ func Run(ctx context.Context, options *Options) error {
 			if result.Redraw {
 				drawFrame(terminal, shell, &theme, keymap, true)
 			}
+		case *tcell.EventMouse:
+			var mouseResult handleResult
+			switch typed.Buttons() {
+			case tcell.WheelUp:
+				mouseResult = shell.HandleAction(ActionMoveUp)
+			case tcell.WheelDown:
+				mouseResult = shell.HandleAction(ActionMoveDown)
+			}
+			if mouseResult.Redraw {
+				drawFrame(terminal, shell, &theme, keymap, false)
+			}
 		case *tcell.EventResize:
 			drawFrame(terminal, shell, &theme, keymap, true)
 		case *tcell.EventInterrupt:

@@ -11,6 +11,7 @@ type LootItemRecord struct {
 	Name      string
 	Source    string
 	Status    ledger.LootStatus
+	ItemType  string
 	Quantity  int
 	Holder    string
 	Notes     string

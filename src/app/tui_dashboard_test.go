@@ -86,7 +86,7 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("complete quest: %v", err)
 	}
 
-	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "")
+	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "")
+	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -964,7 +964,7 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet")
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -987,8 +987,8 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 			continue
 		}
 		found = true
-		if len(row.Actions) != 2 {
-			t.Fatalf("loot row actions = %#v, want edit and recognize actions", row.Actions)
+		if len(row.Actions) != 3 {
+			t.Fatalf("loot row actions = %#v, want edit, recognize, and transfer actions", row.Actions)
 		}
 		if row.Actions[0].Trigger != render.ActionEdit || row.Actions[0].ID != tuiCommandLootUpdate {
 			t.Fatalf("loot edit action = %#v", row.Actions[0])
@@ -1044,7 +1044,7 @@ func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet")
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -1067,8 +1067,8 @@ func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(row.Actions) != 2 {
-			t.Fatalf("recognized loot row actions = %#v, want edit and sell actions", row.Actions)
+		if len(row.Actions) != 3 {
+			t.Fatalf("recognized loot row actions = %#v, want edit, sell, and transfer actions", row.Actions)
 		}
 		if row.Actions[0].Trigger != render.ActionEdit || row.Actions[0].ID != tuiCommandLootUpdate {
 			t.Fatalf("loot edit action = %#v", row.Actions[0])
@@ -1122,12 +1122,12 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	noAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Unknown Relic", "Ruins", 1, "", "")
+	noAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Unknown Relic", "Ruins", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create no-appraisal item: %v", err)
 	}
 
-	zeroAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Worthless Trinket", "Roadside", 1, "", "")
+	zeroAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Worthless Trinket", "Roadside", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create zero-appraisal item: %v", err)
 	}
@@ -1146,16 +1146,16 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 		switch row.Key {
 		case noAppraisal.ID:
 			foundNoAppraisal = true
-			if len(row.Actions) != 1 || row.Actions[0].ID != tuiCommandLootUpdate {
-				t.Fatalf("no-appraisal row should expose only edit: %#v", row)
+			if len(row.Actions) != 2 || row.Actions[0].ID != tuiCommandLootUpdate {
+				t.Fatalf("no-appraisal row should expose edit and transfer: %#v", row)
 			}
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: Unknown / none") {
 				t.Fatalf("no-appraisal detail = %#v", row.DetailLines)
 			}
 		case zeroAppraisal.ID:
 			foundZero = true
-			if len(row.Actions) != 1 || row.Actions[0].ID != tuiCommandLootUpdate {
-				t.Fatalf("zero-appraisal row should expose only edit: %#v", row)
+			if len(row.Actions) != 2 || row.Actions[0].ID != tuiCommandLootUpdate {
+				t.Fatalf("zero-appraisal row should expose edit and transfer: %#v", row)
 			}
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: 0 CP") {
 				t.Fatalf("zero-appraisal detail = %#v", row.DetailLines)
@@ -1181,7 +1181,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -1230,7 +1230,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 			continue
 		}
 		found = true
-		if len(row.Actions) != 2 || row.Actions[1].ID != tuiCommandLootSell {
+		if len(row.Actions) != 3 || row.Actions[1].ID != tuiCommandLootSell {
 			t.Fatalf("recognized loot should expose sell action after refresh: %#v", row)
 		}
 		detail := strings.Join(row.DetailLines, "\n")
@@ -1255,7 +1255,7 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -1301,7 +1301,7 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "")
+	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -1427,7 +1427,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 	databasePath := ledger.InitTestDB(t)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet")
+	item, err := loot.CreateLootItem(ctx, databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -1457,7 +1457,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 		t.Fatalf("status text = %q, want updated loot summary", result.Status.Text)
 	}
 
-	items, err := loot.ListLootItems(ctx, databasePath)
+	items, err := loot.ListLootItems(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list loot items: %v", err)
 	}
