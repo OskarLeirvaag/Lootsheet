@@ -48,10 +48,10 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 		buffer.Set(right, y, '│', borderStyle)
 	}
 
-	buffer.Set(visible.X, visible.Y, '┌', borderStyle)
-	buffer.Set(right, visible.Y, '┐', borderStyle)
-	buffer.Set(visible.X, bottom, '└', borderStyle)
-	buffer.Set(right, bottom, '┘', borderStyle)
+	buffer.Set(visible.X, visible.Y, '╔', borderStyle)
+	buffer.Set(right, visible.Y, '╗', borderStyle)
+	buffer.Set(visible.X, bottom, '╚', borderStyle)
+	buffer.Set(right, bottom, '╝', borderStyle)
 
 	title := clipText(panel.Title, maxInt(0, visible.W-4))
 	if title != "" {
