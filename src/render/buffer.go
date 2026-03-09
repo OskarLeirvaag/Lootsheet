@@ -79,6 +79,28 @@ func (b *Buffer) FillRect(rect Rect, value rune, style tcell.Style) {
 	}
 }
 
+// FillTexture tiles a repeating text pattern across a rectangle.
+func (b *Buffer) FillTexture(rect Rect, pattern [][]rune, style tcell.Style) {
+	if b == nil || len(pattern) == 0 {
+		return
+	}
+
+	visible := rect.Intersect(b.Bounds())
+	if visible.Empty() {
+		return
+	}
+
+	for y := visible.Y; y < visible.Y+visible.H; y++ {
+		row := pattern[y%len(pattern)]
+		if len(row) == 0 {
+			continue
+		}
+		for x := visible.X; x < visible.X+visible.W; x++ {
+			b.Set(x, y, row[x%len(row)], style)
+		}
+	}
+}
+
 // WriteString draws a single-line string clipped to the visible buffer width.
 func (b *Buffer) WriteString(x int, y int, style tcell.Style, text string) int {
 	if b == nil || y < 0 || y >= b.height {
