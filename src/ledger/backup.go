@@ -9,7 +9,11 @@ import (
 	"time"
 )
 
-const backupTimestampLayout = "20060102-150405.000000000"
+const (
+	backupTimestampLayout = "20060102-150405.000000000"
+	dirPerm               = 0o755
+	filePerm              = 0o600
+)
 
 func createDatabaseBackup(databasePath string, backupDir string) (string, error) {
 	if strings.TrimSpace(backupDir) == "" {
@@ -24,7 +28,7 @@ func createDatabaseBackup(databasePath string, backupDir string) (string, error)
 		return "", fmt.Errorf("database path %q is a directory", databasePath)
 	}
 
-	if err := os.MkdirAll(backupDir, 0o755); err != nil {
+	if err := os.MkdirAll(backupDir, dirPerm); err != nil {
 		return "", fmt.Errorf("create backup directory: %w", err)
 	}
 
@@ -41,7 +45,7 @@ func createDatabaseBackup(databasePath string, backupDir string) (string, error)
 	}
 	defer source.Close()
 
-	target, err := os.OpenFile(backupPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	target, err := os.OpenFile(backupPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, filePerm)
 	if err != nil {
 		return "", fmt.Errorf("create backup file: %w", err)
 	}

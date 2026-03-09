@@ -137,8 +137,8 @@ func (b *Buffer) Flush(screen Screen) {
 		return
 	}
 
-	for y := 0; y < b.height; y++ {
-		for x := 0; x < b.width; x++ {
+	for y := range b.height {
+		for x := range b.width {
 			cell := b.cells[(y*b.width)+x]
 			screen.SetContent(x, y, cell.Rune, nil, cell.Style)
 		}
@@ -152,9 +152,9 @@ func (b *Buffer) PlainText() string {
 	}
 
 	lines := make([]string, 0, b.height)
-	for y := 0; y < b.height; y++ {
+	for y := range b.height {
 		runes := make([]rune, b.width)
-		for x := 0; x < b.width; x++ {
+		for x := range b.width {
 			value := b.cells[(y*b.width)+x].Rune
 			if value == 0 {
 				value = ' '

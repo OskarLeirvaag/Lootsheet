@@ -10,7 +10,12 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
-const reportDateLayout = "2006-01-02"
+const (
+	reportDateLayout = "2006-01-02"
+
+	// hoursPerDay is used to convert a time.Duration to whole days.
+	hoursPerDay = 24
+)
 
 // WriteOffCandidateFilter controls which stale receivables are returned.
 type WriteOffCandidateFilter struct {
@@ -108,7 +113,7 @@ func GetWriteOffCandidates(ctx context.Context, databasePath string, filter Writ
 				continue
 			}
 
-			row.AgeDays = int(asOf.Sub(completedOn).Hours() / 24)
+			row.AgeDays = int(asOf.Sub(completedOn).Hours() / hoursPerDay)
 			row.Outstanding = row.PromisedReward - row.TotalPaid
 			if row.Outstanding <= 0 || row.AgeDays < filter.MinAgeDays {
 				continue

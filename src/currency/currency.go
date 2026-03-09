@@ -22,6 +22,10 @@ const (
 	CPPerGP = 100
 	// CPPerPP is the number of copper pieces in one platinum piece.
 	CPPerPP = 1000
+
+	// fractionalCPTolerance is the maximum allowed rounding error when checking
+	// that a parsed amount resolves to a whole number of copper pieces.
+	fractionalCPTolerance = 0.0001
 )
 
 // denominationPattern matches a single denomination token like "23.432PP" or "5SP".
@@ -116,7 +120,7 @@ func ParseAmount(input string) (int64, error) {
 
 	// Check that the result is a whole number of CP.
 	rounded := math.Round(totalCP)
-	if math.Abs(totalCP-rounded) > 0.0001 {
+	if math.Abs(totalCP-rounded) > fractionalCPTolerance {
 		return 0, fmt.Errorf("amount %q does not resolve to a whole number of copper pieces (got %.2f CP)", input, totalCP)
 	}
 

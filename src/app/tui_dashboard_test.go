@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -1279,7 +1280,8 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 		t.Fatal("expected invalid sale amount error")
 	}
 
-	inputErr, ok := err.(render.InputError)
+	var inputErr render.InputError
+	ok := errors.As(err, &inputErr)
 	if !ok {
 		t.Fatalf("error type = %T, want render.InputError", err)
 	}

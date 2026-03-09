@@ -16,6 +16,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// defaultMinAgeDays is the default minimum completed age in days for write-off candidates.
+const defaultMinAgeDays = 30
+
 func (a *Application) newNoArgsLeafCommand(use string, short string, helpText string, run func(context.Context) error) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use,
@@ -185,7 +188,7 @@ func (a *Application) newJournalPostCommand() *cobra.Command {
 	return a.newLeafCommand(cmd, func(ctx context.Context) error {
 		input, err := journal.BuildJournalPostInput(entryDate, description, debitSpecs, creditSpecs)
 		if err != nil {
-			return fmt.Errorf("%s\n\n%s", err, journalPostHelpText)
+			return fmt.Errorf("%w\n\n%s", err, journalPostHelpText)
 		}
 
 		return journal.RunPost(ctx, a.handlerContext(), input)
@@ -217,60 +220,65 @@ func (a *Application) newJournalReverseCommand() *cobra.Command {
 }
 
 func (a *Application) newEntryExpenseCommand() *cobra.Command {
-	var accountCode, paidFromCode, amountStr, date, description, memo string
-
-	cmd := &cobra.Command{
-		Use:   "expense",
-		Short: "Record a guided expense entry",
-		Long:  entryExpenseHelpText,
-	}
-	cmd.Flags().StringVar(&accountCode, "account", "", "expense account code (required)")
-	cmd.Flags().StringVar(&paidFromCode, "paid-from", "1000", "funding account code")
-	cmd.Flags().StringVar(&amountStr, "amount", "", "expense amount (required)")
-	cmd.Flags().StringVar(&date, "date", "", "entry date in YYYY-MM-DD (defaults to today)")
-	cmd.Flags().StringVar(&description, "description", "", "journal entry description (required)")
-	cmd.Flags().StringVar(&memo, "memo", "", "optional line memo")
-
-	return a.newLeafCommand(cmd, func(ctx context.Context) error {
-		if strings.TrimSpace(accountCode) == "" {
-			return fmt.Errorf("--account is required")
-		}
-		if strings.TrimSpace(amountStr) == "" {
-			return fmt.Errorf("--amount is required")
-		}
-		if strings.TrimSpace(description) == "" {
-			return fmt.Errorf("--description is required")
-		}
-		amount, err := currency.ParseAmount(amountStr)
-		if err != nil {
-			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
-		}
-		if strings.TrimSpace(date) == "" {
-			date = tuiToday()
-		}
-
-		return journal.RunExpense(ctx, a.handlerContext(), &journal.ExpenseEntryInput{
-			Date:               date,
-			Description:        description,
-			ExpenseAccountCode: accountCode,
-			FundingAccountCode: paidFromCode,
-			Amount:             amount,
-			Memo:               memo,
-		})
+	return a.newGuidedEntryCommand(&entryCommandParams{
+		use:            "expense",
+		short:          "Record a guided expense entry",
+		helpText:       entryExpenseHelpText,
+		offsetFlagName: "paid-from",
+		offsetFlagHelp: "funding account code",
+		post: func(ctx context.Context, hctx ledger.HandlerContext, date, description, accountCode, offsetCode string, amount int64, memo string) error {
+			return journal.RunExpense(ctx, hctx, &journal.ExpenseEntryInput{
+				Date:               date,
+				Description:        description,
+				ExpenseAccountCode: accountCode,
+				FundingAccountCode: offsetCode,
+				Amount:             amount,
+				Memo:               memo,
+			})
+		},
 	})
 }
 
 func (a *Application) newEntryIncomeCommand() *cobra.Command {
-	var accountCode, depositToCode, amountStr, date, description, memo string
+	return a.newGuidedEntryCommand(&entryCommandParams{
+		use:            "income",
+		short:          "Record a guided income entry",
+		helpText:       entryIncomeHelpText,
+		offsetFlagName: "deposit-to",
+		offsetFlagHelp: "deposit account code",
+		post: func(ctx context.Context, hctx ledger.HandlerContext, date, description, accountCode, offsetCode string, amount int64, memo string) error {
+			return journal.RunIncome(ctx, hctx, &journal.IncomeEntryInput{
+				Date:               date,
+				Description:        description,
+				IncomeAccountCode:  accountCode,
+				DepositAccountCode: offsetCode,
+				Amount:             amount,
+				Memo:               memo,
+			})
+		},
+	})
+}
+
+type entryCommandParams struct {
+	use            string
+	short          string
+	helpText       string
+	offsetFlagName string
+	offsetFlagHelp string
+	post           func(ctx context.Context, hctx ledger.HandlerContext, date, description, accountCode, offsetCode string, amount int64, memo string) error
+}
+
+func (a *Application) newGuidedEntryCommand(p *entryCommandParams) *cobra.Command {
+	var accountCode, offsetCode, amountStr, date, description, memo string
 
 	cmd := &cobra.Command{
-		Use:   "income",
-		Short: "Record a guided income entry",
-		Long:  entryIncomeHelpText,
+		Use:   p.use,
+		Short: p.short,
+		Long:  p.helpText,
 	}
-	cmd.Flags().StringVar(&accountCode, "account", "", "income account code (required)")
-	cmd.Flags().StringVar(&depositToCode, "deposit-to", "1000", "deposit account code")
-	cmd.Flags().StringVar(&amountStr, "amount", "", "income amount (required)")
+	cmd.Flags().StringVar(&accountCode, "account", "", p.use+" account code (required)")
+	cmd.Flags().StringVar(&offsetCode, p.offsetFlagName, "1000", p.offsetFlagHelp)
+	cmd.Flags().StringVar(&amountStr, "amount", "", p.use+" amount (required)")
 	cmd.Flags().StringVar(&date, "date", "", "entry date in YYYY-MM-DD (defaults to today)")
 	cmd.Flags().StringVar(&description, "description", "", "journal entry description (required)")
 	cmd.Flags().StringVar(&memo, "memo", "", "optional line memo")
@@ -293,14 +301,7 @@ func (a *Application) newEntryIncomeCommand() *cobra.Command {
 			date = tuiToday()
 		}
 
-		return journal.RunIncome(ctx, a.handlerContext(), &journal.IncomeEntryInput{
-			Date:               date,
-			Description:        description,
-			IncomeAccountCode:  accountCode,
-			DepositAccountCode: depositToCode,
-			Amount:             amount,
-			Memo:               memo,
-		})
+		return p.post(ctx, a.handlerContext(), date, description, accountCode, offsetCode, amount, memo)
 	})
 }
 
@@ -328,7 +329,7 @@ func (a *Application) newEntryCustomCommand() *cobra.Command {
 
 		input, err := journal.BuildJournalPostInput(entryDate, description, debitSpecs, creditSpecs)
 		if err != nil {
-			return fmt.Errorf("%s\n\n%s", err, entryCustomHelpText)
+			return fmt.Errorf("%w\n\n%s", err, entryCustomHelpText)
 		}
 
 		return journal.RunCustom(ctx, a.handlerContext(), input)
@@ -612,7 +613,7 @@ func (a *Application) newReportWriteoffCandidatesCommand() *cobra.Command {
 		Long:  reportWriteoffCandidatesHelpText,
 	}
 	cmd.Flags().StringVar(&asOfDate, "as-of", time.Now().Format("2006-01-02"), "report date in YYYY-MM-DD")
-	cmd.Flags().IntVar(&minAgeDays, "min-age-days", 30, "minimum completed age in days")
+	cmd.Flags().IntVar(&minAgeDays, "min-age-days", defaultMinAgeDays, "minimum completed age in days")
 
 	return a.newLeafCommand(cmd, func(ctx context.Context) error {
 		return report.RunWriteOffCandidates(ctx, a.handlerContext(), report.WriteOffCandidateFilter{

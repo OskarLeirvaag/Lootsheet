@@ -195,7 +195,7 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) { //nolint:
 	}
 
 	limit := min(len(panel.Lines), content.H)
-	for index := 0; index < limit; index++ {
+	for index := range limit {
 		buffer.WriteString(content.X, content.Y+index, theme.Text, clipText(panel.Lines[index], content.W))
 	}
 }

@@ -828,9 +828,9 @@ func simulationPlainText(screen tcell.SimulationScreen) string {
 	}
 
 	lines := make([]string, 0, height)
-	for y := 0; y < height; y++ {
+	for y := range height {
 		runes := make([]rune, width)
-		for x := 0; x < width; x++ {
+		for x := range width {
 			cell := cells[(y*width)+x]
 			if len(cell.Runes) == 0 {
 				runes[x] = ' '

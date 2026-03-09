@@ -14,6 +14,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
+const (
+	manDirPerm  = 0o755
+	manFilePerm = 0o600
+)
+
 var manPageDate = time.Date(2026, time.March, 8, 0, 0, 0, 0, time.UTC)
 
 // GenerateManPages writes a reproducible set of section-1 man pages for the
@@ -24,7 +29,7 @@ func GenerateManPages(outputDir string) error {
 		return fmt.Errorf("man page output directory is required")
 	}
 
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+	if err := os.MkdirAll(outputDir, manDirPerm); err != nil {
 		return fmt.Errorf("create man page directory: %w", err)
 	}
 
@@ -82,7 +87,7 @@ func writeManPageFile(cmd *cobra.Command, outputDir string) error {
 	path := filepath.Join(outputDir, filename)
 
 	content := renderManPage(cmd)
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(content), manFilePerm); err != nil {
 		return fmt.Errorf("write man page %q: %w", filename, err)
 	}
 
@@ -121,7 +126,7 @@ func writeSection(buf *bytes.Buffer, title string, body string) {
 	buf.WriteString(".SH ")
 	buf.WriteString(title)
 	buf.WriteByte('\n')
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		buf.WriteString(roffLine(line))
 		buf.WriteByte('\n')
 	}

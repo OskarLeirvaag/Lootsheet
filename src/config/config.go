@@ -33,6 +33,7 @@ const (
 	// EnvExportDir is the environment variable that overrides the export directory.
 	EnvExportDir      = "LOOTSHEET_EXPORT_DIR"
 	defaultConfigFile = "config.json"
+	dirPerm           = 0o755
 )
 
 // Config holds the resolved application configuration.
@@ -143,7 +144,7 @@ func (c *Config) EnsureDirectories() error {
 	}
 
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, dirPerm); err != nil {
 			return fmt.Errorf("create directory %q: %w", dir, err)
 		}
 	}

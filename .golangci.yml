@@ -19,6 +19,23 @@ linters:
     - prealloc
     - revive
 
+    # Duplication
+    - dupl
+    - dupword
+
+    # Bug prevention
+    - errorlint
+    - fatcontext
+    - copyloopvar
+    - intrange
+
+    # Modernization
+    - modernize
+    - exptostd
+
+    # Magic numbers
+    - mnd
+
     # Logging
     - loggercheck
 
@@ -39,6 +56,15 @@ linters:
         - style
         - opinionated
         - experimental
+    mnd:
+      ignored-numbers:
+        - "0"
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "10"
+        - "100"
     revive:
       rules:
         - name: blank-imports
@@ -73,6 +99,13 @@ linters:
         linters:
           - gosec
         text: "G404"
+      - path: src/render/
+        linters:
+          - mnd
+      - path: _test\.go
+        linters:
+          - dupl
+          - mnd
     paths:
       - third_party$
       - builtin$

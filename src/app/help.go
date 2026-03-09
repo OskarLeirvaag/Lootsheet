@@ -313,24 +313,7 @@ Examples:
   lootsheet journal reverse --entry-id abc-123 --date 2026-03-09 --description "Correcting duplicate entry"
 `
 
-const questHelpText = `LootSheet CLI
-
-Usage:
-  lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]
-  lootsheet quest list
-  lootsheet quest accept --id ID --date YYYY-MM-DD
-  lootsheet quest complete --id ID --date YYYY-MM-DD
-  lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]
-  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]
-
-Subcommands:
-  create    register a promised quest reward off-ledger
-  list      show current quests and statuses
-  accept    move an offered quest to accepted
-  complete  recognize a quest as earned
-  collect   collect cash against an earned quest reward
-  writeoff  write off an uncollectible earned quest reward
-`
+const questHelpText = "LootSheet CLI\n\nUsage:\n  lootsheet quest create --title TEXT [--patron TEXT] [--description TEXT] [--reward AMOUNT] [--advance AMOUNT] [--bonus TEXT] [--status offered|accepted] [--accepted-on DATE]\n  lootsheet quest list\n  lootsheet quest accept --id ID --date YYYY-MM-DD\n  lootsheet quest complete --id ID --date YYYY-MM-DD\n  lootsheet quest collect --id ID --amount AMOUNT --date YYYY-MM-DD [--description TEXT]\n  lootsheet quest writeoff --id ID --date YYYY-MM-DD [--description TEXT]\n\nSubcommands:\n  create    register a promised quest reward off-ledger\n  list      show current quests and statuses\n  accept    move an offered quest to accepted\n  complete  recognize a quest as earned\n  collect   cash against an earned quest reward\n  writeoff  write off an uncollectible earned quest"
 
 const questCreateHelpText = `LootSheet CLI
 

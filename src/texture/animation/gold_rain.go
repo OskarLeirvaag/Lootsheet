@@ -2,6 +2,13 @@ package animation
 
 import "math/rand/v2"
 
+const (
+	maxSpeedVariance = 5
+	maxTrailVariance = 5
+	dropSpacing      = 6
+	sparkCycle       = 7
+)
+
 // Drop describes one visible drop for rendering.
 type Drop struct {
 	X     int
@@ -42,12 +49,12 @@ func (r *GoldRain) Resize(width, height int) {
 	r.drops = nil
 
 	h := max(1, height)
-	for x := 0; x < width; x += 6 {
+	for x := 0; x < width; x += dropSpacing {
 		r.drops = append(r.drops, goldDrop{
 			x:     x,
 			y:     -rand.IntN(h) - 1,
-			speed: 1 + rand.IntN(5),
-			trail: 4 + rand.IntN(5),
+			speed: 1 + rand.IntN(maxSpeedVariance),
+			trail: 4 + rand.IntN(maxTrailVariance),
 		})
 	}
 }
@@ -67,8 +74,8 @@ func (r *GoldRain) Update() {
 			d.y++
 			if d.y-d.trail > r.height {
 				d.y = -rand.IntN(max(1, r.height/2)) - 1
-				d.speed = 1 + rand.IntN(5)
-				d.trail = 4 + rand.IntN(5)
+				d.speed = 1 + rand.IntN(maxSpeedVariance)
+				d.trail = 4 + rand.IntN(maxTrailVariance)
 			}
 		}
 	}
@@ -89,7 +96,7 @@ func (r *GoldRain) Drops() []Drop {
 			X:     d.x,
 			Y:     d.y,
 			Trail: d.trail,
-			Spark: r.frame%7 == (d.x/6)%7,
+			Spark: r.frame%sparkCycle == (d.x/dropSpacing)%sparkCycle,
 		})
 	}
 
