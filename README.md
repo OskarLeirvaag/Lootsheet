@@ -4,6 +4,8 @@ LootSheet is a local bookkeeping tool for D&D 5e parties.
 
 It is meant for groups that want to track party money, quest rewards, loot, and expenses with a little more rigor than a notes app or spreadsheet.
 
+![LootSheet TUI demo](docs/demo.gif)
+
 ## What It Is For
 
 LootSheet is for things like:
