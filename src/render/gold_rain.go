@@ -46,7 +46,7 @@ func (r *GoldRain) Render(buffer *Buffer, rect Rect, theme *Theme) {
 			}
 
 			if t == 0 {
-				ch := 'O'
+				ch := '$'
 				if d.Spark {
 					ch = '*'
 				}
