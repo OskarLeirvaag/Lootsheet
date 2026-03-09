@@ -112,7 +112,7 @@ type Panel struct {
 }
 
 // DrawPanel renders a simple boxed panel into the frame buffer.
-func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
+func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) { //nolint:gocritic // hugeParam: passing by value is fine here
 	if buffer == nil {
 		return
 	}
@@ -231,15 +231,14 @@ func scatterRunes(buffer *Buffer, rect Rect, glyphs []rune, style tcell.Style) {
 			if r != ' ' && r != '_' && r != '|' {
 				continue
 			}
-			h := uint32(x*7919 + y*104729 + 277)
+			h := uint32(x*7919 + y*104729 + 277) //nolint:gosec // G115: intentional hash, overflow is fine
 			h ^= h >> 16
 			h *= 0x45d9f3b
 			h ^= h >> 16
 			if h%97 < 3 {
-				ch := glyphs[h%uint32(len(glyphs))]
+				ch := glyphs[h%uint32(len(glyphs))] //nolint:gosec // G115: len is small, overflow impossible
 				buffer.Set(x, y, ch, style)
 			}
 		}
 	}
 }
-

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 // RunPost posts a journal entry and writes the CLI output.

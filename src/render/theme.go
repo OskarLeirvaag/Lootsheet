@@ -4,38 +4,38 @@ import "github.com/gdamore/tcell/v2"
 
 // Theme stores the small style palette needed for the first dashboard slice.
 type Theme struct {
-	Base              tcell.Style
-	Header            tcell.Style
-	Panel             tcell.Style
-	Border            tcell.Style
-	PanelTitle        tcell.Style
-	Text              tcell.Style
-	Muted             tcell.Style
-	Footer            tcell.Style
-	SelectedRow       tcell.Style
-	StatusInfo        tcell.Style
-	StatusError       tcell.Style
-	StatusOK          tcell.Style
-	HeaderLabel       tcell.Style
-	SectionDashboard  tcell.Style
-	SectionAccounts   tcell.Style
-	SectionJournal    tcell.Style
-	SectionQuests     tcell.Style
-	SectionLoot       tcell.Style
-	SectionAssets     tcell.Style
-	TabInactive       tcell.Style
-	QuickEntry        tcell.Style
-	HoardShare        tcell.Style
-	HoardUnsold       tcell.Style
-	HoardGold         tcell.Style
-	HoardBag          tcell.Style
-	HoardGem          tcell.Style
-	Brick             tcell.Style
-	ScatterAssets     tcell.Style
-	ScatterAccounts   tcell.Style
-	ScatterJournal    tcell.Style
-	ScatterQuests     tcell.Style
-	ScatterLoot       tcell.Style
+	Base             tcell.Style
+	Header           tcell.Style
+	Panel            tcell.Style
+	Border           tcell.Style
+	PanelTitle       tcell.Style
+	Text             tcell.Style
+	Muted            tcell.Style
+	Footer           tcell.Style
+	SelectedRow      tcell.Style
+	StatusInfo       tcell.Style
+	StatusError      tcell.Style
+	StatusOK         tcell.Style
+	HeaderLabel      tcell.Style
+	SectionDashboard tcell.Style
+	SectionAccounts  tcell.Style
+	SectionJournal   tcell.Style
+	SectionQuests    tcell.Style
+	SectionLoot      tcell.Style
+	SectionAssets    tcell.Style
+	TabInactive      tcell.Style
+	QuickEntry       tcell.Style
+	HoardShare       tcell.Style
+	HoardUnsold      tcell.Style
+	HoardGold        tcell.Style
+	HoardBag         tcell.Style
+	HoardGem         tcell.Style
+	Brick            tcell.Style
+	ScatterAssets    tcell.Style
+	ScatterAccounts  tcell.Style
+	ScatterJournal   tcell.Style
+	ScatterQuests    tcell.Style
+	ScatterLoot      tcell.Style
 }
 
 // DefaultTheme returns the boxed-dashboard palette used by the first slice.

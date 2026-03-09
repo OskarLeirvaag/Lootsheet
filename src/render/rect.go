@@ -127,4 +127,3 @@ func clampInt(value int, low int, high int) int {
 	}
 	return value
 }
-

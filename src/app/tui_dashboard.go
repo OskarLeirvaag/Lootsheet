@@ -8,39 +8,39 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
-	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
-	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
 const (
-	tuiCommandAccountCreate     = "account.create"
-	tuiCommandAccountActivate   = "account.activate"
-	tuiCommandAccountDeactivate = "account.deactivate"
-	tuiCommandAccountDelete     = "account.delete"
-	tuiCommandJournalReverse    = "journal.reverse"
-	tuiCommandCreateExpense     = "entry.expense.create"
-	tuiCommandCreateIncome      = "entry.income.create"
-	tuiCommandCreateCustom      = "entry.custom.create"
-	tuiCommandQuestCreate       = "quest.create"
-	tuiCommandQuestUpdate       = "quest.update"
-	tuiCommandQuestCollectFull  = "quest.collect_full"
-	tuiCommandQuestWriteOffFull = "quest.writeoff_full"
-	tuiCommandLootCreate             = "loot.create"
-	tuiCommandLootUpdate             = "loot.update"
-	tuiCommandLootRecognize          = "loot.recognize_latest"
-	tuiCommandLootSell               = "loot.sell"
-	tuiCommandLootTransferToAsset    = "loot.transfer_to_asset"
-	tuiCommandAssetCreate            = "asset.create"
-	tuiCommandAssetUpdate            = "asset.update"
-	tuiCommandAssetRecognize         = "asset.recognize_latest"
-	tuiCommandAssetTransferToLoot    = "asset.transfer_to_loot"
+	tuiCommandAccountCreate       = "account.create"
+	tuiCommandAccountActivate     = "account.activate"
+	tuiCommandAccountDeactivate   = "account.deactivate"
+	tuiCommandAccountDelete       = "account.delete"
+	tuiCommandJournalReverse      = "journal.reverse"
+	tuiCommandCreateExpense       = "entry.expense.create"
+	tuiCommandCreateIncome        = "entry.income.create"
+	tuiCommandCreateCustom        = "entry.custom.create"
+	tuiCommandQuestCreate         = "quest.create"
+	tuiCommandQuestUpdate         = "quest.update"
+	tuiCommandQuestCollectFull    = "quest.collect_full"
+	tuiCommandQuestWriteOffFull   = "quest.writeoff_full"
+	tuiCommandLootCreate          = "loot.create"
+	tuiCommandLootUpdate          = "loot.update"
+	tuiCommandLootRecognize       = "loot.recognize_latest"
+	tuiCommandLootSell            = "loot.sell"
+	tuiCommandLootTransferToAsset = "loot.transfer_to_asset"
+	tuiCommandAssetCreate         = "asset.create"
+	tuiCommandAssetUpdate         = "asset.update"
+	tuiCommandAssetRecognize      = "asset.recognize_latest"
+	tuiCommandAssetTransferToLoot = "asset.transfer_to_loot"
 )
 
 var tuiNow = time.Now
@@ -674,7 +674,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Transferred item to asset register."),
+			Text:  "Transferred item to asset register.",
 		}
 		navigateTo = render.SectionAssets
 		selectItemKey = command.ItemKey
@@ -766,7 +766,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Transferred item to loot register."),
+			Text:  "Transferred item to loot register.",
 		}
 		navigateTo = render.SectionLoot
 		selectItemKey = command.ItemKey

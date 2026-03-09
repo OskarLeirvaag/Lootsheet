@@ -58,8 +58,8 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 
 	if body.W < 52 || body.H < 10 {
 		DrawPanel(buffer, body, theme, Panel{
-			Title:       "Dashboard",
-			Lines:       []string{
+			Title: "Dashboard",
+			Lines: []string{
 				"Terminal too small for the full dashboard panels.",
 				"Resize to restore the boxed layout.",
 			},

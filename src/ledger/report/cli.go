@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"text/tabwriter"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 // RunTrialBalance generates and displays the trial balance report.
