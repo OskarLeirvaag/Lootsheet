@@ -179,7 +179,11 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 				if tl.Side == "credit" {
 					sideLabel = "Cr (from)"
 				}
-				detailLines = append(detailLines, fmt.Sprintf("  %s %s", sideLabel, tl.AccountCode))
+				amtLabel := ""
+				if strings.TrimSpace(tl.Amount) != "" {
+					amtLabel = " " + tl.Amount
+				}
+				detailLines = append(detailLines, fmt.Sprintf("  %s %s%s", sideLabel, tl.AccountCode, amtLabel))
 			}
 		}
 
@@ -282,7 +286,15 @@ func lootRowLabel(row *loot.BrowseItemRecord, name string) string {
 }
 
 func assetRowLabel(row *loot.BrowseItemRecord, name string) string {
-	return fmt.Sprintf("%-12s %-11s %s", lootRowAppraisalLabel(row), string(row.Status), name)
+	tpl := "   "
+	if len(row.TemplateLines) > 0 {
+		tpl = "[T]"
+	}
+	holder := "—"
+	if h := strings.TrimSpace(row.Holder); h != "" {
+		holder = h
+	}
+	return fmt.Sprintf("%-12s %-11s %-4s %-12s %s", lootRowAppraisalLabel(row), string(row.Status), tpl, holder, name)
 }
 
 func assetTemplateToCommandLines(lines []loot.AssetTemplateLineRecord) []render.CommandLine {
@@ -294,6 +306,7 @@ func assetTemplateToCommandLines(lines []loot.AssetTemplateLineRecord) []render.
 		result[i] = render.CommandLine{
 			Side:        line.Side,
 			AccountCode: line.AccountCode,
+			Amount:      line.Amount,
 		}
 	}
 	return result
@@ -308,6 +321,7 @@ func assetTemplateToExecuteLines(lines []loot.AssetTemplateLineRecord) []render.
 		result[i] = render.CommandLine{
 			Side:        line.Side,
 			AccountCode: line.AccountCode,
+			Amount:      line.Amount,
 		}
 	}
 	return result

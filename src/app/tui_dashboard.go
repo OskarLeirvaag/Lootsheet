@@ -266,7 +266,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			data.Assets.EmptyLines = unavailablePanelLines(assetBrowseErr)
 			panelErrors = append(panelErrors, "assets")
 		} else {
-			data.Assets.ListHeaderRow = fmt.Sprintf("%-12s %-11s %s", "VALUE", "STATUS", "NAME")
+			data.Assets.ListHeaderRow = fmt.Sprintf("%-12s %-11s %-4s %-12s %s", "VALUE", "STATUS", "TPL", "HOLDER", "NAME")
 			data.Assets.Items = buildAssetItems(assetBrowseItems, tuiToday())
 		}
 	}
@@ -670,6 +670,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			lines = append(lines, loot.AssetTemplateLineRecord{
 				Side:        strings.TrimSpace(cl.Side),
 				AccountCode: strings.TrimSpace(cl.AccountCode),
+				Amount:      strings.TrimSpace(cl.Amount),
 			})
 		}
 		if err := loot.SaveAssetTemplate(ctx, databasePath, command.ItemKey, lines); err != nil {
