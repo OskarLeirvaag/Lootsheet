@@ -97,16 +97,54 @@ var (
 		BotRight:   'ᛟ',
 		RuneBar:    []rune{'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ'},
 	}
+	lootBorders = BorderSet{
+		Horizontal: '─',
+		Vertical:   '│',
+		TopLeft:    '◆',
+		TopRight:   '◆',
+		BotLeft:    '◆',
+		BotRight:   '◆',
+		RuneBar:    []rune{'$', '¢', '£', '¥'},
+	}
+	questBorders = BorderSet{
+		Horizontal: '─',
+		Vertical:   '│',
+		TopLeft:    '⚔',
+		TopRight:   '⚔',
+		BotLeft:    '⚔',
+		BotRight:   '⚔',
+		RuneBar:    []rune{'☆', '⚑', '►', '⚔'},
+	}
+	journalBorders = BorderSet{
+		Horizontal: '─',
+		Vertical:   '│',
+		TopLeft:    '§',
+		TopRight:   '§',
+		BotLeft:    '§',
+		BotRight:   '§',
+		RuneBar:    []rune{'¶', '†', '‡', '※'},
+	}
+	accountBorders = BorderSet{
+		Horizontal: '─',
+		Vertical:   '│',
+		TopLeft:    '§',
+		TopRight:   '§',
+		BotLeft:    '§',
+		BotRight:   '§',
+		RuneBar:    []rune{'#', 'Σ', '∞', '≡'},
+	}
 )
 
 // Panel describes a boxed panel and its body lines.
 type Panel struct {
-	Title       string
-	Lines       []string
-	BorderStyle *tcell.Style
-	TitleStyle  *tcell.Style
-	Texture     PanelTexture
-	Borders     *BorderSet
+	Title         string
+	Lines         []string
+	BorderStyle   *tcell.Style
+	TitleStyle    *tcell.Style
+	Texture       PanelTexture
+	Borders       *BorderSet
+	ScatterGlyphs []rune
+	ScatterStyle  *tcell.Style
 }
 
 // DrawPanel renders a simple boxed panel into the frame buffer.
@@ -126,13 +164,16 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 		if pattern := leafPattern(); pattern != nil {
 			buffer.FillTexture(visible, pattern, theme.Brick)
 		}
-		scatterRunes(buffer, visible, theme.Leaf)
 	case PanelTextureNone:
 		// clean background, no texture
 	default:
 		if pattern := brickPattern(); pattern != nil {
 			buffer.FillTexture(visible, pattern, theme.Brick)
 		}
+	}
+
+	if len(panel.ScatterGlyphs) > 0 && panel.ScatterStyle != nil {
+		scatterRunes(buffer, visible, panel.ScatterGlyphs, *panel.ScatterStyle)
 	}
 
 	borderStyle := theme.Border
@@ -208,14 +249,22 @@ func clipText(text string, width int) string {
 	return string(runes[:width])
 }
 
-var scatterGlyphs = []rune{'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ', 'ᚺ', 'ᚾ', 'ᛃ', 'ᛈ', 'ᛇ', 'ᛉ', 'ᛊ', 'ᛏ', 'ᛒ', 'ᛚ', 'ᛗ', 'ᛞ', 'ᛟ'}
+var (
+	scatterGlyphs   = []rune{'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ', 'ᚺ', 'ᚾ', 'ᛃ', 'ᛈ', 'ᛇ', 'ᛉ', 'ᛊ', 'ᛏ', 'ᛒ', 'ᛚ', 'ᛗ', 'ᛞ', 'ᛟ'}
+	scatterLoot     = []rune{'$', '¢', '£', '¥', '€'}
+	scatterQuests   = []rune{'⚔', '☆', '⚑', '►'}
+	scatterJournal  = []rune{'§', '¶', '†', '‡', '※'}
+	scatterAccounts = []rune{'#', 'Σ', '∞', '≡'}
+)
 
-// scatterRunes places a few random Elder Futhark runes into the texture area.
+// scatterRunes places a few random glyphs into the texture area.
 // Uses a simple position-seeded hash so the result is deterministic.
-func scatterRunes(buffer *Buffer, rect Rect, style tcell.Style) {
+// Only overwrites background-level characters (spaces and brick texture chars).
+func scatterRunes(buffer *Buffer, rect Rect, glyphs []rune, style tcell.Style) {
 	for y := rect.Y; y < rect.Y+rect.H; y++ {
 		for x := rect.X; x < rect.X+rect.W; x++ {
-			if buffer.Get(x, y).Rune != ' ' {
+			r := buffer.Get(x, y).Rune
+			if r != ' ' && r != '_' && r != '|' {
 				continue
 			}
 			h := uint32(x*7919 + y*104729 + 277)
@@ -223,9 +272,10 @@ func scatterRunes(buffer *Buffer, rect Rect, style tcell.Style) {
 			h *= 0x45d9f3b
 			h ^= h >> 16
 			if h%97 < 3 {
-				ch := scatterGlyphs[h%uint32(len(scatterGlyphs))]
+				ch := glyphs[h%uint32(len(glyphs))]
 				buffer.Set(x, y, ch, style)
 			}
 		}
 	}
 }
+

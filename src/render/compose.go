@@ -763,21 +763,26 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 	accent := s.styleForSection(theme, s.Section)
 	tex := sectionTexture(s.Section)
 	brd := sectionBorders(s.Section)
+	scGlyphs, scStyle := sectionScatter(s.Section, theme)
 	DrawPanel(buffer, left, theme, Panel{
-		Title:       s.composeTitle(),
-		Lines:       s.composeFormLines(),
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     tex,
-		Borders:     brd,
+		Title:         s.composeTitle(),
+		Lines:         s.composeFormLines(),
+		BorderStyle:   &accent,
+		TitleStyle:    &accent,
+		Texture:       tex,
+		Borders:       brd,
+		ScatterGlyphs: scGlyphs,
+		ScatterStyle:  scStyle,
 	})
 	DrawPanel(buffer, right, theme, Panel{
-		Title:       "Preview",
-		Lines:       s.composePreviewLines(),
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     tex,
-		Borders:     brd,
+		Title:         "Preview",
+		Lines:         s.composePreviewLines(),
+		BorderStyle:   &accent,
+		TitleStyle:    &accent,
+		Texture:       tex,
+		Borders:       brd,
+		ScatterGlyphs: scGlyphs,
+		ScatterStyle:  scStyle,
 	})
 }
 
