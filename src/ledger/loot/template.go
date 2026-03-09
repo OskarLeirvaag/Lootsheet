@@ -17,6 +17,7 @@ type AssetTemplateLineRecord struct {
 	LootItemID  string
 	Side        string // "debit" or "credit"
 	AccountCode string
+	Amount      string
 	SortOrder   int
 }
 
@@ -67,9 +68,9 @@ func SaveAssetTemplate(ctx context.Context, databasePath string, itemID string, 
 		for i, line := range lines {
 			id := uuid.NewString()
 			if _, err := tx.ExecContext(ctx,
-				`INSERT INTO asset_template_lines (id, loot_item_id, side, account_code, sort_order)
-				 VALUES (?, ?, ?, ?, ?)`,
-				id, itemID, strings.TrimSpace(line.Side), strings.TrimSpace(line.AccountCode), i,
+				`INSERT INTO asset_template_lines (id, loot_item_id, side, account_code, amount, sort_order)
+				 VALUES (?, ?, ?, ?, ?, ?)`,
+				id, itemID, strings.TrimSpace(line.Side), strings.TrimSpace(line.AccountCode), strings.TrimSpace(line.Amount), i,
 			); err != nil {
 				return fmt.Errorf("insert template line %d: %w", i+1, err)
 			}
@@ -92,7 +93,7 @@ func ListAssetTemplateLines(ctx context.Context, databasePath string, itemID str
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]AssetTemplateLineRecord, error) {
 		rows, err := db.QueryContext(ctx, `
-			SELECT id, loot_item_id, side, account_code, sort_order
+			SELECT id, loot_item_id, side, account_code, amount, sort_order
 			FROM asset_template_lines
 			WHERE loot_item_id = ?
 			ORDER BY sort_order
@@ -105,7 +106,7 @@ func ListAssetTemplateLines(ctx context.Context, databasePath string, itemID str
 		var lines []AssetTemplateLineRecord
 		for rows.Next() {
 			var line AssetTemplateLineRecord
-			if err := rows.Scan(&line.ID, &line.LootItemID, &line.Side, &line.AccountCode, &line.SortOrder); err != nil {
+			if err := rows.Scan(&line.ID, &line.LootItemID, &line.Side, &line.AccountCode, &line.Amount, &line.SortOrder); err != nil {
 				return nil, fmt.Errorf("scan template line: %w", err)
 			}
 			lines = append(lines, line)

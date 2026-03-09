@@ -188,7 +188,7 @@ func ListBrowseItems(ctx context.Context, databasePath string, itemType string) 
 
 		// Load asset template lines when browsing assets.
 		if itemType == "asset" && len(items) > 0 {
-			templateQuery := `SELECT id, loot_item_id, side, account_code, sort_order FROM asset_template_lines WHERE loot_item_id IN (` + placeholders(len(items)) + `) ORDER BY loot_item_id, sort_order` //nolint:gosec // placeholders generates safe ?,? strings
+			templateQuery := `SELECT id, loot_item_id, side, account_code, amount, sort_order FROM asset_template_lines WHERE loot_item_id IN (` + placeholders(len(items)) + `) ORDER BY loot_item_id, sort_order` //nolint:gosec // placeholders generates safe ?,? strings
 			templateRows, templateErr := db.QueryContext(ctx, templateQuery, itemIDs(items)...)
 			if templateErr != nil {
 				return nil, fmt.Errorf("query asset template lines: %w", templateErr)
@@ -198,7 +198,7 @@ func ListBrowseItems(ctx context.Context, databasePath string, itemType string) 
 			for templateRows.Next() {
 				var line AssetTemplateLineRecord
 				var itemID string
-				if err := templateRows.Scan(&line.ID, &itemID, &line.Side, &line.AccountCode, &line.SortOrder); err != nil {
+				if err := templateRows.Scan(&line.ID, &itemID, &line.Side, &line.AccountCode, &line.Amount, &line.SortOrder); err != nil {
 					return nil, fmt.Errorf("scan asset template line: %w", err)
 				}
 				if index, ok := indexesByID[itemID]; ok {

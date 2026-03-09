@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 const (
@@ -402,7 +404,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 		case composeModeAssetTemplate:
 			if len(s.compose.Lines) < 8 {
 				s.compose.Lines = append(s.compose.Lines, composeLineState{Side: sideDebit})
-				s.compose.FieldIndex = s.composeFieldCount() - 2
+				s.compose.FieldIndex = s.composeFieldCount() - 3
 			}
 		default:
 		}
@@ -434,7 +436,10 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 					if lineIndex >= len(s.compose.Lines) {
 						lineIndex = len(s.compose.Lines) - 1
 					}
-					s.compose.FieldIndex = lineIndex*2 + column
+					if column > 2 {
+						column = 2
+					}
+					s.compose.FieldIndex = lineIndex*3 + column
 				}
 			}
 		default:
@@ -584,7 +589,7 @@ func (s *Shell) composeFieldCount() int {
 	case composeModeCustom:
 		return len(s.composeFieldDefinitions()) + len(s.compose.Lines)*4
 	case composeModeAssetTemplate:
-		return len(s.compose.Lines) * 2
+		return len(s.compose.Lines) * 3
 	default:
 		return len(s.composeFieldDefinitions())
 	}
@@ -617,6 +622,8 @@ func (s *Shell) composeCurrentFieldID() string {
 			return "side"
 		case 1:
 			return fieldAccountCode
+		case 2:
+			return "amount"
 		default:
 			return ""
 		}
@@ -658,7 +665,7 @@ func (s *Shell) composeCurrentTemplateLinePosition() (int, int) {
 	if s.compose == nil || s.compose.Mode != composeModeAssetTemplate {
 		return -1, -1
 	}
-	return s.compose.FieldIndex / 2, s.compose.FieldIndex % 2
+	return s.compose.FieldIndex / 3, s.compose.FieldIndex % 3
 }
 
 type fieldOp func(string) string
@@ -680,6 +687,8 @@ func (s *Shell) composeEditCurrentField(op fieldOp) {
 			return
 		case 1:
 			s.compose.Lines[lineIndex].AccountCode = op(s.compose.Lines[lineIndex].AccountCode)
+		case 2:
+			s.compose.Lines[lineIndex].Amount = op(s.compose.Lines[lineIndex].Amount)
 		}
 		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
 		s.compose.GeneralError = ""
@@ -890,6 +899,46 @@ func (s *Shell) handlePickerKeyEvent(event *tcell.EventKey) (handleResult, bool)
 	}
 }
 
+func (s *Shell) composeBalanceSummary() (string, bool, bool) {
+	if s.compose == nil {
+		return "", false, false
+	}
+	if s.compose.Mode != composeModeCustom && s.compose.Mode != composeModeAssetTemplate {
+		return "", false, false
+	}
+
+	var debitTotal, creditTotal int64
+	allFilled := true
+	for _, line := range s.compose.Lines {
+		amt := strings.TrimSpace(line.Amount)
+		if amt == "" {
+			allFilled = false
+			continue
+		}
+		parsed, err := currency.ParseAmount(amt)
+		if err != nil {
+			allFilled = false
+			continue
+		}
+		if line.Side == sideDebit {
+			debitTotal += parsed
+		} else {
+			creditTotal += parsed
+		}
+	}
+
+	balanced := allFilled && debitTotal == creditTotal && len(s.compose.Lines) >= 2
+	summary := fmt.Sprintf("Dr %s / Cr %s", currency.FormatAmount(debitTotal), currency.FormatAmount(creditTotal))
+	if !allFilled {
+		summary += "  (incomplete)"
+	} else if balanced {
+		summary += "  BALANCED"
+	} else {
+		summary += "  UNBALANCED"
+	}
+	return summary, balanced, allFilled
+}
+
 func (s *Shell) composeCommand() (*Command, bool) {
 	if s.compose == nil {
 		return nil, false
@@ -984,6 +1033,7 @@ func (s *Shell) composeCommand() (*Command, bool) {
 			command.Lines = append(command.Lines, CommandLine{
 				Side:        strings.TrimSpace(line.Side),
 				AccountCode: strings.TrimSpace(line.AccountCode),
+				Amount:      strings.TrimSpace(line.Amount),
 			})
 		}
 	default:
@@ -1017,6 +1067,23 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 	ss := s.Section.Style(theme)
 	DrawPanel(buffer, left, theme, ss.Panel(s.composeTitle(), s.composeFormLines()))
 	DrawPanel(buffer, right, theme, ss.Panel("Preview", s.composePreviewLines()))
+
+	// Overlay balance summary line with color.
+	if balText, balanced, allFilled := s.composeBalanceSummary(); balText != "" {
+		content := right.Inset(1)
+		if !content.Empty() {
+			var style tcell.Style
+			switch {
+			case !allFilled:
+				style = theme.Muted
+			case balanced:
+				style = theme.StatusOK
+			default:
+				style = theme.StatusError
+			}
+			buffer.WriteString(content.X, content.Y, style, clipText(balText, content.W))
+		}
+	}
 
 	if s.compose.picker != nil {
 		s.renderAccountPicker(buffer, rect, theme)
@@ -1186,18 +1253,20 @@ func (s *Shell) composeFormLines() []string {
 		lines = append(lines, "Lines:")
 		for index := range s.compose.Lines {
 			line := s.compose.Lines[index]
-			for column, label := range []string{"Side", "Account"} {
+			for column, label := range []string{"Side", "Account", "Amount"} {
 				prefix := "  "
-				if s.compose.FieldIndex == index*2+column {
+				if s.compose.FieldIndex == index*3+column {
 					prefix = "> "
 				}
-				value := []string{sideHint(line.Side), line.AccountCode}[column]
+				value := []string{sideHint(line.Side), line.AccountCode, line.Amount}[column]
 				if strings.TrimSpace(value) == "" {
 					switch column {
 					case 0:
 						value = "[debit|credit]"
-					default:
+					case 1:
 						value = "[account code]"
+					default:
+						value = "[amount]"
 					}
 				}
 				lines = append(lines, fmt.Sprintf("%sL%d %s: %s", prefix, index+1, label, value))
@@ -1316,6 +1385,9 @@ func (s *Shell) composePreviewLines() []string {
 			"Transfer to loot register when ready to sell.",
 		)
 	case composeModeAssetTemplate:
+		if balText, _, _ := s.composeBalanceSummary(); balText != "" {
+			lines = append(lines, balText, "")
+		}
 		lines = append(lines, "Template structure:", "")
 		var debitCount, creditCount int
 		for index := range s.compose.Lines {
@@ -1324,7 +1396,11 @@ func (s *Shell) composePreviewLines() []string {
 			if line.Side == sideCredit {
 				sideLabel = "Cr (from)"
 			}
-			lines = append(lines, fmt.Sprintf("L%d %s %s", index+1, sideLabel, displayComposeValue(line.AccountCode, "account")))
+			amtPart := ""
+			if strings.TrimSpace(line.Amount) != "" {
+				amtPart = " " + line.Amount
+			}
+			lines = append(lines, fmt.Sprintf("L%d %s %s%s", index+1, sideLabel, displayComposeValue(line.AccountCode, "account"), amtPart))
 			if line.Side == sideDebit {
 				debitCount++
 			} else {
@@ -1335,10 +1411,13 @@ func (s *Shell) composePreviewLines() []string {
 			"", fmt.Sprintf("Line counts: %d debit / %d credit", debitCount, creditCount),
 			"", "Dr (to)   = money flows into this account",
 			"Cr (from) = money flows out of this account",
-			"Amounts are entered when executing the template.",
+			"Amounts are optional; blank amounts are entered at execution.",
 			"", "Active accounts:")
 		lines = append(lines, accountOptionLines(s.Data.EntryCatalog.AllAccounts)...)
 	default:
+		if balText, _, _ := s.composeBalanceSummary(); balText != "" {
+			lines = append(lines, balText, "")
+		}
 		lines = append(lines,
 			"Date: "+displayComposeValue(s.compose.Fields["date"], "YYYY-MM-DD"),
 			"Description: "+displayComposeValue(s.compose.Fields["description"], "required"),
