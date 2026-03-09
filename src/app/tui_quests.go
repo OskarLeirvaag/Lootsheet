@@ -137,13 +137,13 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 	return items
 }
 
-func loadTUIQuestRows(ctx context.Context, databasePath string) ([]tuiQuestRow, error) {
-	quests, err := quest.ListQuests(ctx, databasePath)
+func loadTUIQuestRows(ctx context.Context, loader TUIDataLoader) ([]tuiQuestRow, error) {
+	quests, err := loader.ListQuests(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	receivables, err := report.GetQuestReceivables(ctx, databasePath)
+	receivables, err := loader.GetQuestReceivables(ctx)
 	if err != nil {
 		return nil, err
 	}

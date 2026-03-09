@@ -15,59 +15,23 @@ import (
 
 // PostJournalEntry validates, resolves accounts, and posts a balanced journal entry.
 func PostJournalEntry(ctx context.Context, databasePath string, input ledger.JournalPostInput) (ledger.PostedJournalEntry, error) {
-	validated, err := ledger.ValidateJournalPostInput(input)
-	if err != nil {
-		return ledger.PostedJournalEntry{}, err
-	}
-
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
-		accountIDsByCode, err := ledger.ResolveActiveAccountIDsByCode(ctx, db, validated.Lines)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		entryNumber, err := ledger.NextJournalEntryNumber(ctx, db)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		entryID := uuid.NewString()
-
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, fmt.Errorf("begin journal post transaction: %w", err)
 		}
 		defer tx.Rollback()
 
-		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-			entryID, entryNumber, "posted", validated.EntryDate, validated.Description,
-		); err != nil {
-			return ledger.PostedJournalEntry{}, fmt.Errorf("insert journal entry: %w", err)
-		}
-
-		for index, line := range validated.Lines {
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO journal_lines (id, journal_entry_id, line_number, account_id, memo, debit_amount, credit_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-				uuid.NewString(), entryID, index+1, accountIDsByCode[line.AccountCode], line.Memo, line.DebitAmount, line.CreditAmount,
-			); err != nil {
-				return ledger.PostedJournalEntry{}, fmt.Errorf("insert journal line %d: %w", index+1, err)
-			}
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, input)
+		if err != nil {
+			return ledger.PostedJournalEntry{}, err
 		}
 
 		if err := tx.Commit(); err != nil {
 			return ledger.PostedJournalEntry{}, fmt.Errorf("commit journal post transaction: %w", err)
 		}
 
-		return ledger.PostedJournalEntry{
-			ID:          entryID,
-			EntryNumber: entryNumber,
-			EntryDate:   validated.EntryDate,
-			Description: validated.Description,
-			LineCount:   len(validated.Lines),
-			DebitTotal:  validated.Totals.DebitAmount,
-			CreditTotal: validated.Totals.CreditAmount,
-		}, nil
+		return posted, nil
 	})
 }
 

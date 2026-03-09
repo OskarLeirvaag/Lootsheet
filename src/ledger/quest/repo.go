@@ -335,43 +335,15 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 			},
 		}
 
-		validated, err := ledger.ValidateJournalPostInput(journalInput)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		accountIDsByCode, err := ledger.ResolveActiveAccountIDsByCode(ctx, db, validated.Lines)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		entryNumber, err := ledger.NextJournalEntryNumber(ctx, db)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		entryID := uuid.NewString()
-
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, fmt.Errorf("begin quest payment transaction: %w", err)
 		}
 		defer tx.Rollback()
 
-		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-			entryID, entryNumber, "posted", validated.EntryDate, validated.Description,
-		); err != nil {
-			return ledger.PostedJournalEntry{}, fmt.Errorf("insert quest payment journal entry: %w", err)
-		}
-
-		for index, line := range validated.Lines {
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO journal_lines (id, journal_entry_id, line_number, account_id, memo, debit_amount, credit_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-				uuid.NewString(), entryID, index+1, accountIDsByCode[line.AccountCode], line.Memo, line.DebitAmount, line.CreditAmount,
-			); err != nil {
-				return ledger.PostedJournalEntry{}, fmt.Errorf("insert quest payment journal line %d: %w", index+1, err)
-			}
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, journalInput)
+		if err != nil {
+			return ledger.PostedJournalEntry{}, err
 		}
 
 		newTotalPaid := totalPaid + input.Amount
@@ -402,15 +374,7 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 			return ledger.PostedJournalEntry{}, fmt.Errorf("commit quest payment transaction: %w", err)
 		}
 
-		return ledger.PostedJournalEntry{
-			ID:          entryID,
-			EntryNumber: entryNumber,
-			EntryDate:   validated.EntryDate,
-			Description: validated.Description,
-			LineCount:   len(validated.Lines),
-			DebitTotal:  validated.Totals.DebitAmount,
-			CreditTotal: validated.Totals.CreditAmount,
-		}, nil
+		return posted, nil
 	})
 }
 
@@ -477,43 +441,15 @@ func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuest
 			},
 		}
 
-		validated, err := ledger.ValidateJournalPostInput(journalInput)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		accountIDsByCode, err := ledger.ResolveActiveAccountIDsByCode(ctx, db, validated.Lines)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		entryNumber, err := ledger.NextJournalEntryNumber(ctx, db)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
-		entryID := uuid.NewString()
-
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, fmt.Errorf("begin quest write-off transaction: %w", err)
 		}
 		defer tx.Rollback()
 
-		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-			entryID, entryNumber, "posted", validated.EntryDate, validated.Description,
-		); err != nil {
-			return ledger.PostedJournalEntry{}, fmt.Errorf("insert quest write-off journal entry: %w", err)
-		}
-
-		for index, line := range validated.Lines {
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO journal_lines (id, journal_entry_id, line_number, account_id, memo, debit_amount, credit_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-				uuid.NewString(), entryID, index+1, accountIDsByCode[line.AccountCode], line.Memo, line.DebitAmount, line.CreditAmount,
-			); err != nil {
-				return ledger.PostedJournalEntry{}, fmt.Errorf("insert quest write-off journal line %d: %w", index+1, err)
-			}
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, journalInput)
+		if err != nil {
+			return ledger.PostedJournalEntry{}, err
 		}
 
 		if _, err := tx.ExecContext(ctx,
@@ -527,15 +463,7 @@ func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuest
 			return ledger.PostedJournalEntry{}, fmt.Errorf("commit quest write-off transaction: %w", err)
 		}
 
-		return ledger.PostedJournalEntry{
-			ID:          entryID,
-			EntryNumber: entryNumber,
-			EntryDate:   validated.EntryDate,
-			Description: validated.Description,
-			LineCount:   len(validated.Lines),
-			DebitTotal:  validated.Totals.DebitAmount,
-			CreditTotal: validated.Totals.CreditAmount,
-		}, nil
+		return posted, nil
 	})
 }
 
