@@ -50,6 +50,7 @@ type Shell struct {
 	input           *inputState
 	compose         *composeState
 	glossary        *glossaryState
+	rain            *GoldRain
 }
 
 // NewShell constructs the interactive TUI shell state.
@@ -61,10 +62,19 @@ func NewShell(data *ShellData) *Shell {
 		selectedKeys:    make(map[Section]string),
 		selectedIndexes: make(map[Section]int),
 		viewHeights:     make(map[Section]int),
+		rain:            NewGoldRain(),
 	}
 	shell.reconcileSelections()
 
 	return shell
+}
+
+// TickRain advances the gold rain animation by one frame.
+func (s *Shell) TickRain() {
+	if s == nil || s.rain == nil {
+		return
+	}
+	s.rain.Update()
 }
 
 // Reload swaps the shell snapshot while keeping navigation state intact.
@@ -410,7 +420,7 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	case SectionLoot:
 		s.renderListSection(buffer, body, theme, SectionLoot, &s.Data.Loot)
 	default:
-		drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard)
+		drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
 	}
 
 	drawStatusLine(buffer, statusRect, theme, s.status)

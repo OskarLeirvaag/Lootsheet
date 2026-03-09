@@ -33,7 +33,7 @@ func (d *Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 		TitleStyle:  &theme.SectionDashboard,
 	})
 
-	drawDashboardPanels(buffer, body, theme, &data)
+	drawDashboardPanels(buffer, body, theme, &data, nil)
 	drawFooter(buffer, footer, theme, keymap.HelpTextFor(ActionQuit, ActionRedraw))
 }
 
@@ -49,7 +49,7 @@ func renderCompactDashboard(buffer *Buffer, bounds Rect, theme *Theme, keymap Ke
 	})
 }
 
-func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *DashboardData) {
+func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *DashboardData, rain *GoldRain) {
 	if body.Empty() {
 		return
 	}
@@ -77,7 +77,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 		lower = Rect{}
 	}
 
-	drawHoardPanel(buffer, hero, theme, &resolved)
+	drawHoardPanel(buffer, hero, theme, &resolved, rain)
 
 	if lower.Empty() {
 		return
