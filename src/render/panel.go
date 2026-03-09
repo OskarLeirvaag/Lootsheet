@@ -184,7 +184,7 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 	buffer.Set(visible.X, bottom, bs.BotLeft, borderStyle)
 	buffer.Set(right, bottom, bs.BotRight, borderStyle)
 
-	title := clipText(panel.Title, maxInt(0, visible.W-4))
+	title := clipText(panel.Title, max(0, visible.W-4))
 	if title != "" {
 		buffer.WriteString(visible.X+1, visible.Y, titleStyle, " "+title+" ")
 	}
@@ -194,7 +194,7 @@ func DrawPanel(buffer *Buffer, rect Rect, theme *Theme, panel Panel) {
 		return
 	}
 
-	limit := minInt(len(panel.Lines), content.H)
+	limit := min(len(panel.Lines), content.H)
 	for index := 0; index < limit; index++ {
 		buffer.WriteString(content.X, content.Y+index, theme.Text, clipText(panel.Lines[index], content.W))
 	}

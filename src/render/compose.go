@@ -695,7 +695,7 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
-	leftWidth := maxInt(38, rect.W/2)
+	leftWidth := max(38, rect.W/2)
 	left, right := rect.SplitVertical(leftWidth, 1)
 	gapX := left.X + left.W
 	if gapX < right.X {
@@ -922,7 +922,7 @@ func accountOptionLines(options []AccountOption) []string {
 	if len(options) == 0 {
 		return []string{"No matching active accounts."}
 	}
-	lines := make([]string, 0, minInt(len(options), 10))
+	lines := make([]string, 0, min(len(options), 10))
 	for index := 0; index < len(options) && index < 10; index++ {
 		lines = append(lines, fmt.Sprintf("%s %s (%s)", options[index].Code, options[index].Name, options[index].Type))
 	}

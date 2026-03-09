@@ -401,7 +401,7 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	}
 
 	outer := bounds.Inset(1)
-	main, footer := outer.SplitHorizontal(maxInt(0, outer.H-2), 0)
+	main, footer := outer.SplitHorizontal(max(0, outer.H-2), 0)
 	statusRect, helpRect := footer.SplitHorizontal(1, 0)
 	header, body := main.SplitHorizontal(6, 1)
 	headerAccent := s.sectionStyle(theme)
@@ -681,16 +681,16 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 	var contentRect Rect
 	if rect.W >= 100 {
 		summaryWidth := clampInt(rect.W/3, 28, 34)
-		summaryWidth = minInt(summaryWidth, maxInt(0, rect.W-22))
+		summaryWidth = min(summaryWidth, max(0, rect.W-22))
 		summaryRect, contentRect = rect.SplitVertical(summaryWidth, 1)
 	} else {
 		summaryHeight := clampInt(rect.H/4, 4, 6)
-		summaryHeight = minInt(summaryHeight, maxInt(0, rect.H-9))
+		summaryHeight = min(summaryHeight, max(0, rect.H-9))
 		summaryRect, contentRect = rect.SplitHorizontal(summaryHeight, 1)
 	}
 
 	listHeight := contentRect.H * 3 / 5
-	listHeight = clampInt(listHeight, 4, maxInt(4, contentRect.H-5))
+	listHeight = clampInt(listHeight, 4, max(4, contentRect.H-5))
 	listRect, detailRect := contentRect.SplitHorizontal(listHeight, 1)
 
 	summaryLines := view.SummaryLines
@@ -751,11 +751,11 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 		scroll = selectedIndex - content.H + 1
 	}
 
-	maxScroll := maxInt(0, len(items)-content.H)
+	maxScroll := max(0, len(items)-content.H)
 	scroll = clampInt(scroll, 0, maxScroll)
 	s.scrolls[section] = scroll
 
-	end := minInt(len(items), scroll+content.H)
+	end := min(len(items), scroll+content.H)
 	title = fmt.Sprintf("%s %d-%d/%d", section.Title(), scroll+1, end, len(items))
 	DrawPanel(buffer, rect, theme, ss.Panel(title, nil))
 
@@ -784,10 +784,10 @@ func modalBounds(parent Rect, lines []string, defaultW, minW, maxW, minH int) Re
 			width = candidate
 		}
 	}
-	width = clampInt(width, minW, minInt(maxW, parent.W))
+	width = clampInt(width, minW, min(maxW, parent.W))
 	height := clampInt(len(lines)+2, minH, parent.H)
-	x := parent.X + maxInt(0, (parent.W-width)/2)
-	y := parent.Y + maxInt(0, (parent.H-height)/2)
+	x := parent.X + max(0, (parent.W-width)/2)
+	y := parent.Y + max(0, (parent.H-height)/2)
 	return Rect{X: x, Y: y, W: width, H: height}
 }
 

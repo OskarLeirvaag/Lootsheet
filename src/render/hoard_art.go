@@ -28,7 +28,7 @@ func drawHoardPanel(buffer *Buffer, rect Rect, theme *Theme, data *DashboardData
 	lines = append(lines, resolved.QuickEntryLines...)
 
 	if content.W >= 60 {
-		rainWidth := clampInt((content.W*2)/3, 20, maxInt(20, content.W-20))
+		rainWidth := clampInt((content.W*2)/3, 20, max(20, content.W-20))
 		rainRect, textRect := content.SplitVertical(rainWidth, 1)
 		if rain != nil {
 			rain.Render(buffer, rainRect, theme)
@@ -37,8 +37,8 @@ func drawHoardPanel(buffer *Buffer, rect Rect, theme *Theme, data *DashboardData
 		return
 	}
 
-	rainHeight := clampInt(content.H/2, 4, maxInt(4, content.H-len(lines)-1))
-	rainHeight = minInt(rainHeight, content.H)
+	rainHeight := clampInt(content.H/2, 4, max(4, content.H-len(lines)-1))
+	rainHeight = min(rainHeight, content.H)
 	rainRect, textRect := content.SplitHorizontal(rainHeight, 1)
 	if rain != nil {
 		rain.Render(buffer, rainRect, theme)
