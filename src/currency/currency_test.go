@@ -1,4 +1,4 @@
-package tools
+package currency
 
 import (
 	"testing"

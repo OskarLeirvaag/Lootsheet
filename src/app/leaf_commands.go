@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/account"
-	"github.com/OskarLeirvaag/Lootsheet/src/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/loot"
-	"github.com/OskarLeirvaag/Lootsheet/src/quest"
-	"github.com/OskarLeirvaag/Lootsheet/src/report"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/spf13/cobra"
 )
 
@@ -241,7 +241,7 @@ func (a *Application) newEntryExpenseCommand() *cobra.Command {
 		if strings.TrimSpace(description) == "" {
 			return fmt.Errorf("--description is required")
 		}
-		amount, err := tools.ParseAmount(amountStr)
+		amount, err := currency.ParseAmount(amountStr)
 		if err != nil {
 			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
 		}
@@ -285,7 +285,7 @@ func (a *Application) newEntryIncomeCommand() *cobra.Command {
 		if strings.TrimSpace(description) == "" {
 			return fmt.Errorf("--description is required")
 		}
-		amount, err := tools.ParseAmount(amountStr)
+		amount, err := currency.ParseAmount(amountStr)
 		if err != nil {
 			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
 		}
@@ -353,11 +353,11 @@ func (a *Application) newQuestCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&acceptedOn, "accepted-on", "", "accepted date (required if status=accepted)")
 
 	return a.newLeafCommand(cmd, func(ctx context.Context) error {
-		reward, err := tools.ParseAmount(rewardStr)
+		reward, err := currency.ParseAmount(rewardStr)
 		if err != nil {
 			return fmt.Errorf("invalid reward %q: %w", rewardStr, err)
 		}
-		advance, err := tools.ParseAmount(advanceStr)
+		advance, err := currency.ParseAmount(advanceStr)
 		if err != nil {
 			return fmt.Errorf("invalid advance %q: %w", advanceStr, err)
 		}
@@ -442,7 +442,7 @@ func (a *Application) newQuestCollectCommand() *cobra.Command {
 			return fmt.Errorf("--amount is required")
 		}
 
-		amount, err := tools.ParseAmount(amountStr)
+		amount, err := currency.ParseAmount(amountStr)
 		if err != nil {
 			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
 		}
@@ -533,7 +533,7 @@ func (a *Application) newLootAppraiseCommand() *cobra.Command {
 			return fmt.Errorf("--value is required")
 		}
 
-		value, err := tools.ParseAmount(valueStr)
+		value, err := currency.ParseAmount(valueStr)
 		if err != nil {
 			return fmt.Errorf("invalid value %q: %w", valueStr, err)
 		}
@@ -590,7 +590,7 @@ func (a *Application) newLootSellCommand() *cobra.Command {
 			return fmt.Errorf("--amount is required")
 		}
 
-		amount, err := tools.ParseAmount(amountStr)
+		amount, err := currency.ParseAmount(amountStr)
 		if err != nil {
 			return fmt.Errorf("invalid amount %q: %w", amountStr, err)
 		}

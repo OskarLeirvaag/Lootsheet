@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
-	"github.com/OskarLeirvaag/Lootsheet/src/report"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 func summarizeLoot(rows []report.LootSummaryRow) []string {
@@ -29,7 +29,7 @@ func summarizeLoot(rows []report.LootSummaryRow) []string {
 		fmt.Sprintf("Tracked items: %d", len(rows)),
 		fmt.Sprintf("Recognized: %d", recognized),
 		fmt.Sprintf("Total quantity: %d", totalQuantity),
-		"Appraised value: " + tools.FormatAmount(appraisedValue),
+		"Appraised value: " + currency.FormatAmount(appraisedValue),
 	}
 }
 
@@ -50,7 +50,7 @@ func summarizeAssets(rows []report.LootSummaryRow) []string {
 		fmt.Sprintf("Tracked assets: %d", len(rows)),
 		fmt.Sprintf("Recognized: %d", recognized),
 		fmt.Sprintf("Total quantity: %d", totalQuantity),
-		"Appraised value: " + tools.FormatAmount(appraisedValue),
+		"Appraised value: " + currency.FormatAmount(appraisedValue),
 	}
 }
 
@@ -146,7 +146,7 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 					"Enter sale proceeds in GP/SP/CP format.",
 					fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Sale of loot item: %s", row.ID)),
 				},
-				Placeholder: tools.FormatAmount(row.RecognizedAppraisalValue),
+				Placeholder: currency.FormatAmount(row.RecognizedAppraisalValue),
 			})
 		}
 		actions = append(actions, render.ItemActionData{
@@ -326,7 +326,7 @@ func lootLatestAppraisalText(row *loot.BrowseItemRecord) string {
 		return "Unknown / none"
 	}
 
-	return tools.FormatAmount(row.LatestAppraisal.AppraisedValue)
+	return currency.FormatAmount(row.LatestAppraisal.AppraisedValue)
 }
 
 func lootRecognizedValueText(row *loot.BrowseItemRecord) string {
@@ -334,7 +334,7 @@ func lootRecognizedValueText(row *loot.BrowseItemRecord) string {
 		return "Unknown / none"
 	}
 
-	return tools.FormatAmount(row.RecognizedAppraisalValue)
+	return currency.FormatAmount(row.RecognizedAppraisalValue)
 }
 
 func lootRowAppraisalLabel(row *loot.BrowseItemRecord) string {
@@ -342,5 +342,5 @@ func lootRowAppraisalLabel(row *loot.BrowseItemRecord) string {
 		return "unknown"
 	}
 
-	return tools.FormatAmount(row.LatestAppraisal.AppraisedValue)
+	return currency.FormatAmount(row.LatestAppraisal.AppraisedValue)
 }
