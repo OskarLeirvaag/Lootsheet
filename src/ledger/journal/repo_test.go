@@ -2,6 +2,7 @@ package journal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -101,7 +102,7 @@ func TestUpdatePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatal("expected update of posted entry to fail")
 	}
 
-	if err != ledger.ErrImmutableEntry {
+	if !errors.Is(err, ledger.ErrImmutableEntry) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 
@@ -133,7 +134,7 @@ func TestDeletePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatal("expected delete of posted entry to fail")
 	}
 
-	if err != ledger.ErrImmutableEntry {
+	if !errors.Is(err, ledger.ErrImmutableEntry) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 
@@ -159,7 +160,7 @@ func TestCheckJournalEntryMutableReturnsImmutabilityErrorForPosted(t *testing.T)
 	}
 
 	err = CheckJournalEntryMutable(context.Background(), databasePath, posted.ID)
-	if err != ledger.ErrImmutableEntry {
+	if !errors.Is(err, ledger.ErrImmutableEntry) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 }
@@ -184,7 +185,7 @@ func TestCheckJournalEntryMutableReturnsImmutabilityErrorForReversed(t *testing.
 	)
 
 	err = CheckJournalEntryMutable(context.Background(), databasePath, posted.ID)
-	if err != ledger.ErrImmutableEntry {
+	if !errors.Is(err, ledger.ErrImmutableEntry) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 }
@@ -209,7 +210,7 @@ func TestUpdateJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 	))
 
 	err = UpdateJournalLine(context.Background(), databasePath, lineID, "Tampered memo", 999, 0)
-	if err != ledger.ErrImmutableEntry {
+	if !errors.Is(err, ledger.ErrImmutableEntry) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 }
@@ -234,7 +235,7 @@ func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 	))
 
 	err = DeleteJournalLine(context.Background(), databasePath, lineID)
-	if err != ledger.ErrImmutableEntry {
+	if !errors.Is(err, ledger.ErrImmutableEntry) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 
@@ -342,7 +343,7 @@ func TestReverseAlreadyReversedEntryFails(t *testing.T) {
 		t.Fatal("expected reversing an already-reversed entry to fail")
 	}
 
-	if err != ledger.ErrEntryNotReversible {
+	if !errors.Is(err, ledger.ErrEntryNotReversible) {
 		t.Fatalf("error = %v, want ErrEntryNotReversible", err)
 	}
 }

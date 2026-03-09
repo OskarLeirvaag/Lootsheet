@@ -475,10 +475,10 @@ func (s *Shell) currentHeaderLines() []string {
 
 func (s *Shell) tabsLine() string {
 	width := maxSectionTitleWidth() + 2
-	line := ""
+	var line strings.Builder
 	for index, section := range orderedSections {
 		if index > 0 {
-			line += "  "
+			line.WriteString("  ")
 		}
 
 		label := section.Title()
@@ -487,10 +487,10 @@ func (s *Shell) tabsLine() string {
 		} else {
 			label = " " + label + " "
 		}
-		line += fmt.Sprintf("%-*s", width, label)
+		fmt.Fprintf(&line, "%-*s", width, label)
 	}
 
-	return line
+	return line.String()
 }
 
 func (s *Shell) drawHeaderHighlights(buffer *Buffer, rect Rect, theme *Theme) {
@@ -743,10 +743,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 
 	s.viewHeights[section] = content.H
 
-	scroll := s.scrolls[section]
-	if selectedIndex < scroll {
-		scroll = selectedIndex
-	}
+	scroll := min(selectedIndex, s.scrolls[section])
 	if selectedIndex >= scroll+content.H {
 		scroll = selectedIndex - content.H + 1
 	}

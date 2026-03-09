@@ -350,61 +350,43 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Entry #%d reversed as entry #%d.", entry.EntryNumber, result.EntryNumber),
 		}
 	case tuiCommandCreateExpense:
-		amountText := strings.TrimSpace(command.Fields["amount"])
-		if amountText == "" {
-			return render.CommandResult{}, render.InputError{Message: "Amount is required."}
-		}
-		amount, err := currency.ParseAmount(amountText)
+		result, err := handleEntryCommand(ctx, command, databasePath, today, "expense",
+			func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error) {
+				return journal.PostExpenseEntry(ctx, databasePath, &journal.ExpenseEntryInput{
+					Date:               date,
+					Description:        desc,
+					ExpenseAccountCode: acct,
+					FundingAccountCode: offset,
+					Amount:             amt,
+					Memo:               memo,
+				})
+			},
+		)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+			return render.CommandResult{}, err
 		}
-
-		result, err := journal.PostExpenseEntry(ctx, databasePath, &journal.ExpenseEntryInput{
-			Date:               defaultDate(strings.TrimSpace(command.Fields["date"]), today),
-			Description:        strings.TrimSpace(command.Fields["description"]),
-			ExpenseAccountCode: strings.TrimSpace(command.Fields["account_code"]),
-			FundingAccountCode: strings.TrimSpace(command.Fields["offset_account_code"]),
-			Amount:             amount,
-			Memo:               strings.TrimSpace(command.Fields["memo"]),
-		})
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Recorded expense as journal entry #%d.", result.EntryNumber),
-		}
-		navigateTo = render.SectionJournal
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandCreateIncome:
-		amountText := strings.TrimSpace(command.Fields["amount"])
-		if amountText == "" {
-			return render.CommandResult{}, render.InputError{Message: "Amount is required."}
-		}
-		amount, err := currency.ParseAmount(amountText)
+		result, err := handleEntryCommand(ctx, command, databasePath, today, "income",
+			func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error) {
+				return journal.PostIncomeEntry(ctx, databasePath, &journal.IncomeEntryInput{
+					Date:               date,
+					Description:        desc,
+					IncomeAccountCode:  acct,
+					DepositAccountCode: offset,
+					Amount:             amt,
+					Memo:               memo,
+				})
+			},
+		)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+			return render.CommandResult{}, err
 		}
-
-		result, err := journal.PostIncomeEntry(ctx, databasePath, &journal.IncomeEntryInput{
-			Date:               defaultDate(strings.TrimSpace(command.Fields["date"]), today),
-			Description:        strings.TrimSpace(command.Fields["description"]),
-			IncomeAccountCode:  strings.TrimSpace(command.Fields["account_code"]),
-			DepositAccountCode: strings.TrimSpace(command.Fields["offset_account_code"]),
-			Amount:             amount,
-			Memo:               strings.TrimSpace(command.Fields["memo"]),
-		})
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Recorded income as journal entry #%d.", result.EntryNumber),
-		}
-		navigateTo = render.SectionJournal
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandCreateCustom:
 		input, err := buildTUIJournalPostInput(command, today)
 		if err != nil {
@@ -551,64 +533,21 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", currency.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
 	case tuiCommandLootCreate:
-		quantityText := strings.TrimSpace(command.Fields["quantity"])
-		if quantityText == "" {
-			quantityText = "1"
-		}
-		quantity, err := strconv.Atoi(quantityText)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "loot", "loot item", render.SectionLoot, true)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+			return render.CommandResult{}, err
 		}
-		if quantity <= 0 {
-			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
-		}
-		result, err := loot.CreateLootItem(
-			ctx,
-			databasePath,
-			strings.TrimSpace(command.Fields["name"]),
-			strings.TrimSpace(command.Fields["source"]),
-			quantity,
-			strings.TrimSpace(command.Fields["holder"]),
-			strings.TrimSpace(command.Fields["notes"]),
-			"loot",
-		)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Created loot item %q.", result.Name),
-		}
-		navigateTo = render.SectionLoot
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandLootUpdate:
-		quantityText := strings.TrimSpace(command.Fields["quantity"])
-		if quantityText == "" {
-			quantityText = "1"
-		}
-		quantity, err := strconv.Atoi(quantityText)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "loot", "loot item", render.SectionLoot, false)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+			return render.CommandResult{}, err
 		}
-		if quantity <= 0 {
-			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
-		}
-		result, err := loot.UpdateLootItem(ctx, databasePath, command.ItemKey, &loot.UpdateLootItemInput{
-			Name:     strings.TrimSpace(command.Fields["name"]),
-			Source:   strings.TrimSpace(command.Fields["source"]),
-			Quantity: quantity,
-			Holder:   strings.TrimSpace(command.Fields["holder"]),
-			Notes:    strings.TrimSpace(command.Fields["notes"]),
-		})
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Updated loot item %q.", result.Name),
-		}
-		navigateTo = render.SectionLoot
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandLootRecognize:
 		items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
 		if err != nil {
@@ -679,64 +618,21 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionAssets
 		selectItemKey = command.ItemKey
 	case tuiCommandAssetCreate:
-		quantityText := strings.TrimSpace(command.Fields["quantity"])
-		if quantityText == "" {
-			quantityText = "1"
-		}
-		quantity, err := strconv.Atoi(quantityText)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "asset", "asset", render.SectionAssets, true)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+			return render.CommandResult{}, err
 		}
-		if quantity <= 0 {
-			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
-		}
-		result, err := loot.CreateLootItem(
-			ctx,
-			databasePath,
-			strings.TrimSpace(command.Fields["name"]),
-			strings.TrimSpace(command.Fields["source"]),
-			quantity,
-			strings.TrimSpace(command.Fields["holder"]),
-			strings.TrimSpace(command.Fields["notes"]),
-			"asset",
-		)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Created asset %q.", result.Name),
-		}
-		navigateTo = render.SectionAssets
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandAssetUpdate:
-		quantityText := strings.TrimSpace(command.Fields["quantity"])
-		if quantityText == "" {
-			quantityText = "1"
-		}
-		quantity, err := strconv.Atoi(quantityText)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "asset", "asset", render.SectionAssets, false)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+			return render.CommandResult{}, err
 		}
-		if quantity <= 0 {
-			return render.CommandResult{}, render.InputError{Message: "Quantity must be positive."}
-		}
-		result, err := loot.UpdateLootItem(ctx, databasePath, command.ItemKey, &loot.UpdateLootItemInput{
-			Name:     strings.TrimSpace(command.Fields["name"]),
-			Source:   strings.TrimSpace(command.Fields["source"]),
-			Quantity: quantity,
-			Holder:   strings.TrimSpace(command.Fields["holder"]),
-			Notes:    strings.TrimSpace(command.Fields["notes"]),
-		})
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Updated asset %q.", result.Name),
-		}
-		navigateTo = render.SectionAssets
-		selectItemKey = result.ID
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandAssetRecognize:
 		items, err := loot.ListBrowseItems(ctx, databasePath, "asset")
 		if err != nil {
@@ -992,6 +888,125 @@ func summarizeShareableGold(trialBalance report.TrialBalanceReport, lootRows []r
 		shareLine,
 		"Unsold loot: " + currency.FormatAmount(recognizedLoot),
 	}
+}
+
+// tuiCommandResult bundles the fields that most TUI command handlers need to
+// propagate back to the main switch.
+type tuiCommandResult struct {
+	message       render.StatusMessage
+	navigateTo    render.Section
+	selectItemKey string
+}
+
+// handleEntryCommand extracts the shared expense/income TUI command logic.
+func handleEntryCommand(
+	ctx context.Context,
+	command render.Command,
+	databasePath string,
+	today string,
+	label string,
+	poster func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error),
+) (tuiCommandResult, error) {
+	amountText := strings.TrimSpace(command.Fields["amount"])
+	if amountText == "" {
+		return tuiCommandResult{}, render.InputError{Message: "Amount is required."}
+	}
+	amount, err := currency.ParseAmount(amountText)
+	if err != nil {
+		return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+	}
+
+	result, err := poster(
+		defaultDate(strings.TrimSpace(command.Fields["date"]), today),
+		strings.TrimSpace(command.Fields["description"]),
+		strings.TrimSpace(command.Fields["account_code"]),
+		strings.TrimSpace(command.Fields["offset_account_code"]),
+		amount,
+		strings.TrimSpace(command.Fields["memo"]),
+	)
+	if err != nil {
+		return tuiCommandResult{}, render.InputError{Message: err.Error()}
+	}
+
+	return tuiCommandResult{
+		message: render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Recorded %s as journal entry #%d.", label, result.EntryNumber),
+		},
+		navigateTo:    render.SectionJournal,
+		selectItemKey: result.ID,
+	}, nil
+}
+
+// handleItemCreateOrUpdate extracts the shared loot/asset create and update
+// TUI command logic. When create is true it calls CreateLootItem; otherwise it
+// calls UpdateLootItem.
+func handleItemCreateOrUpdate(
+	ctx context.Context,
+	command render.Command,
+	databasePath string,
+	itemType string,
+	itemLabel string,
+	section render.Section,
+	create bool,
+) (tuiCommandResult, error) {
+	quantityText := strings.TrimSpace(command.Fields["quantity"])
+	if quantityText == "" {
+		quantityText = "1"
+	}
+	quantity, err := strconv.Atoi(quantityText)
+	if err != nil {
+		return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid quantity %q.", quantityText)}
+	}
+	if quantity <= 0 {
+		return tuiCommandResult{}, render.InputError{Message: "Quantity must be positive."}
+	}
+
+	var name, id string
+	if create {
+		result, createErr := loot.CreateLootItem(
+			ctx,
+			databasePath,
+			strings.TrimSpace(command.Fields["name"]),
+			strings.TrimSpace(command.Fields["source"]),
+			quantity,
+			strings.TrimSpace(command.Fields["holder"]),
+			strings.TrimSpace(command.Fields["notes"]),
+			itemType,
+		)
+		if createErr != nil {
+			return tuiCommandResult{}, render.InputError{Message: createErr.Error()}
+		}
+		name = result.Name
+		id = result.ID
+	} else {
+		result, updateErr := loot.UpdateLootItem(ctx, databasePath, command.ItemKey, &loot.UpdateLootItemInput{
+			Name:     strings.TrimSpace(command.Fields["name"]),
+			Source:   strings.TrimSpace(command.Fields["source"]),
+			Quantity: quantity,
+			Holder:   strings.TrimSpace(command.Fields["holder"]),
+			Notes:    strings.TrimSpace(command.Fields["notes"]),
+		})
+		if updateErr != nil {
+			return tuiCommandResult{}, render.InputError{Message: updateErr.Error()}
+		}
+		name = result.Name
+		id = result.ID
+	}
+
+	verb := "Created"
+	if !create {
+		verb = "Updated"
+	}
+
+	return tuiCommandResult{
+		message: render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("%s %s %q.", verb, itemLabel, name),
+		},
+		navigateTo:    section,
+		selectItemKey: id,
+	}, nil
 }
 
 func tuiToday() string {

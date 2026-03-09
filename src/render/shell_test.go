@@ -60,7 +60,7 @@ func TestShellRenderShowsScrollableAccountsScreen(t *testing.T) {
 	buffer := NewBuffer(96, 28, theme.Base)
 
 	items := make([]ListItemData, 0, 12)
-	for index := 0; index < 12; index++ {
+	for index := range 12 {
 		row := fmt.Sprintf("%04d asset active Account %02d", 1000+index, index)
 		items = append(items, ListItemData{
 			Key:         fmt.Sprintf("%04d", 1000+index),
@@ -81,7 +81,7 @@ func TestShellRenderShowsScrollableAccountsScreen(t *testing.T) {
 	shell := NewShell(&data)
 
 	shell.HandleAction(ActionShowAccounts)
-	for index := 0; index < 6; index++ {
+	for range 6 {
 		shell.HandleAction(ActionMoveDown)
 	}
 	shell.Render(buffer, &theme, keymap)

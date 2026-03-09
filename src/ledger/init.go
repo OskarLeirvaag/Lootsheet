@@ -30,7 +30,7 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 		return InitResult{}, fmt.Errorf("database %q is foreign: database already has tables but is missing LootSheet init metadata", databasePath)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(databasePath), dirPerm); err != nil {
 		return InitResult{}, fmt.Errorf("create database directory: %w", err)
 	}
 
