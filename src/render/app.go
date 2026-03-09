@@ -3,9 +3,12 @@ package render
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
+
+type animationTick struct{}
 
 // Options configures the interactive TUI shell.
 type Options struct {
@@ -47,6 +50,20 @@ func Run(ctx context.Context, options *Options) error {
 		case <-ctx.Done():
 			_ = terminal.PostEvent(tcell.NewEventInterrupt(cancelInterrupt{}))
 		case <-cancelDone:
+		}
+	}()
+
+	ticker := time.NewTicker(120 * time.Millisecond)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				_ = terminal.PostEvent(tcell.NewEventInterrupt(animationTick{}))
+			case <-cancelDone:
+				return
+			}
 		}
 	}()
 
@@ -108,10 +125,15 @@ func Run(ctx context.Context, options *Options) error {
 		case *tcell.EventResize:
 			drawFrame(terminal, shell, &theme, keymap, true)
 		case *tcell.EventInterrupt:
-			if _, ok := typed.Data().(cancelInterrupt); ok {
+			switch typed.Data().(type) {
+			case cancelInterrupt:
 				return nil
+			case animationTick:
+				shell.TickRain()
+				drawFrame(terminal, shell, &theme, keymap, true)
+			default:
+				drawFrame(terminal, shell, &theme, keymap, true)
 			}
-			drawFrame(terminal, shell, &theme, keymap, true)
 		}
 	}
 }

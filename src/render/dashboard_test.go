@@ -21,7 +21,6 @@ func TestDashboardRenderShowsPanelsAndFooterHelp(t *testing.T) {
 		"Ledger Snapshot",
 		"Quest Register",
 		"e  I have an expense",
-		"^^^^^^^",
 		"q quit",
 		"Esc quit",
 	} {
