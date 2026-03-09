@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 func summarizeJournal(summary journal.Summary) []string {
@@ -93,7 +93,7 @@ func formatJournalDetailLine(line journal.BrowseEntryLine) string {
 		amount = line.DebitAmount
 	}
 
-	text := fmt.Sprintf("%s %s %s %s", line.AccountCode, line.AccountName, side, tools.FormatAmount(amount))
+	text := fmt.Sprintf("%s %s %s %s", line.AccountCode, line.AccountName, side, currency.FormatAmount(amount))
 	if strings.TrimSpace(line.Memo) == "" {
 		return text
 	}

@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/journal"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/loot"
-	"github.com/OskarLeirvaag/Lootsheet/src/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
-	"github.com/OskarLeirvaag/Lootsheet/src/report"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 const (
@@ -354,7 +354,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if amountText == "" {
 			return render.CommandResult{}, render.InputError{Message: "Amount is required."}
 		}
-		amount, err := tools.ParseAmount(amountText)
+		amount, err := currency.ParseAmount(amountText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
 		}
@@ -382,7 +382,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if amountText == "" {
 			return render.CommandResult{}, render.InputError{Message: "Amount is required."}
 		}
-		amount, err := tools.ParseAmount(amountText)
+		amount, err := currency.ParseAmount(amountText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
 		}
@@ -427,7 +427,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if rewardText == "" {
 			rewardText = "0"
 		}
-		reward, err := tools.ParseAmount(rewardText)
+		reward, err := currency.ParseAmount(rewardText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
 		}
@@ -435,7 +435,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if advanceText == "" {
 			advanceText = "0"
 		}
-		advance, err := tools.ParseAmount(advanceText)
+		advance, err := currency.ParseAmount(advanceText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
 		}
@@ -464,7 +464,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if rewardText == "" {
 			rewardText = "0"
 		}
-		reward, err := tools.ParseAmount(rewardText)
+		reward, err := currency.ParseAmount(rewardText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid reward %q.", rewardText)}
 		}
@@ -472,7 +472,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if advanceText == "" {
 			advanceText = "0"
 		}
-		advance, err := tools.ParseAmount(advanceText)
+		advance, err := currency.ParseAmount(advanceText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid advance %q.", advanceText)}
 		}
@@ -521,7 +521,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Collected %s for quest %q as entry #%d.", tools.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
+			Text:  fmt.Sprintf("Collected %s for quest %q as entry #%d.", currency.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
 	case tuiCommandQuestWriteOffFull:
 		quests, err := loadTUIQuestRows(ctx, databasePath)
@@ -548,7 +548,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", tools.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
+			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", currency.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
 	case tuiCommandLootCreate:
 		quantityText := strings.TrimSpace(command.Fields["quantity"])
@@ -651,7 +651,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, render.InputError{Message: "Sale amount is required."}
 		}
 
-		amount, err := tools.ParseAmount(amountText)
+		amount, err := currency.ParseAmount(amountText)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
 		}
@@ -900,7 +900,7 @@ func buildTUIJournalPostInput(command render.Command, today string) (ledger.Jour
 			return ledger.JournalPostInput{}, fmt.Errorf("line %d amount is required", index+1)
 		}
 
-		amount, err := tools.ParseAmount(amountText)
+		amount, err := currency.ParseAmount(amountText)
 		if err != nil {
 			return ledger.JournalPostInput{}, fmt.Errorf("line %d amount %q is invalid", index+1, amountText)
 		}
@@ -947,8 +947,8 @@ func summarizeLedger(trialBalance report.TrialBalanceReport) []string {
 
 	return []string{
 		fmt.Sprintf("Posted accounts: %d", len(trialBalance.Accounts)),
-		"Debits: " + tools.FormatAmount(trialBalance.TotalDebits),
-		"Credits: " + tools.FormatAmount(trialBalance.TotalCredits),
+		"Debits: " + currency.FormatAmount(trialBalance.TotalDebits),
+		"Credits: " + currency.FormatAmount(trialBalance.TotalCredits),
 		"Status: " + status,
 	}
 }
@@ -971,7 +971,7 @@ func summarizeShareableGold(trialBalance report.TrialBalanceReport, lootRows []r
 
 	shareLine := "To share now: unknown"
 	if cashFound {
-		shareLine = "To share now: " + tools.FormatAmount(cashBalance)
+		shareLine = "To share now: " + currency.FormatAmount(cashBalance)
 	}
 
 	if !lootAvailable {
@@ -990,7 +990,7 @@ func summarizeShareableGold(trialBalance report.TrialBalanceReport, lootRows []r
 
 	return []string{
 		shareLine,
-		"Unsold loot: " + tools.FormatAmount(recognizedLoot),
+		"Unsold loot: " + currency.FormatAmount(recognizedLoot),
 	}
 }
 
