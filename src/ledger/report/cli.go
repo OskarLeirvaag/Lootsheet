@@ -6,7 +6,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 // RunTrialBalance generates and displays the trial balance report.
@@ -32,9 +32,9 @@ func RunTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
 			row.AccountCode,
 			row.AccountName,
 			string(row.AccountType),
-			tools.FormatAmount(row.TotalDebits),
-			tools.FormatAmount(row.TotalCredits),
-			tools.FormatAmount(row.Balance),
+			currency.FormatAmount(row.TotalDebits),
+			currency.FormatAmount(row.TotalCredits),
+			currency.FormatAmount(row.Balance),
 		)
 	}
 
@@ -46,11 +46,11 @@ func RunTrialBalance(ctx context.Context, hctx ledger.HandlerContext) error {
 		if diff < 0 {
 			diff = -diff
 		}
-		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %s)", tools.FormatAmount(diff))
+		balanceLabel = fmt.Sprintf("UNBALANCED (diff: %s)", currency.FormatAmount(diff))
 	}
 
 	fmt.Fprintf(tw, "\t\tTotals:\t%s\t%s\t%s\n",
-		tools.FormatAmount(report.TotalDebits), tools.FormatAmount(report.TotalCredits), balanceLabel,
+		currency.FormatAmount(report.TotalDebits), currency.FormatAmount(report.TotalCredits), balanceLabel,
 	)
 
 	if err := tw.Flush(); err != nil {
@@ -82,9 +82,9 @@ func RunQuestReceivables(ctx context.Context, hctx ledger.HandlerContext) error 
 			r.Title,
 			r.Patron,
 			string(r.Status),
-			tools.FormatAmount(r.PromisedReward),
-			tools.FormatAmount(r.TotalPaid),
-			tools.FormatAmount(r.Outstanding),
+			currency.FormatAmount(r.PromisedReward),
+			currency.FormatAmount(r.TotalPaid),
+			currency.FormatAmount(r.Outstanding),
 		)
 	}
 
@@ -129,8 +129,8 @@ func RunPromisedQuests(ctx context.Context, hctx ledger.HandlerContext) error {
 			row.Title,
 			row.Patron,
 			string(row.Status),
-			tools.FormatAmount(row.PromisedReward),
-			tools.FormatAmount(row.PartialAdvance),
+			currency.FormatAmount(row.PromisedReward),
+			currency.FormatAmount(row.PartialAdvance),
 			bonusDisplay,
 		)
 	}
@@ -162,7 +162,7 @@ func RunLootSummary(ctx context.Context, hctx ledger.HandlerContext) error {
 	for _, r := range rows {
 		appraisedDisplay := "-"
 		if r.LatestAppraisalValue > 0 {
-			appraisedDisplay = tools.FormatAmount(r.LatestAppraisalValue)
+			appraisedDisplay = currency.FormatAmount(r.LatestAppraisalValue)
 		}
 
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n",
@@ -212,9 +212,9 @@ func RunWriteOffCandidates(ctx context.Context, hctx ledger.HandlerContext, filt
 			string(row.Status),
 			row.CompletedOn,
 			row.AgeDays,
-			tools.FormatAmount(row.PromisedReward),
-			tools.FormatAmount(row.TotalPaid),
-			tools.FormatAmount(row.Outstanding),
+			currency.FormatAmount(row.PromisedReward),
+			currency.FormatAmount(row.TotalPaid),
+			currency.FormatAmount(row.Outstanding),
 		)
 	}
 

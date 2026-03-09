@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 // RunCreate creates a loot item and writes the CLI output.
@@ -67,7 +67,7 @@ func RunAppraise(ctx context.Context, hctx ledger.HandlerContext, id string, val
 		"Appraised loot item %s\nAppraisal ID: %s\nValue: %s\nDate: %s\n",
 		id,
 		result.ID,
-		tools.FormatAmount(result.AppraisedValue),
+		currency.FormatAmount(result.AppraisedValue),
 		result.AppraisedAt,
 	); err != nil {
 		return fmt.Errorf("write loot appraise output: %w", err)
@@ -89,8 +89,8 @@ func RunRecognize(ctx context.Context, hctx ledger.HandlerContext, appraisalID s
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
+		currency.FormatAmount(result.DebitTotal),
+		currency.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write loot recognize output: %w", err)
 	}
@@ -111,9 +111,9 @@ func RunSell(ctx context.Context, hctx ledger.HandlerContext, id string, amount 
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		tools.FormatAmount(amount),
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
+		currency.FormatAmount(amount),
+		currency.FormatAmount(result.DebitTotal),
+		currency.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write loot sell output: %w", err)
 	}

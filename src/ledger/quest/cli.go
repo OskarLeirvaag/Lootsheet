@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 // RunCreate creates a quest and writes the CLI output.
@@ -25,7 +25,7 @@ func RunCreate(ctx context.Context, hctx ledger.HandlerContext, input *CreateQue
 		result.ID,
 		result.Title,
 		string(result.Status),
-		tools.FormatAmount(result.PromisedBaseReward),
+		currency.FormatAmount(result.PromisedBaseReward),
 	); err != nil {
 		return fmt.Errorf("write quest output: %w", err)
 	}
@@ -49,7 +49,7 @@ func RunList(ctx context.Context, hctx ledger.HandlerContext) error {
 			hctx.Stdout,
 			"%-16s %-22s  %s\n",
 			string(quests[i].Status),
-			tools.FormatAmount(quests[i].PromisedBaseReward),
+			currency.FormatAmount(quests[i].PromisedBaseReward),
 			quests[i].Title,
 		); err != nil {
 			return fmt.Errorf("write quest row: %w", err)
@@ -103,9 +103,9 @@ func RunCollect(ctx context.Context, hctx ledger.HandlerContext, input CollectQu
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		tools.FormatAmount(input.Amount),
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
+		currency.FormatAmount(input.Amount),
+		currency.FormatAmount(result.DebitTotal),
+		currency.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write collect output: %w", err)
 	}
@@ -130,8 +130,8 @@ func RunWriteoff(ctx context.Context, hctx ledger.HandlerContext, input WriteOff
 		result.EntryNumber,
 		result.EntryDate,
 		result.Description,
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
+		currency.FormatAmount(result.DebitTotal),
+		currency.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write writeoff output: %w", err)
 	}

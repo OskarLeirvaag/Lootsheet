@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
-	"github.com/OskarLeirvaag/Lootsheet/src/report"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 type tuiQuestRow struct {
@@ -33,9 +33,9 @@ func summarizeQuests(promised []report.PromisedQuestRow, receivables []report.Qu
 
 	return []string{
 		fmt.Sprintf("Promised quests: %d", len(promised)),
-		"Promised value: " + tools.FormatAmount(promisedValue),
+		"Promised value: " + currency.FormatAmount(promisedValue),
 		fmt.Sprintf("Receivables: %d", len(receivables)),
-		"Outstanding: " + tools.FormatAmount(receivableValue),
+		"Outstanding: " + currency.FormatAmount(receivableValue),
 	}
 }
 
@@ -52,13 +52,13 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 		detailLines := []string{
 			"Patron: " + patron,
 			"Status: " + string(record.Status),
-			"Promised reward: " + tools.FormatAmount(record.PromisedBaseReward),
-			"Outstanding: " + tools.FormatAmount(row.Outstanding),
-			"Collected so far: " + tools.FormatAmount(row.TotalPaid),
+			"Promised reward: " + currency.FormatAmount(record.PromisedBaseReward),
+			"Outstanding: " + currency.FormatAmount(row.Outstanding),
+			"Collected so far: " + currency.FormatAmount(row.TotalPaid),
 			"Accounting state: " + questAccountingState(row),
 		}
 		if record.PartialAdvance > 0 {
-			detailLines = append(detailLines, "Partial advance: "+tools.FormatAmount(record.PartialAdvance))
+			detailLines = append(detailLines, "Partial advance: "+currency.FormatAmount(record.PartialAdvance))
 		}
 		if record.AcceptedOn != "" {
 			detailLines = append(detailLines, "Accepted on: "+record.AcceptedOn)
@@ -88,8 +88,8 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 				"title":       record.Title,
 				"patron":      record.Patron,
 				"description": record.Description,
-				"reward":      tools.FormatAmount(record.PromisedBaseReward),
-				"advance":     tools.FormatAmount(record.PartialAdvance),
+				"reward":      currency.FormatAmount(record.PromisedBaseReward),
+				"advance":     currency.FormatAmount(record.PartialAdvance),
 				"bonus":       record.BonusConditions,
 				"notes":       record.Notes,
 				"status":      string(record.Status),
@@ -104,7 +104,7 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 					Label:        "c collect",
 					ConfirmTitle: fmt.Sprintf("Collect full payment for %q?", record.Title),
 					ConfirmLines: []string{
-						"Outstanding: " + tools.FormatAmount(row.Outstanding),
+						"Outstanding: " + currency.FormatAmount(row.Outstanding),
 						"Collection date: " + today,
 						"This collects the full remaining receivable.",
 						fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Quest payment: %s", record.Title)),
@@ -116,7 +116,7 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 					Label:        "w write off",
 					ConfirmTitle: fmt.Sprintf("Write off %q?", record.Title),
 					ConfirmLines: []string{
-						"Outstanding: " + tools.FormatAmount(row.Outstanding),
+						"Outstanding: " + currency.FormatAmount(row.Outstanding),
 						"Write-off date: " + today,
 						"This records the remaining balance as a failed patron loss.",
 						fmt.Sprintf("Description defaults to %q.", fmt.Sprintf("Quest write-off: %s", record.Title)),
@@ -127,7 +127,7 @@ func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {
 
 		items = append(items, render.ListItemData{
 			Key:         record.ID,
-			Row:         fmt.Sprintf("%-12s %-14s %-12s %s (%s)", tools.FormatAmount(record.PromisedBaseReward), string(record.Status), questOutstandingLabel(row.Outstanding), record.Title, patron),
+			Row:         fmt.Sprintf("%-12s %-14s %-12s %s (%s)", currency.FormatAmount(record.PromisedBaseReward), string(record.Status), questOutstandingLabel(row.Outstanding), record.Title, patron),
 			DetailTitle: record.Title,
 			DetailLines: detailLines,
 			Actions:     actions,
@@ -213,7 +213,7 @@ func questOutstandingLabel(value int64) string {
 		return "-"
 	}
 
-	return tools.FormatAmount(value) + " due"
+	return currency.FormatAmount(value) + " due"
 }
 
 func questCollectibleStatus(status ledger.QuestStatus) bool {

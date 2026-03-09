@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
-	"github.com/OskarLeirvaag/Lootsheet/src/tools"
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 )
 
 // RunPost posts a journal entry and writes the CLI output.
@@ -57,7 +57,7 @@ func parseJournalLineSpec(value string, isDebit bool) (ledger.JournalLineInput, 
 		return ledger.JournalLineInput{}, fmt.Errorf("journal line %q is missing an account code", value)
 	}
 
-	amount, err := tools.ParseAmount(parts[1])
+	amount, err := currency.ParseAmount(parts[1])
 	if err != nil {
 		return ledger.JournalLineInput{}, fmt.Errorf("journal line %q has an invalid amount: %w", value, err)
 	}
@@ -94,8 +94,8 @@ func RunReverse(ctx context.Context, hctx ledger.HandlerContext, entryID string,
 		result.EntryDate,
 		result.Description,
 		result.LineCount,
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
+		currency.FormatAmount(result.DebitTotal),
+		currency.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write reversal output: %w", err)
 	}
@@ -110,7 +110,7 @@ func RunExpense(ctx context.Context, hctx ledger.HandlerContext, input *ExpenseE
 		return err
 	}
 
-	return writePostedEntryOutput(hctx, "Recorded expense as journal entry", &result, "Amount: "+tools.FormatAmount(input.Amount))
+	return writePostedEntryOutput(hctx, "Recorded expense as journal entry", &result, "Amount: "+currency.FormatAmount(input.Amount))
 }
 
 // RunIncome posts a guided income entry and writes the CLI output.
@@ -120,7 +120,7 @@ func RunIncome(ctx context.Context, hctx ledger.HandlerContext, input *IncomeEnt
 		return err
 	}
 
-	return writePostedEntryOutput(hctx, "Recorded income as journal entry", &result, "Amount: "+tools.FormatAmount(input.Amount))
+	return writePostedEntryOutput(hctx, "Recorded income as journal entry", &result, "Amount: "+currency.FormatAmount(input.Amount))
 }
 
 // RunCustom posts a guided custom entry and writes the CLI output.
@@ -159,13 +159,13 @@ func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code stri
 	for _, entry := range report.Entries {
 		debitStr := ""
 		if entry.DebitAmount != 0 {
-			debitStr = tools.FormatAmount(entry.DebitAmount)
+			debitStr = currency.FormatAmount(entry.DebitAmount)
 		}
 		creditStr := ""
 		if entry.CreditAmount != 0 {
-			creditStr = tools.FormatAmount(entry.CreditAmount)
+			creditStr = currency.FormatAmount(entry.CreditAmount)
 		}
-		balanceStr := tools.FormatAmount(entry.RunningBalance)
+		balanceStr := currency.FormatAmount(entry.RunningBalance)
 
 		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
 			entry.EntryDate, entry.EntryNumber, entry.Description, entry.Memo, debitStr, creditStr, balanceStr,
@@ -177,7 +177,7 @@ func RunAccountLedger(ctx context.Context, hctx ledger.HandlerContext, code stri
 	}
 
 	// Print final balance line.
-	if _, err := fmt.Fprintf(hctx.Stdout, "Balance: %s\n", tools.FormatAmount(report.Balance)); err != nil {
+	if _, err := fmt.Fprintf(hctx.Stdout, "Balance: %s\n", currency.FormatAmount(report.Balance)); err != nil {
 		return fmt.Errorf("write ledger balance: %w", err)
 	}
 
@@ -196,8 +196,8 @@ func writePostedEntryOutput(hctx ledger.HandlerContext, headline string, result 
 		result.EntryDate,
 		result.Description,
 		result.LineCount,
-		tools.FormatAmount(result.DebitTotal),
-		tools.FormatAmount(result.CreditTotal),
+		currency.FormatAmount(result.DebitTotal),
+		currency.FormatAmount(result.CreditTotal),
 	); err != nil {
 		return fmt.Errorf("write journal output: %w", err)
 	}
