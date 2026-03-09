@@ -1,5 +1,7 @@
 package render
 
+import "github.com/gdamore/tcell/v2"
+
 // Section identifies a top-level TUI screen.
 type Section int
 
@@ -70,4 +72,69 @@ func maxSectionTitleWidth() int {
 		}
 	}
 	return width
+}
+
+// SectionStyle bundles visual properties derived from a Section.
+type SectionStyle struct {
+	Accent        tcell.Style
+	Texture       PanelTexture
+	Borders       *BorderSet
+	ScatterGlyphs []rune
+	ScatterStyle  *tcell.Style
+}
+
+// Style returns the visual properties for this section under the given theme.
+func (s Section) Style(theme *Theme) SectionStyle {
+	switch s {
+	case SectionAccounts:
+		return SectionStyle{
+			Accent:        theme.SectionAccounts,
+			ScatterGlyphs: scatterAccounts,
+			ScatterStyle:  &theme.ScatterAccounts,
+		}
+	case SectionJournal:
+		return SectionStyle{
+			Accent:        theme.SectionJournal,
+			ScatterGlyphs: scatterJournal,
+			ScatterStyle:  &theme.ScatterJournal,
+		}
+	case SectionQuests:
+		return SectionStyle{
+			Accent:        theme.SectionQuests,
+			ScatterGlyphs: scatterQuests,
+			ScatterStyle:  &theme.ScatterQuests,
+		}
+	case SectionLoot:
+		return SectionStyle{
+			Accent:        theme.SectionLoot,
+			ScatterGlyphs: scatterLoot,
+			ScatterStyle:  &theme.ScatterLoot,
+		}
+	case SectionAssets:
+		return SectionStyle{
+			Accent:        theme.SectionAssets,
+			Texture:       PanelTextureLeaf,
+			Borders:       &runicBorders,
+			ScatterGlyphs: scatterGlyphs,
+			ScatterStyle:  &theme.ScatterAssets,
+		}
+	default:
+		return SectionStyle{
+			Accent: theme.SectionDashboard,
+		}
+	}
+}
+
+// Panel returns a Panel pre-filled with section visual properties.
+func (ss *SectionStyle) Panel(title string, lines []string) Panel {
+	return Panel{
+		Title:         title,
+		Lines:         lines,
+		BorderStyle:   &ss.Accent,
+		TitleStyle:    &ss.Accent,
+		Texture:       ss.Texture,
+		Borders:       ss.Borders,
+		ScatterGlyphs: ss.ScatterGlyphs,
+		ScatterStyle:  ss.ScatterStyle,
+	}
 }

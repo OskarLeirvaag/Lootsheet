@@ -524,7 +524,7 @@ func (s *Shell) drawHeaderHighlights(buffer *Buffer, rect Rect, theme *Theme) {
 		style := theme.TabInactive
 		if section == s.Section {
 			label = "[" + label + "]"
-			style = s.styleForSection(theme, section)
+			style = section.Style(theme).Accent
 		} else {
 			label = " " + label + " "
 		}
@@ -534,55 +534,7 @@ func (s *Shell) drawHeaderHighlights(buffer *Buffer, rect Rect, theme *Theme) {
 }
 
 func (s *Shell) sectionStyle(theme *Theme) tcell.Style {
-	return s.styleForSection(theme, s.Section)
-}
-
-func (s *Shell) styleForSection(theme *Theme, section Section) tcell.Style {
-	switch section {
-	case SectionAccounts:
-		return theme.SectionAccounts
-	case SectionJournal:
-		return theme.SectionJournal
-	case SectionQuests:
-		return theme.SectionQuests
-	case SectionLoot:
-		return theme.SectionLoot
-	case SectionAssets:
-		return theme.SectionAssets
-	default:
-		return theme.SectionDashboard
-	}
-}
-
-func sectionTexture(section Section) PanelTexture {
-	if section == SectionAssets {
-		return PanelTextureLeaf
-	}
-	return PanelTextureBrick
-}
-
-func sectionBorders(section Section) *BorderSet {
-	if section == SectionAssets {
-		return &runicBorders
-	}
-	return nil
-}
-
-func sectionScatter(section Section, theme *Theme) ([]rune, *tcell.Style) {
-	switch section {
-	case SectionAssets:
-		return scatterGlyphs, &theme.ScatterAssets
-	case SectionLoot:
-		return scatterLoot, &theme.ScatterLoot
-	case SectionQuests:
-		return scatterQuests, &theme.ScatterQuests
-	case SectionJournal:
-		return scatterJournal, &theme.ScatterJournal
-	case SectionAccounts:
-		return scatterAccounts, &theme.ScatterAccounts
-	default:
-		return nil, nil
-	}
+	return s.Section.Style(theme).Accent
 }
 
 func (s *Shell) footerHelpText(keymap KeyMap) string {
@@ -715,25 +667,13 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		fallback := defaultListScreenData(section)
 		view = &fallback
 	}
-	accent := s.styleForSection(theme, section)
-	tex := sectionTexture(section)
-	brd := sectionBorders(section)
-	scGlyphs, scStyle := sectionScatter(section, theme)
+	ss := section.Style(theme)
 
 	if rect.W < 48 || rect.H < 10 {
-		DrawPanel(buffer, rect, theme, Panel{
-			Title: section.Title(),
-			Lines: []string{
-				"Terminal too small for the interactive list view.",
-				"Resize to restore selection, detail, and action panels.",
-			},
-			BorderStyle:   &accent,
-			TitleStyle:    &accent,
-			Texture:       tex,
-			Borders:       brd,
-			ScatterGlyphs: scGlyphs,
-			ScatterStyle:  scStyle,
-		})
+		DrawPanel(buffer, rect, theme, ss.Panel(section.Title(), []string{
+			"Terminal too small for the interactive list view.",
+			"Resize to restore selection, detail, and action panels.",
+		}))
 		return
 	}
 
@@ -757,16 +697,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 	if len(summaryLines) == 0 {
 		summaryLines = []string{"No summary loaded."}
 	}
-	DrawPanel(buffer, summaryRect, theme, Panel{
-		Title:         "Summary",
-		Lines:         summaryLines,
-		BorderStyle:   &accent,
-		TitleStyle:    &accent,
-		Texture:       tex,
-		Borders:       brd,
-		ScatterGlyphs: scGlyphs,
-		ScatterStyle:  scStyle,
-	})
+	DrawPanel(buffer, summaryRect, theme, ss.Panel("Summary", summaryLines))
 
 	selectedIndex := s.currentSelectionIndex(section)
 	detailTitle := "Detail"
@@ -786,16 +717,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		}
 	}
 
-	DrawPanel(buffer, detailRect, theme, Panel{
-		Title:         detailTitle,
-		Lines:         detailLines,
-		BorderStyle:   &accent,
-		TitleStyle:    &accent,
-		Texture:       tex,
-		Borders:       brd,
-		ScatterGlyphs: scGlyphs,
-		ScatterStyle:  scStyle,
-	})
+	DrawPanel(buffer, detailRect, theme, ss.Panel(detailTitle, detailLines))
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
 }
@@ -803,35 +725,15 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section Section, data *ListScreenData, selectedIndex int) {
 	items := data.Items
 	title := section.Title()
-	accent := s.styleForSection(theme, section)
-	tex := sectionTexture(section)
-	brd := sectionBorders(section)
-	scGlyphs, scStyle := sectionScatter(section, theme)
+	ss := section.Style(theme)
 	if len(items) == 0 {
-		DrawPanel(buffer, rect, theme, Panel{
-			Title:         title,
-			Lines:         data.EmptyLines,
-			BorderStyle:   &accent,
-			TitleStyle:    &accent,
-			Texture:       tex,
-			Borders:       brd,
-			ScatterGlyphs: scGlyphs,
-			ScatterStyle:  scStyle,
-		})
+		DrawPanel(buffer, rect, theme, ss.Panel(title, data.EmptyLines))
 		s.viewHeights[section] = 0
 		s.scrolls[section] = 0
 		return
 	}
 
-	DrawPanel(buffer, rect, theme, Panel{
-		Title:         title,
-		BorderStyle:   &accent,
-		TitleStyle:    &accent,
-		Texture:       tex,
-		Borders:       brd,
-		ScatterGlyphs: scGlyphs,
-		ScatterStyle:  scStyle,
-	})
+	DrawPanel(buffer, rect, theme, ss.Panel(title, nil))
 
 	content := panelContentRect(rect, buffer.Bounds())
 	if content.Empty() {
@@ -855,15 +757,7 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 
 	end := minInt(len(items), scroll+content.H)
 	title = fmt.Sprintf("%s %d-%d/%d", section.Title(), scroll+1, end, len(items))
-	DrawPanel(buffer, rect, theme, Panel{
-		Title:         title,
-		BorderStyle:   &accent,
-		TitleStyle:    &accent,
-		Texture:       tex,
-		Borders:       brd,
-		ScatterGlyphs: scGlyphs,
-		ScatterStyle:  scStyle,
-	})
+	DrawPanel(buffer, rect, theme, ss.Panel(title, nil))
 
 	for row := 0; row < content.H && scroll+row < len(items); row++ {
 		index := scroll + row
@@ -883,6 +777,20 @@ func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section
 	}
 }
 
+func modalBounds(parent Rect, lines []string, defaultW, minW, maxW, minH int) Rect {
+	width := defaultW
+	for _, line := range lines {
+		if candidate := len([]rune(line)) + 4; candidate > width {
+			width = candidate
+		}
+	}
+	width = clampInt(width, minW, minInt(maxW, parent.W))
+	height := clampInt(len(lines)+2, minH, parent.H)
+	x := parent.X + maxInt(0, (parent.W-width)/2)
+	y := parent.Y + maxInt(0, (parent.H-height)/2)
+	return Rect{X: x, Y: y, W: width, H: height}
+}
+
 func (s *Shell) renderConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
 	if s.confirm == nil || rect.Empty() {
 		return
@@ -894,21 +802,8 @@ func (s *Shell) renderConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
 	}
 	lines = append(lines, "", "Enter confirm  Esc/q cancel")
 
-	width := 56
-	for _, line := range lines {
-		if candidate := len([]rune(line)) + 4; candidate > width {
-			width = candidate
-		}
-	}
-
-	width = clampInt(width, 36, minInt(64, rect.W))
-	height := clampInt(len(lines)+2, 5, rect.H)
-	x := rect.X + maxInt(0, (rect.W-width)/2)
-	y := rect.Y + maxInt(0, (rect.H-height)/2)
-	modal := Rect{X: x, Y: y, W: width, H: height}
 	accent := s.sectionStyle(theme)
-
-	DrawPanel(buffer, modal, theme, Panel{
+	DrawPanel(buffer, modalBounds(rect, lines, 56, 36, 64, 5), theme, Panel{
 		Title:       s.confirm.Action.ConfirmTitle,
 		Lines:       lines,
 		BorderStyle: &accent,
@@ -938,21 +833,8 @@ func (s *Shell) renderInputModal(buffer *Buffer, rect Rect, theme *Theme) {
 	}
 	lines = append(lines, "", "Enter submit  Esc/q cancel")
 
-	width := 60
-	for _, line := range lines {
-		if candidate := len([]rune(line)) + 4; candidate > width {
-			width = candidate
-		}
-	}
-
-	width = clampInt(width, 40, minInt(70, rect.W))
-	height := clampInt(len(lines)+2, 6, rect.H)
-	x := rect.X + maxInt(0, (rect.W-width)/2)
-	y := rect.Y + maxInt(0, (rect.H-height)/2)
-	modal := Rect{X: x, Y: y, W: width, H: height}
 	accent := s.sectionStyle(theme)
-
-	DrawPanel(buffer, modal, theme, Panel{
+	DrawPanel(buffer, modalBounds(rect, lines, 60, 40, 70, 6), theme, Panel{
 		Title:       s.input.Title,
 		Lines:       lines,
 		BorderStyle: &accent,
@@ -969,21 +851,8 @@ func (s *Shell) renderGlossaryModal(buffer *Buffer, rect Rect, theme *Theme) {
 	lines := append([]string{}, s.glossary.Lines...)
 	lines = append(lines, "", "? close  Esc/q cancel")
 
-	width := 74
-	for _, line := range lines {
-		if candidate := len([]rune(line)) + 4; candidate > width {
-			width = candidate
-		}
-	}
-
-	width = clampInt(width, 46, minInt(86, rect.W))
-	height := clampInt(len(lines)+2, 8, rect.H)
-	x := rect.X + maxInt(0, (rect.W-width)/2)
-	y := rect.Y + maxInt(0, (rect.H-height)/2)
-	modal := Rect{X: x, Y: y, W: width, H: height}
 	accent := s.sectionStyle(theme)
-
-	DrawPanel(buffer, modal, theme, Panel{
+	DrawPanel(buffer, modalBounds(rect, lines, 74, 46, 86, 8), theme, Panel{
 		Title:       s.glossary.Title,
 		Lines:       lines,
 		BorderStyle: &accent,

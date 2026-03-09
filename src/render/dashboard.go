@@ -102,23 +102,11 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 		loot, assets = bottomRest.SplitVertical(bottomWidth, 1)
 	}
 
-	DrawPanel(buffer, accounts, theme, Panel{
-		Title:         "Accounts",
-		Lines:         resolved.AccountsLines,
-		BorderStyle:   &theme.SectionAccounts,
-		TitleStyle:    &theme.SectionAccounts,
-		ScatterGlyphs: scatterAccounts,
-		ScatterStyle:  &theme.ScatterAccounts,
-	})
+	ssAccounts := SectionAccounts.Style(theme)
+	DrawPanel(buffer, accounts, theme, ssAccounts.Panel("Accounts", resolved.AccountsLines))
 
-	DrawPanel(buffer, journal, theme, Panel{
-		Title:         "Journal",
-		Lines:         resolved.JournalLines,
-		BorderStyle:   &theme.SectionJournal,
-		TitleStyle:    &theme.SectionJournal,
-		ScatterGlyphs: scatterJournal,
-		ScatterStyle:  &theme.ScatterJournal,
-	})
+	ssJournal := SectionJournal.Style(theme)
+	DrawPanel(buffer, journal, theme, ssJournal.Panel("Journal", resolved.JournalLines))
 
 	DrawPanel(buffer, ledger, theme, Panel{
 		Title:       "Ledger Snapshot",
@@ -128,38 +116,18 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	})
 
 	if !quests.Empty() {
-		DrawPanel(buffer, quests, theme, Panel{
-			Title:         "Quest Register",
-			Lines:         resolved.QuestLines,
-			BorderStyle:   &theme.SectionQuests,
-			TitleStyle:    &theme.SectionQuests,
-			ScatterGlyphs: scatterQuests,
-			ScatterStyle:  &theme.ScatterQuests,
-		})
+		ssQuests := SectionQuests.Style(theme)
+		DrawPanel(buffer, quests, theme, ssQuests.Panel("Quest Register", resolved.QuestLines))
 	}
 
 	if !loot.Empty() {
-		DrawPanel(buffer, loot, theme, Panel{
-			Title:         "Loot Register",
-			Lines:         resolved.LootLines,
-			BorderStyle:   &theme.SectionLoot,
-			TitleStyle:    &theme.SectionLoot,
-			ScatterGlyphs: scatterLoot,
-			ScatterStyle:  &theme.ScatterLoot,
-		})
+		ssLoot := SectionLoot.Style(theme)
+		DrawPanel(buffer, loot, theme, ssLoot.Panel("Loot Register", resolved.LootLines))
 	}
 
 	if !assets.Empty() {
-		DrawPanel(buffer, assets, theme, Panel{
-			Title:         "Asset Register",
-			Lines:         resolved.AssetLines,
-			BorderStyle:   &theme.SectionAssets,
-			TitleStyle:    &theme.SectionAssets,
-			Texture:       PanelTextureLeaf,
-			Borders:       &runicBorders,
-			ScatterGlyphs: scatterGlyphs,
-			ScatterStyle:  &theme.ScatterAssets,
-		})
+		ssAssets := SectionAssets.Style(theme)
+		DrawPanel(buffer, assets, theme, ssAssets.Panel("Asset Register", resolved.AssetLines))
 	}
 }
 
