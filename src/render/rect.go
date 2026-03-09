@@ -38,10 +38,10 @@ func (r Rect) Inset(padding int) Rect {
 
 // Intersect returns the visible overlap of the two rectangles.
 func (r Rect) Intersect(other Rect) Rect {
-	left := maxInt(r.X, other.X)
-	top := maxInt(r.Y, other.Y)
-	right := minInt(r.X+r.W, other.X+other.W)
-	bottom := minInt(r.Y+r.H, other.Y+other.H)
+	left := max(r.X, other.X)
+	top := max(r.Y, other.Y)
+	right := min(r.X+r.W, other.X+other.W)
+	bottom := min(r.Y+r.H, other.Y+other.H)
 
 	width := right - left
 	height := bottom - top
@@ -73,7 +73,7 @@ func (r Rect) SplitHorizontal(topHeight int, gap int) (Rect, Rect) {
 	topHeight = clampInt(topHeight, 0, r.H)
 	used := topHeight
 	if used < r.H {
-		used += minInt(gap, r.H-used)
+		used += min(gap, r.H-used)
 	}
 
 	return Rect{
@@ -102,7 +102,7 @@ func (r Rect) SplitVertical(leftWidth int, gap int) (Rect, Rect) {
 	leftWidth = clampInt(leftWidth, 0, r.W)
 	used := leftWidth
 	if used < r.W {
-		used += minInt(gap, r.W-used)
+		used += min(gap, r.W-used)
 	}
 
 	return Rect{
@@ -128,16 +128,3 @@ func clampInt(value int, low int, high int) int {
 	return value
 }
 
-func minInt(a int, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func maxInt(a int, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}

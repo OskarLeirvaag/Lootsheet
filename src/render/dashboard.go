@@ -23,7 +23,7 @@ func (d *Dashboard) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 
 	data := resolveDashboardData(&d.Data)
 	outer := bounds.Inset(1)
-	main, footer := outer.SplitHorizontal(maxInt(0, outer.H-1), 0)
+	main, footer := outer.SplitHorizontal(max(0, outer.H-1), 0)
 	header, body := main.SplitHorizontal(4, 1)
 
 	DrawPanel(buffer, header, theme, Panel{
@@ -70,7 +70,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	}
 
 	heroHeight := clampInt(body.H/2, 7, 14)
-	heroHeight = minInt(heroHeight, maxInt(0, body.H-8))
+	heroHeight = min(heroHeight, max(0, body.H-8))
 	hero, lower := body.SplitHorizontal(heroHeight, 1)
 	if lower.H < 4 {
 		hero = body
@@ -88,7 +88,7 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	if bottom.Empty() {
 		top = lower
 	}
-	topWidth := maxInt(16, (top.W-2)/3)
+	topWidth := max(16, (top.W-2)/3)
 	accounts, topRest := top.SplitVertical(topWidth, 1)
 	journal, ledger := topRest.SplitVertical(topWidth, 1)
 
@@ -96,29 +96,17 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	var loot Rect
 	var assets Rect
 	if !bottom.Empty() {
-		bottomWidth := maxInt(16, (bottom.W-2)/3)
+		bottomWidth := max(16, (bottom.W-2)/3)
 		var bottomRest Rect
 		quests, bottomRest = bottom.SplitVertical(bottomWidth, 1)
 		loot, assets = bottomRest.SplitVertical(bottomWidth, 1)
 	}
 
-	DrawPanel(buffer, accounts, theme, Panel{
-		Title:         "Accounts",
-		Lines:         resolved.AccountsLines,
-		BorderStyle:   &theme.SectionAccounts,
-		TitleStyle:    &theme.SectionAccounts,
-		ScatterGlyphs: scatterAccounts,
-		ScatterStyle:  &theme.ScatterAccounts,
-	})
+	ssAccounts := SectionAccounts.Style(theme)
+	DrawPanel(buffer, accounts, theme, ssAccounts.Panel("Accounts", resolved.AccountsLines))
 
-	DrawPanel(buffer, journal, theme, Panel{
-		Title:         "Journal",
-		Lines:         resolved.JournalLines,
-		BorderStyle:   &theme.SectionJournal,
-		TitleStyle:    &theme.SectionJournal,
-		ScatterGlyphs: scatterJournal,
-		ScatterStyle:  &theme.ScatterJournal,
-	})
+	ssJournal := SectionJournal.Style(theme)
+	DrawPanel(buffer, journal, theme, ssJournal.Panel("Journal", resolved.JournalLines))
 
 	DrawPanel(buffer, ledger, theme, Panel{
 		Title:       "Ledger Snapshot",
@@ -128,38 +116,18 @@ func drawDashboardPanels(buffer *Buffer, body Rect, theme *Theme, data *Dashboar
 	})
 
 	if !quests.Empty() {
-		DrawPanel(buffer, quests, theme, Panel{
-			Title:         "Quest Register",
-			Lines:         resolved.QuestLines,
-			BorderStyle:   &theme.SectionQuests,
-			TitleStyle:    &theme.SectionQuests,
-			ScatterGlyphs: scatterQuests,
-			ScatterStyle:  &theme.ScatterQuests,
-		})
+		ssQuests := SectionQuests.Style(theme)
+		DrawPanel(buffer, quests, theme, ssQuests.Panel("Quest Register", resolved.QuestLines))
 	}
 
 	if !loot.Empty() {
-		DrawPanel(buffer, loot, theme, Panel{
-			Title:         "Loot Register",
-			Lines:         resolved.LootLines,
-			BorderStyle:   &theme.SectionLoot,
-			TitleStyle:    &theme.SectionLoot,
-			ScatterGlyphs: scatterLoot,
-			ScatterStyle:  &theme.ScatterLoot,
-		})
+		ssLoot := SectionLoot.Style(theme)
+		DrawPanel(buffer, loot, theme, ssLoot.Panel("Loot Register", resolved.LootLines))
 	}
 
 	if !assets.Empty() {
-		DrawPanel(buffer, assets, theme, Panel{
-			Title:         "Asset Register",
-			Lines:         resolved.AssetLines,
-			BorderStyle:   &theme.SectionAssets,
-			TitleStyle:    &theme.SectionAssets,
-			Texture:       PanelTextureLeaf,
-			Borders:       &runicBorders,
-			ScatterGlyphs: scatterGlyphs,
-			ScatterStyle:  &theme.ScatterAssets,
-		})
+		ssAssets := SectionAssets.Style(theme)
+		DrawPanel(buffer, assets, theme, ssAssets.Panel("Asset Register", resolved.AssetLines))
 	}
 }
 
