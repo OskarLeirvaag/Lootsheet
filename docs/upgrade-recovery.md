@@ -95,5 +95,10 @@ Today, restore is a filesystem operation:
 
 ## Related Assets
 
+<<<<<<< Updated upstream
 - generated CLI man pages: [`docs/man/`](docs/man)
 - sample campaign fixture: [`fixtures/sample_campaign.sql`](fixtures/sample_campaign.sql)
+=======
+- generated CLI man pages: [`docs/man/`](man/)
+- sample campaign fixture: [`fixtures/sample_campaign.sql`](../fixtures/sample_campaign.sql)
+>>>>>>> Stashed changes

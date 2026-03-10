@@ -54,3 +54,7 @@ LootSheet is currently used through:
 ## Tone
 
 The product should feel credible to someone who understands bookkeeping, while still fitting a D&D campaign where accounts like `Wizard Magic Ink`, `Arrows & Ammunition`, or `Tavern Reparations` make perfect sense.
+
+## License
+
+LootSheet is licensed under the [GNU General Public License v3.0](LICENSE).
