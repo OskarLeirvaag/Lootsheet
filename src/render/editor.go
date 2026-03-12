@@ -1017,7 +1017,7 @@ func editorParseReferences(e *editorState) []string {
 	var refs []string
 	for _, line := range e.Lines {
 		runes := []rune(line)
-		for i := range len(runes) {
+		for i := range runes {
 			if runes[i] == '@' && i+1 < len(runes) {
 				end := i + 1
 				for end < len(runes) && !isRefTerminatorRune(runes[end]) {

@@ -29,6 +29,8 @@ func (s *Shell) handleCodexPickerKeyEvent(event *tcell.EventKey, action Action) 
 	case ActionRedraw:
 		s.codexPicker = nil
 		return handleResult{Reload: true}, true
+	default:
+		// Other actions are handled below via raw key events.
 	}
 
 	picker := s.codexPicker

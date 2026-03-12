@@ -636,7 +636,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 		}
 		fields := make([]composeField, len(form.Fields))
 		for i, f := range form.Fields {
-			fields[i] = composeField{ID: f.ID, Label: f.Label, Placeholder: f.Placeholder}
+			fields[i] = composeField(f)
 		}
 		return fields
 	case composeModeNotes:

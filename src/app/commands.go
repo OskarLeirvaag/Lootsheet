@@ -7,9 +7,9 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"

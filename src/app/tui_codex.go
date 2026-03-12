@@ -14,9 +14,8 @@ func summarizeCodex(entries []codex.CodexEntry) []string {
 		typeCounts[entries[i].TypeName]++
 	}
 
-	lines := []string{
-		fmt.Sprintf("Codex entries: %d", len(entries)),
-	}
+	lines := make([]string, 0, 1+len(typeCounts))
+	lines = append(lines, fmt.Sprintf("Codex entries: %d", len(entries)))
 	for typeName, count := range typeCounts {
 		lines = append(lines, fmt.Sprintf("  %s: %d", typeName, count))
 	}
@@ -124,14 +123,15 @@ func buildCodexItems(entries []codex.CodexEntry, refs map[string][]codex.Referen
 
 // codexSecondary returns the type-specific secondary field for list display.
 func codexSecondary(e *codex.CodexEntry) string {
-	if e.TypeID == "player" {
-		s := e.Class
-		if strings.TrimSpace(s) == "" {
-			s = "-"
-		}
-		return s
+	var s string
+	switch e.TypeID {
+	case "player":
+		s = e.Class
+	case "settlement":
+		s = e.Location
+	default:
+		s = e.Disposition
 	}
-	s := e.Disposition
 	if strings.TrimSpace(s) == "" {
 		s = "-"
 	}
@@ -140,10 +140,14 @@ func codexSecondary(e *codex.CodexEntry) string {
 
 // codexFormIDForType maps a type ID to its form ID.
 func codexFormIDForType(typeID string) string {
-	if typeID == "player" {
+	switch typeID {
+	case "player":
 		return "player"
+	case "settlement":
+		return "settlement"
+	default:
+		return "npc"
 	}
-	return "npc"
 }
 
 // buildMentionedByLines returns "Mentioned by:" detail lines for an entity.

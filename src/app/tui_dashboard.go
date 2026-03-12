@@ -10,10 +10,10 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
@@ -921,7 +921,7 @@ func unavailableShellData(status *ledger.DatabaseStatus, detail string) render.S
 		Quests:   unavailableSectionData(stateLine, detail),
 		Loot:     unavailableSectionData(stateLine, detail),
 		Assets:   unavailableSectionData(stateLine, detail),
-		Codex:   unavailableSectionData(stateLine, detail),
+		Codex:    unavailableSectionData(stateLine, detail),
 		Notes:    unavailableSectionData(stateLine, detail),
 	}
 }

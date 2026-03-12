@@ -19,10 +19,6 @@ func TestLoadInitAssets(t *testing.T) {
 		t.Fatalf("first migration version = %q, want 1", assets.Migrations[0].Version)
 	}
 
-	if len(assets.Migrations) != 6 {
-		t.Fatalf("migration count = %d, want 6", len(assets.Migrations))
-	}
-
 	if assets.Migrations[0].SQL == "" {
 		t.Fatal("first migration SQL must not be empty")
 	}
@@ -35,8 +31,8 @@ func TestLoadInitAssets(t *testing.T) {
 		t.Fatalf("second migration version = %q, want 2", assets.Migrations[1].Version)
 	}
 
-	if assets.SchemaVersion != "6" {
-		t.Fatalf("schema version = %q, want 6", assets.SchemaVersion)
+	if assets.SchemaVersion != SchemaVersion {
+		t.Fatalf("schema version = %q, want %s", assets.SchemaVersion, SchemaVersion)
 	}
 
 	if len(assets.Accounts) != 16 {

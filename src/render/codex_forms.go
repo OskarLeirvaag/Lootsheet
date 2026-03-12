@@ -36,6 +36,17 @@ var codexFormRegistry = map[string]CodexForm{
 			{ID: "notes", Label: "Notes", Placeholder: "Met during @quest/..."},
 		},
 	},
+	"settlement": {
+		ID: "settlement",
+		Fields: []CodexFormField{
+			{ID: "name", Label: "Name", Placeholder: "Millhaven"},
+			{ID: "title", Label: "Title", Placeholder: "Mining town"},
+			{ID: "location", Label: "Location", Placeholder: "Northern foothills"},
+			{ID: "faction", Label: "Faction", Placeholder: "Free Cities Alliance"},
+			{ID: "description", Label: "Description", Placeholder: "A bustling trade hub at the river fork"},
+			{ID: "notes", Label: "Notes", Placeholder: "Visited during @quest/..."},
+		},
+	},
 }
 
 // LookupCodexForm returns the form definition for the given form ID.
