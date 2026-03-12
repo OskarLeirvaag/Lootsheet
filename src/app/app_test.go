@@ -447,7 +447,7 @@ func getFirstJournalEntryID(t *testing.T, databasePath string) string {
 	defer db.Close()
 
 	var entryID string
-	if err := db.QueryRow("SELECT id FROM journal_entries ORDER BY entry_number LIMIT 1").Scan(&entryID); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM journal_entries ORDER BY entry_number LIMIT 1").Scan(&entryID); err != nil {
 		t.Fatalf("query first journal entry ID: %v", err)
 	}
 
@@ -1076,7 +1076,7 @@ func getFirstQuestID(t *testing.T, databasePath string) string {
 	defer db.Close()
 
 	var questID string
-	if err := db.QueryRow("SELECT id FROM quests ORDER BY created_at LIMIT 1").Scan(&questID); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM quests ORDER BY created_at LIMIT 1").Scan(&questID); err != nil {
 		t.Fatalf("query first quest ID: %v", err)
 	}
 
