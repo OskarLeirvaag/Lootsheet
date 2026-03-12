@@ -3,6 +3,7 @@ package notes
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
@@ -41,22 +42,7 @@ func RunList(ctx context.Context, hctx ledger.HandlerContext) error {
 		return fmt.Errorf("write notes header: %w", err)
 	}
 
-	for i := range noteList {
-		updated := noteList[i].UpdatedAt
-		if len(updated) > 10 {
-			updated = updated[:10]
-		}
-		if _, err := fmt.Fprintf(
-			hctx.Stdout,
-			"%-11s %s\n",
-			updated,
-			noteList[i].Title,
-		); err != nil {
-			return fmt.Errorf("write note row: %w", err)
-		}
-	}
-
-	return nil
+	return writeNoteRows(hctx.Stdout, noteList)
 }
 
 // RunSearch writes matching notes for a query.
@@ -77,13 +63,17 @@ func RunSearch(ctx context.Context, hctx ledger.HandlerContext, query string) er
 		return fmt.Errorf("write notes header: %w", err)
 	}
 
+	return writeNoteRows(hctx.Stdout, noteList)
+}
+
+func writeNoteRows(w io.Writer, noteList []NoteRecord) error {
 	for i := range noteList {
 		updated := noteList[i].UpdatedAt
 		if len(updated) > 10 {
 			updated = updated[:10]
 		}
 		if _, err := fmt.Fprintf(
-			hctx.Stdout,
+			w,
 			"%-11s %s\n",
 			updated,
 			noteList[i].Title,
@@ -91,6 +81,5 @@ func RunSearch(ctx context.Context, hctx ledger.HandlerContext, query string) er
 			return fmt.Errorf("write note row: %w", err)
 		}
 	}
-
 	return nil
 }

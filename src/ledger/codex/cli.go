@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
@@ -42,24 +43,7 @@ func RunList(ctx context.Context, hctx ledger.HandlerContext) error {
 		return fmt.Errorf("write codex header: %w", err)
 	}
 
-	for i := range entries {
-		e := &entries[i]
-		secondary := e.Disposition
-		if e.TypeID == "player" {
-			secondary = e.Class
-		}
-		if _, err := fmt.Fprintf(
-			hctx.Stdout,
-			"%-8s %-14s %s\n",
-			e.TypeName,
-			secondary,
-			e.Name,
-		); err != nil {
-			return fmt.Errorf("write codex row: %w", err)
-		}
-	}
-
-	return nil
+	return writeCodexRows(hctx.Stdout, entries)
 }
 
 // RunSearch writes matching codex entries for a query.
@@ -80,6 +64,10 @@ func RunSearch(ctx context.Context, hctx ledger.HandlerContext, query string) er
 		return fmt.Errorf("write codex header: %w", err)
 	}
 
+	return writeCodexRows(hctx.Stdout, entries)
+}
+
+func writeCodexRows(w io.Writer, entries []CodexEntry) error {
 	for i := range entries {
 		e := &entries[i]
 		secondary := e.Disposition
@@ -87,7 +75,7 @@ func RunSearch(ctx context.Context, hctx ledger.HandlerContext, query string) er
 			secondary = e.Class
 		}
 		if _, err := fmt.Fprintf(
-			hctx.Stdout,
+			w,
 			"%-8s %-14s %s\n",
 			e.TypeName,
 			secondary,
@@ -96,6 +84,5 @@ func RunSearch(ctx context.Context, hctx ledger.HandlerContext, query string) er
 			return fmt.Errorf("write codex row: %w", err)
 		}
 	}
-
 	return nil
 }

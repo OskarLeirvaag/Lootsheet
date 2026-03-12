@@ -401,6 +401,8 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			}
 		}
 		for i, item := range data.Codex.Items {
+			// Notes reference codex entries as @person/Name (the original target type
+			// predating the People→Codex rename), so we match on "person" here.
 			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "person", item.DetailTitle)
 			if len(refLines) > 0 {
 				data.Codex.Items[i].DetailLines = append(data.Codex.Items[i].DetailLines, refLines...)

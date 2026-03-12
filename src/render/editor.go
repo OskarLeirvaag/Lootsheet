@@ -1016,13 +1016,14 @@ func editorParseReferences(e *editorState) []string {
 	seen := make(map[string]bool)
 	var refs []string
 	for _, line := range e.Lines {
-		for i := range len(line) {
-			if line[i] == '@' && i+1 < len(line) {
+		runes := []rune(line)
+		for i := range len(runes) {
+			if runes[i] == '@' && i+1 < len(runes) {
 				end := i + 1
-				for end < len(line) && !isRefTerminator(line[end]) {
+				for end < len(runes) && !isRefTerminatorRune(runes[end]) {
 					end++
 				}
-				ref := line[i:end]
+				ref := string(runes[i:end])
 				if strings.Contains(ref, "/") && len(ref) > 2 && !seen[ref] {
 					seen[ref] = true
 					refs = append(refs, ref)
@@ -1031,8 +1032,4 @@ func editorParseReferences(e *editorState) []string {
 		}
 	}
 	return refs
-}
-
-func isRefTerminator(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == ',' || b == '.' || b == ')' || b == ']'
 }
