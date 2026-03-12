@@ -61,6 +61,7 @@ type Shell struct {
 	glossary        *glossaryState
 	editor          *editorState
 	codexPicker     *codexPickerState
+	search          *searchState
 	rain            *GoldRain
 
 	editorSaveInFlight  bool
@@ -119,6 +120,7 @@ func (s *Shell) Reload(data *ShellData) {
 	s.compose = nil
 	s.glossary = nil
 	s.codexPicker = nil
+	s.search = nil
 
 	if s.editorSaveInFlight {
 		s.editorSaveInFlight = false
@@ -174,7 +176,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
-			ActionShowNotes:
+			ActionShowNotes, ActionSearch:
 			return handleResult{}
 		case ActionQuit:
 			s.compose = nil
@@ -289,6 +291,10 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		if s.openComposeForAction(ActionNewCustom) {
 			return handleResult{Redraw: true}
 		}
+	case ActionSearch:
+		if s.openSearch() {
+			return handleResult{Redraw: true}
+		}
 	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
 		if s.openAction(action) {
 			return handleResult{Redraw: true}
@@ -313,6 +319,11 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 	}
 	if s.codexPicker != nil {
 		if result, handled := s.handleCodexPickerKeyEvent(event, action); handled {
+			return result
+		}
+	}
+	if s.search != nil {
+		if result, handled := s.handleSearchKeyEvent(event, action); handled {
 			return result
 		}
 	}
@@ -356,7 +367,7 @@ func (s *Shell) handleInputAction(action Action) handleResult {
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
-		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
+		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose, ActionSearch:
 		return handleResult{}
 	case ActionQuit:
 		s.input = nil
@@ -473,6 +484,7 @@ func (s *Shell) CloseModal() {
 	s.compose = nil
 	s.glossary = nil
 	s.codexPicker = nil
+	s.search = nil
 	s.editor = nil
 }
 
@@ -537,6 +549,9 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	}
 	if s.codexPicker != nil {
 		s.renderCodexPickerModal(buffer, body, theme)
+	}
+	if s.search != nil {
+		s.renderSearchModal(buffer, body, theme)
 	}
 	if s.input != nil {
 		s.renderInputModal(buffer, body, theme)
@@ -660,6 +675,9 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	if s.glossary != nil {
 		return "? close  Esc cancel  q cancel"
 	}
+	if s.search != nil {
+		return "Enter select  \u2191\u2193 navigate  \u2190\u2192 filter  Ctrl+U clear  Esc close"
+	}
 	if s.compose != nil {
 		return s.composeHelpText()
 	}
@@ -678,7 +696,7 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	}
 
 	help = joinHelp(help, s.sectionLauncherHelpText())
-	help = joinHelp(help, "? terms", "q quit", "Ctrl+L refresh")
+	help = joinHelp(help, "/ search", "? terms", "q quit", "Ctrl+L refresh")
 
 	return help
 }

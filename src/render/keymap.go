@@ -48,6 +48,7 @@ const (
 	ActionShowCodex       Action = "show_codex"
 	ActionShowNotes       Action = "show_notes"
 	ActionHelp            Action = "help"
+	ActionSearch          Action = "search"
 )
 
 // KeyStroke matches a specific tcell key event.
@@ -229,6 +230,11 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionConfirm,
 				Stroke: KeyStroke{Key: tcell.KeyEnter},
+			},
+			{
+				Action: ActionSearch,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '/'},
+				Label:  "/ search",
 			},
 			{
 				Action: ActionHelp,

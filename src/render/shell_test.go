@@ -791,3 +791,138 @@ func TestShellGlossaryModalOpensAndCloses(t *testing.T) {
 		t.Fatalf("expected glossary to close on ?: %#v %#v", result, shell.glossary)
 	}
 }
+
+func TestSearchModalOpensAndCloses(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+
+	result := shell.HandleAction(ActionSearch)
+	if !result.Redraw || shell.search == nil {
+		t.Fatalf("expected search to open: %#v", result)
+	}
+
+	result, handled := shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone), ActionQuit)
+	if !handled || !result.Redraw || shell.search != nil {
+		t.Fatalf("expected search to close on Esc: %#v handled=%v search=%v", result, handled, shell.search)
+	}
+}
+
+func TestSearchFiltersResults(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			Items: []ListItemData{
+				{Key: "loot-1", Row: "Gold Necklace", DetailTitle: "Gold Necklace"},
+				{Key: "loot-2", Row: "Silver Ring", DetailTitle: "Silver Ring"},
+			},
+		},
+		Quests: ListScreenData{
+			Items: []ListItemData{
+				{Key: "quest-1", Row: "Goblin Bounty", DetailTitle: "Goblin Bounty"},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionSearch)
+
+	// Type "gold".
+	for _, r := range "gold" {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), ActionNone)
+	}
+
+	if len(shell.search.Results) != 1 {
+		t.Fatalf("expected 1 result for 'gold', got %d", len(shell.search.Results))
+	}
+	if shell.search.Results[0].ItemKey != "loot-1" {
+		t.Fatalf("expected loot-1, got %s", shell.search.Results[0].ItemKey)
+	}
+}
+
+func TestSearchSectionFilter(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			Items: []ListItemData{
+				{Key: "loot-1", Row: "Gold Necklace"},
+			},
+		},
+		Quests: ListScreenData{
+			Items: []ListItemData{
+				{Key: "quest-1", Row: "Goblin Bounty"},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionSearch)
+
+	// All sections — should see both items.
+	if len(shell.search.Results) < 2 {
+		t.Fatalf("expected at least 2 results in All filter, got %d", len(shell.search.Results))
+	}
+
+	// Cycle Right to first section (Journal) — no items there.
+	shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	// Keep cycling to Quests (index 2 in searchableSections: Journal=1, Quests=2).
+	shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	if shell.search.FilterIndex != 2 {
+		t.Fatalf("expected filter index 2 (Quests), got %d", shell.search.FilterIndex)
+	}
+	if len(shell.search.Results) != 1 || shell.search.Results[0].ItemKey != "quest-1" {
+		t.Fatalf("expected quest-1 in Quests filter, got %v", shell.search.Results)
+	}
+}
+
+func TestSearchEnterNavigates(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Loot: ListScreenData{
+			Items: []ListItemData{
+				{Key: "loot-1", Row: "Gold Necklace"},
+			},
+		},
+	}
+	shell := NewShell(&data)
+	shell.HandleAction(ActionSearch)
+
+	// Cycle filter to Loot (index 3 in searchableSections: Journal=1, Quests=2, Loot=3).
+	for range 3 {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	}
+	if len(shell.search.Results) != 1 {
+		t.Fatalf("expected 1 result in Loot filter, got %d", len(shell.search.Results))
+	}
+
+	result, handled := shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || !result.Redraw {
+		t.Fatalf("enter did not navigate: %#v handled=%v", result, handled)
+	}
+	if shell.search != nil {
+		t.Fatal("expected search modal to close after Enter")
+	}
+	if shell.Section != SectionLoot {
+		t.Fatalf("expected section Loot, got %v", shell.Section)
+	}
+	if shell.selectedKeys[SectionLoot] != "loot-1" {
+		t.Fatalf("expected selected key loot-1, got %s", shell.selectedKeys[SectionLoot])
+	}
+}
+
+func TestSearchFooterHelp(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+	keymap := DefaultKeyMap()
+
+	help := shell.footerHelpText(keymap)
+	if !strings.Contains(help, "/ search") {
+		t.Fatalf("normal footer missing '/ search': %s", help)
+	}
+
+	shell.HandleAction(ActionSearch)
+	help = shell.footerHelpText(keymap)
+	if !strings.Contains(help, "Enter select") || !strings.Contains(help, "Esc close") {
+		t.Fatalf("search footer missing expected help: %s", help)
+	}
+	if strings.Contains(help, "/ search") {
+		t.Fatalf("search footer should not show '/ search': %s", help)
+	}
+}

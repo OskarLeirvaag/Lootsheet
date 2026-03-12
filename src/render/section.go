@@ -25,6 +25,11 @@ const (
 
 var settingsTabs = []Section{settingsTabAccounts, settingsTabCodexTypes}
 
+var searchableSections = []Section{
+	SectionJournal, SectionQuests, SectionLoot,
+	SectionAssets, SectionCodex, SectionNotes,
+}
+
 var orderedSections = []Section{
 	SectionDashboard,
 	SectionJournal,
