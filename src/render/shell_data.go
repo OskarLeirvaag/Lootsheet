@@ -65,29 +65,33 @@ type ListScreenData struct {
 
 // ShellData contains the full TUI snapshot.
 type ShellData struct {
-	Dashboard    DashboardData
-	Accounts     ListScreenData
-	Journal      ListScreenData
-	Quests       ListScreenData
-	Loot         ListScreenData
-	Assets       ListScreenData
-	Codex        ListScreenData
-	Notes        ListScreenData
-	EntryCatalog EntryCatalog
-	CodexTypes   []CodexTypeOption
+	Dashboard          DashboardData
+	Accounts           ListScreenData
+	Journal            ListScreenData
+	Quests             ListScreenData
+	Loot               ListScreenData
+	Assets             ListScreenData
+	Codex              ListScreenData
+	Notes              ListScreenData
+	SettingsAccounts   ListScreenData
+	SettingsCodexTypes ListScreenData
+	EntryCatalog       EntryCatalog
+	CodexTypes         []CodexTypeOption
 }
 
 // DefaultShellData returns placeholder content for the full shell.
 func DefaultShellData() ShellData {
 	return ShellData{
-		Dashboard: DefaultDashboardData(),
-		Accounts:  defaultListScreenData(SectionAccounts),
-		Journal:   defaultListScreenData(SectionJournal),
-		Quests:    defaultListScreenData(SectionQuests),
-		Loot:      defaultListScreenData(SectionLoot),
-		Assets:    defaultListScreenData(SectionAssets),
-		Codex:     defaultListScreenData(SectionCodex),
-		Notes:     defaultListScreenData(SectionNotes),
+		Dashboard:          DefaultDashboardData(),
+		Accounts:           defaultListScreenData(SectionAccounts),
+		Journal:            defaultListScreenData(SectionJournal),
+		Quests:             defaultListScreenData(SectionQuests),
+		Loot:               defaultListScreenData(SectionLoot),
+		Assets:             defaultListScreenData(SectionAssets),
+		Codex:              defaultListScreenData(SectionCodex),
+		Notes:              defaultListScreenData(SectionNotes),
+		SettingsAccounts:   defaultListScreenData(settingsTabAccounts),
+		SettingsCodexTypes: defaultListScreenData(settingsTabCodexTypes),
 	}
 }
 
@@ -137,6 +141,16 @@ func ErrorShellData(summary string, detail string) ShellData {
 			SummaryLines: []string{"Notes data unavailable.", detail},
 			EmptyLines:   []string{"No notes rows loaded.", detail},
 		},
+		SettingsAccounts: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Account settings unavailable.", detail},
+			EmptyLines:   []string{"No account rows loaded.", detail},
+		},
+		SettingsCodexTypes: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Codex type settings unavailable.", detail},
+			EmptyLines:   []string{"No codex type rows loaded.", detail},
+		},
 	}
 }
 
@@ -171,6 +185,12 @@ func resolveShellData(data *ShellData) ShellData {
 	if listScreenDataEmpty(&resolved.Notes) {
 		resolved.Notes = defaultListScreenData(SectionNotes)
 	}
+	if listScreenDataEmpty(&resolved.SettingsAccounts) {
+		resolved.SettingsAccounts = defaultListScreenData(settingsTabAccounts)
+	}
+	if listScreenDataEmpty(&resolved.SettingsCodexTypes) {
+		resolved.SettingsCodexTypes = defaultListScreenData(settingsTabCodexTypes)
+	}
 
 	return resolved
 }
@@ -187,7 +207,9 @@ func shellDataEmpty(data *ShellData) bool {
 		listScreenDataEmpty(&data.Loot) &&
 		listScreenDataEmpty(&data.Assets) &&
 		listScreenDataEmpty(&data.Codex) &&
-		listScreenDataEmpty(&data.Notes)
+		listScreenDataEmpty(&data.Notes) &&
+		listScreenDataEmpty(&data.SettingsAccounts) &&
+		listScreenDataEmpty(&data.SettingsCodexTypes)
 }
 
 func listScreenDataEmpty(data *ListScreenData) bool {
@@ -308,6 +330,37 @@ func defaultListScreenData(section Section) ListScreenData {
 			EmptyLines: []string{
 				"No notes loaded yet.",
 				"App-side adapters fill this screen with live note data and actions.",
+			},
+		}
+	case settingsTabAccounts:
+		return ListScreenData{
+			HeaderLines: []string{
+				"Account settings.",
+				"Chart of accounts used by the ledger. `a` adds, `u` renames, `d` deletes, `t` toggles.",
+			},
+			SummaryLines: []string{
+				"Account codes remain immutable.",
+				"Used accounts may be marked inactive.",
+				"Accounts with postings cannot be deleted.",
+			},
+			EmptyLines: []string{
+				"No account rows loaded yet.",
+				"App-side adapters fill this tab with live account data.",
+			},
+		}
+	case settingsTabCodexTypes:
+		return ListScreenData{
+			HeaderLines: []string{
+				"Codex type settings.",
+				"Entry categories for the codex. `a` adds, `u` renames, `d` deletes.",
+			},
+			SummaryLines: []string{
+				"Each codex type uses a form template (player, npc, settlement).",
+				"Types with existing entries cannot be deleted.",
+			},
+			EmptyLines: []string{
+				"No codex type rows loaded yet.",
+				"App-side adapters fill this tab with live codex type data.",
 			},
 		}
 	default:

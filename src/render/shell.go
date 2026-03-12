@@ -49,6 +49,7 @@ type handleResult struct {
 type Shell struct {
 	Data            ShellData
 	Section         Section
+	settingsTab     int
 	scrolls         map[Section]int
 	selectedKeys    map[Section]string
 	selectedIndexes map[Section]int
@@ -88,6 +89,22 @@ func (s *Shell) TickRain() {
 		return
 	}
 	s.rain.Update()
+}
+
+func (s *Shell) activeSettingsSection() Section {
+	if s.settingsTab >= 0 && s.settingsTab < len(settingsTabs) {
+		return settingsTabs[s.settingsTab]
+	}
+	return settingsTabs[0]
+}
+
+// listSection returns the effective section for list data operations.
+// For Settings, this returns the active tab's virtual section.
+func (s *Shell) listSection() Section {
+	if s.Section == SectionSettings {
+		return s.activeSettingsSection()
+	}
+	return s.Section
 }
 
 // Reload swaps the shell snapshot while keeping navigation state intact.
@@ -152,7 +169,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	}
 	if s.compose != nil {
 		switch action {
-		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
+		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
@@ -176,6 +193,10 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	case ActionNone, ActionConfirm, ActionSubmitCompose:
 		return handleResult{}
 	case ActionQuit:
+		if s.Section == SectionSettings {
+			s.Section = SectionDashboard
+			return handleResult{Redraw: true}
+		}
 		return handleResult{Quit: true}
 	case ActionRedraw:
 		return handleResult{Reload: true}
@@ -184,18 +205,28 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			return handleResult{Redraw: true}
 		}
 	case ActionNextSection:
+		if s.Section == SectionSettings {
+			s.settingsTab = (s.settingsTab + 1) % len(settingsTabs)
+			s.reconcileSelection(s.activeSettingsSection())
+			return handleResult{Redraw: true}
+		}
 		s.Section = s.Section.next()
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
 	case ActionPrevSection:
+		if s.Section == SectionSettings {
+			s.settingsTab = (s.settingsTab + len(settingsTabs) - 1) % len(settingsTabs)
+			s.reconcileSelection(s.activeSettingsSection())
+			return handleResult{Redraw: true}
+		}
 		s.Section = s.Section.previous()
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
 	case ActionShowDashboard:
 		s.Section = SectionDashboard
 		return handleResult{Redraw: true}
-	case ActionShowAccounts:
-		s.Section = SectionAccounts
+	case ActionShowSettings:
+		s.Section = SectionSettings
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
 	case ActionShowJournal:
@@ -321,7 +352,7 @@ func (s *Shell) handleConfirmAction(action Action) handleResult {
 
 func (s *Shell) handleInputAction(action Action) handleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
@@ -490,6 +521,8 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 		s.renderListSection(buffer, body, theme, SectionCodex, &s.Data.Codex)
 	case SectionNotes:
 		s.renderListSection(buffer, body, theme, SectionNotes, &s.Data.Notes)
+	case SectionSettings:
+		s.renderSettingsSection(buffer, body, theme)
 	default:
 		drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
 	}
@@ -542,6 +575,12 @@ func (s *Shell) currentHeaderLines() []string {
 		return append([]string{}, s.Data.Codex.HeaderLines...)
 	case SectionNotes:
 		return append([]string{}, s.Data.Notes.HeaderLines...)
+	case SectionSettings:
+		data := s.listDataForSection(s.activeSettingsSection())
+		if data != nil {
+			return append([]string{}, data.HeaderLines...)
+		}
+		return nil
 	default:
 		return append([]string{}, resolveDashboardData(&s.Data.Dashboard).HeaderLines...)
 	}
@@ -650,6 +689,11 @@ func (s *Shell) sectionLauncherHelpText() string {
 	switch s.Section {
 	case SectionAccounts:
 		return "a add"
+	case SectionSettings:
+		if s.activeSettingsSection() == settingsTabCodexTypes {
+			return "a add codex type"
+		}
+		return "a add account"
 	case SectionJournal:
 		return "e/i entry"
 	case SectionQuests, SectionLoot, SectionAssets, SectionCodex, SectionNotes:
@@ -723,6 +767,20 @@ func (s *Shell) glossaryLines() []string {
 			"@type/name: inline cross-reference in body text.",
 			"References: parsed @mentions linking to quests, loot, assets, people, or other notes.",
 		}
+	case SectionSettings:
+		if s.activeSettingsSection() == settingsTabCodexTypes {
+			return []string{
+				"Codex type: a category for codex entries (e.g. NPC, Player, Settlement).",
+				"Form template: the set of fields shown when creating a codex entry of this type.",
+				"Types with existing entries cannot be deleted.",
+			}
+		}
+		return []string{
+			"Account: a ledger account (asset, liability, equity, income, expense).",
+			"Active: usable in new entries.",
+			"Inactive: kept for history, blocked for new entries.",
+			"Accounts with postings cannot be deleted.",
+		}
 	default:
 		return []string{
 			"To share now: current Party Cash balance available to split.",
@@ -735,7 +793,7 @@ func (s *Shell) glossaryLines() []string {
 }
 
 func (s *Shell) currentActionLabels() string {
-	item := s.currentSelectedItem(s.Section)
+	item := s.currentSelectedItem(s.listSection())
 	if item == nil || len(item.Actions) == 0 {
 		return ""
 	}
@@ -750,6 +808,37 @@ func (s *Shell) currentActionLabels() string {
 	}
 
 	return strings.Join(labels, "  ")
+}
+
+func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
+	if rect.H < 3 {
+		s.renderListSection(buffer, rect, theme, s.activeSettingsSection(), s.listDataForSection(s.activeSettingsSection()))
+		return
+	}
+
+	// Draw tab bar in the first row.
+	tabRect := Rect{X: rect.X, Y: rect.Y, W: rect.W, H: 1}
+	buffer.FillRect(tabRect, ' ', theme.Muted)
+
+	x := tabRect.X + 1
+	for i, tab := range settingsTabs {
+		if i > 0 {
+			x += buffer.WriteString(x, tabRect.Y, theme.Muted, "  ")
+		}
+		label := tab.Title()
+		if i == s.settingsTab {
+			label = "[" + label + "]"
+			x += buffer.WriteString(x, tabRect.Y, theme.SectionSettings, label)
+		} else {
+			label = " " + label + " "
+			x += buffer.WriteString(x, tabRect.Y, theme.TabInactive, label)
+		}
+	}
+
+	// Render the active tab's list section in the remaining space.
+	bodyRect := Rect{X: rect.X, Y: rect.Y + 1, W: rect.W, H: rect.H - 1}
+	active := s.activeSettingsSection()
+	s.renderListSection(buffer, bodyRect, theme, active, s.listDataForSection(active))
 }
 
 func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, section Section, data *ListScreenData) {
@@ -974,7 +1063,7 @@ func (s *Shell) renderGlossaryModal(buffer *Buffer, rect Rect, theme *Theme) {
 }
 
 func (s *Shell) pageSize() int {
-	size := s.viewHeights[s.Section]
+	size := s.viewHeights[s.listSection()]
 	if size <= 1 {
 		return 8
 	}
@@ -1018,31 +1107,33 @@ func (s *Shell) pendingCommand() *Command {
 }
 
 func (s *Shell) moveSelection(delta int) bool {
-	if !s.Section.scrollable() || delta == 0 {
+	section := s.listSection()
+	if !section.scrollable() || delta == 0 {
 		return false
 	}
 
-	data := s.listDataForSection(s.Section)
+	data := s.listDataForSection(section)
 	if data == nil || len(data.Items) == 0 {
 		return false
 	}
 
-	current := s.currentSelectionIndex(s.Section)
+	current := s.currentSelectionIndex(section)
 	next := clampInt(current+delta, 0, len(data.Items)-1)
 	if next == current {
 		return false
 	}
 
-	s.setSelection(s.Section, next)
+	s.setSelection(section, next)
 	return true
 }
 
 func (s *Shell) moveSelectionTo(index int) bool {
-	if !s.Section.scrollable() {
+	section := s.listSection()
+	if !section.scrollable() {
 		return false
 	}
 
-	data := s.listDataForSection(s.Section)
+	data := s.listDataForSection(section)
 	if data == nil || len(data.Items) == 0 {
 		return false
 	}
@@ -1052,16 +1143,16 @@ func (s *Shell) moveSelectionTo(index int) bool {
 	}
 	index = clampInt(index, 0, len(data.Items)-1)
 
-	if s.currentSelectionIndex(s.Section) == index {
+	if s.currentSelectionIndex(section) == index {
 		return false
 	}
 
-	s.setSelection(s.Section, index)
+	s.setSelection(section, index)
 	return true
 }
 
 func (s *Shell) openAction(trigger Action) bool {
-	item := s.currentSelectedItem(s.Section)
+	item := s.currentSelectedItem(s.listSection())
 	if item == nil || len(item.Actions) == 0 {
 		return false
 	}
@@ -1153,6 +1244,10 @@ func (s *Shell) reconcileSelections() {
 		}
 		s.reconcileSelection(section)
 	}
+	// Settings tabs are scrollable but not in orderedSections.
+	for _, tab := range settingsTabs {
+		s.reconcileSelection(tab)
+	}
 }
 
 // Navigate switches to the requested section and optionally selects the given item key.
@@ -1213,6 +1308,10 @@ func (s *Shell) listDataForSection(section Section) *ListScreenData {
 		return &s.Data.Codex
 	case SectionNotes:
 		return &s.Data.Notes
+	case settingsTabAccounts:
+		return &s.Data.SettingsAccounts
+	case settingsTabCodexTypes:
+		return &s.Data.SettingsCodexTypes
 	default:
 		return nil
 	}

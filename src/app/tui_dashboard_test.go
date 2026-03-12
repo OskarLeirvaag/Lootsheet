@@ -355,7 +355,7 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandAccountDeactivate,
-		Section: render.SectionAccounts,
+		Section: render.SectionSettings,
 		ItemKey: "1000",
 	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
@@ -371,7 +371,7 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 	}
 
 	found := false
-	for _, item := range data.Accounts.Items {
+	for _, item := range data.SettingsAccounts.Items {
 		if item.Key != "1000" {
 			continue
 		}
@@ -406,8 +406,8 @@ func TestHandleTUICommandCreatesAccountAndNavigatesToAccounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create account through tui command: %v", err)
 	}
-	if result.NavigateTo != render.SectionAccounts {
-		t.Fatalf("navigate section = %v, want accounts", result.NavigateTo)
+	if result.NavigateTo != render.SectionSettings {
+		t.Fatalf("navigate section = %v, want settings", result.NavigateTo)
 	}
 	if result.SelectItemKey != "5600" {
 		t.Fatalf("selected item key = %q, want 5600", result.SelectItemKey)
@@ -432,7 +432,7 @@ func TestHandleTUICommandDeletesAccount(t *testing.T) {
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandAccountDelete,
-		Section: render.SectionAccounts,
+		Section: render.SectionSettings,
 		ItemKey: "9900",
 	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
@@ -441,7 +441,7 @@ func TestHandleTUICommandDeletesAccount(t *testing.T) {
 	if !strings.Contains(result.Status.Text, "Removed account 9900.") {
 		t.Fatalf("status text = %q, want removal summary", result.Status.Text)
 	}
-	for _, item := range result.Data.Accounts.Items {
+	for _, item := range result.Data.SettingsAccounts.Items {
 		if item.Key == "9900" {
 			t.Fatalf("deleted account still present: %#v", item)
 		}
