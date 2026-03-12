@@ -128,8 +128,8 @@ func TestRunSwitchesSectionsBeforeExit(t *testing.T) {
 		t.Fatalf("run render app: %v", err)
 	}
 
-	if !strings.Contains(screen.lastFrame, "Section: Accounts") {
-		t.Fatalf("simulation output missing accounts section:\n%s", screen.lastFrame)
+	if !strings.Contains(screen.lastFrame, "Section: Journal") {
+		t.Fatalf("simulation output missing journal section:\n%s", screen.lastFrame)
 	}
 }
 
@@ -140,10 +140,11 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '2', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '@', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 't', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
-			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // quit
 		},
 	}
 
@@ -180,22 +181,15 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 	if got.ID != "account.deactivate" {
 		t.Fatalf("command id = %q, want account.deactivate", got.ID)
 	}
-	if got.Section != SectionAccounts {
-		t.Fatalf("command section = %v, want accounts", got.Section)
+	if got.Section != SectionSettings {
+		t.Fatalf("command section = %v, want settings", got.Section)
 	}
 	if got.ItemKey != "1000" {
 		t.Fatalf("command item key = %q, want 1000", got.ItemKey)
 	}
 
-	for _, token := range []string{
-		"Account 1000 deactivated.",
-		"1000 asset inactive Party Cash",
-		"Status: inactive",
-		"t activate",
-	} {
-		if !strings.Contains(screen.lastFrame, token) {
-			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
-		}
+	if !strings.Contains(screen.lastFrame, "Account 1000 deactivated.") {
+		t.Fatalf("simulation output missing status message:\n%s", screen.lastFrame)
 	}
 }
 
@@ -206,7 +200,7 @@ func TestRunKeepsLootSaleInputModalOpenOnInputError(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 's', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'b', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'a', tcell.ModNone)
@@ -253,10 +247,11 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 			sim.SetSize(96, 28)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '2', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '@', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 't', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
-			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
+			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // quit
 		},
 	}
 
@@ -274,15 +269,8 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 		t.Fatalf("run render app: %v", err)
 	}
 
-	for _, token := range []string{
-		"account 1000 cannot be deactivated right now",
-		"1000 asset active Party Cash",
-		"Status: active",
-		"t deactivate",
-	} {
-		if !strings.Contains(screen.lastFrame, token) {
-			t.Fatalf("simulation output missing %q:\n%s", token, screen.lastFrame)
-		}
+	if !strings.Contains(screen.lastFrame, "account 1000 cannot be deactivated right now") {
+		t.Fatalf("simulation output missing error status:\n%s", screen.lastFrame)
 	}
 }
 
@@ -293,7 +281,7 @@ func TestRunDispatchesJournalReverseAndKeepsOriginalSelection(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '3', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '2', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'r', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
@@ -353,7 +341,7 @@ func TestRunDispatchesLootSellAndRefreshesSelectionFallback(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 's', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, '8', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, ' ', tcell.ModNone)
@@ -422,7 +410,7 @@ func TestRunDispatchesQuestCollectAndRefreshesSelection(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '3', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'c', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
@@ -482,7 +470,7 @@ func TestRunDispatchesLootRecognizeAndRefreshesSelection(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'n', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
@@ -559,8 +547,8 @@ func testAccountsShellData(active bool) ShellData {
 
 	return ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
-			HeaderLines:  []string{"Chart of accounts from smoke.db.", "Select an account to inspect it."},
+		SettingsAccounts: ListScreenData{
+			HeaderLines:  []string{"Accounts from smoke.db.", "Chart of accounts."},
 			SummaryLines: summary,
 			Items: []ListItemData{
 				{

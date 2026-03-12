@@ -27,6 +27,7 @@ const (
 	composeModeAsset         composeMode = "asset"
 	composeModeAssetTemplate composeMode = "asset_template"
 	composeModeCodex         composeMode = "codex"
+	composeModeCodexType     composeMode = "codex_type"
 	composeModeNotes         composeMode = "notes"
 )
 
@@ -121,6 +122,20 @@ func newCustomCompose(previous Section) *composeState {
 			{Side: sideDebit},
 			{Side: sideCredit},
 		},
+	}
+}
+
+func newCodexTypeCompose(previous Section) *composeState {
+	return &composeState{
+		Mode:            composeModeCodexType,
+		PreviousSection: previous,
+		CommandID:       "codex_type.create",
+		Fields: map[string]string{
+			"id":      "",
+			"name":    "",
+			"form_id": "",
+		},
+		FieldErrors: make(map[string]string),
 	}
 }
 
@@ -314,6 +329,8 @@ func (s *Shell) openCompose(mode composeMode) bool {
 		s.compose = compose
 	case composeModeAccount:
 		s.compose = newAccountCompose(s.Section)
+	case composeModeCodexType:
+		s.compose = newCodexTypeCompose(s.Section)
 	case composeModeQuest:
 		s.compose = newQuestCompose(s.Section, &s.Data.EntryCatalog)
 	case composeModeLoot:
@@ -398,6 +415,11 @@ func (s *Shell) openComposeForAction(action Action) bool {
 	case ActionNewCustom:
 		switch s.Section {
 		case SectionAccounts:
+			return s.openCompose(composeModeAccount)
+		case SectionSettings:
+			if s.activeSettingsSection() == settingsTabCodexTypes {
+				return s.openCompose(composeModeCodexType)
+			}
 			return s.openCompose(composeModeAccount)
 		case SectionQuests:
 			return s.openCompose(composeModeQuest)
@@ -546,7 +568,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 			return handleResult{Command: command}, true
 		}
 		return handleResult{Redraw: true}, true
-	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
@@ -588,6 +610,12 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "code", Label: "Code", Placeholder: "5600"},
 			{ID: "name", Label: "Name", Placeholder: "Tavern Reparations"},
 			{ID: "account_type", Label: "Type", Placeholder: "asset|liability|equity|income|expense"},
+		}
+	case composeModeCodexType:
+		return []composeField{
+			{ID: "id", Label: "ID", Placeholder: "deity"},
+			{ID: "name", Label: "Name", Placeholder: "Deity"},
+			{ID: "form_id", Label: "Form", Placeholder: "npc|player|settlement"},
 		}
 	case composeModeQuest:
 		if s.compose != nil && s.compose.CommandID == "quest.update" {
@@ -878,7 +906,7 @@ func (s *Shell) pickerAccountsForCurrentField() []AccountOption {
 		if fieldID == "code" || fieldID == "name" {
 			return s.Data.EntryCatalog.AllAccounts
 		}
-	case composeModeQuest, composeModeLoot, composeModeAsset, composeModeCodex, composeModeNotes:
+	case composeModeQuest, composeModeLoot, composeModeAsset, composeModeCodex, composeModeCodexType, composeModeNotes:
 	}
 	return nil
 }
@@ -1035,6 +1063,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 			command.ID = "entry.income.create"
 		case composeModeAccount:
 			command.ID = "account.create"
+		case composeModeCodexType:
+			command.ID = "codex_type.create"
 		case composeModeQuest:
 			command.ID = "quest.create"
 		case composeModeLoot:
@@ -1066,6 +1096,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 		required = append(required, "amount", fieldAccountCode, "offset_account_code")
 	case composeModeAccount:
 		required = []string{"code", "name", "account_type"}
+	case composeModeCodexType:
+		required = []string{"id", "name", "form_id"}
 	case composeModeQuest:
 		required = []string{"title", "reward", "advance"}
 		if strings.EqualFold(command.Fields["status"], "accepted") {
@@ -1259,6 +1291,8 @@ func (s *Shell) composeTitle() string {
 		return "Guided Income Entry"
 	case composeModeAccount:
 		return "Add Account"
+	case composeModeCodexType:
+		return "Add Codex Type"
 	case composeModeQuest:
 		if strings.TrimSpace(s.compose.Title) != "" {
 			return s.compose.Title
@@ -1438,6 +1472,15 @@ func (s *Shell) composePreviewLines() []string {
 			"",
 			"Valid account types:",
 			"asset  liability  equity  income  expense",
+		)
+	case composeModeCodexType:
+		lines = append(lines,
+			"ID: "+displayComposeValue(s.compose.Fields["id"], "required"),
+			"Name: "+displayComposeValue(s.compose.Fields["name"], "required"),
+			"Form: "+displayComposeValue(s.compose.Fields["form_id"], "required"),
+			"",
+			"Valid form templates:",
+			"npc  player  settlement",
 		)
 	case composeModeQuest:
 		statusLabel := "Status: " + displayComposeValue(s.compose.Fields["status"], "offered")

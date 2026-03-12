@@ -14,11 +14,19 @@ const (
 	SectionAssets
 	SectionCodex
 	SectionNotes
+	SectionSettings
 )
+
+// Virtual sections for settings tabs — not in orderedSections.
+const (
+	settingsTabAccounts Section = 100 + iota
+	settingsTabCodexTypes
+)
+
+var settingsTabs = []Section{settingsTabAccounts, settingsTabCodexTypes}
 
 var orderedSections = []Section{
 	SectionDashboard,
-	SectionAccounts,
 	SectionJournal,
 	SectionQuests,
 	SectionLoot,
@@ -30,7 +38,7 @@ var orderedSections = []Section{
 // Title returns the user-facing section name.
 func (s Section) Title() string {
 	switch s {
-	case SectionAccounts:
+	case SectionAccounts, settingsTabAccounts:
 		return "Accounts"
 	case SectionJournal:
 		return "Journal"
@@ -44,6 +52,10 @@ func (s Section) Title() string {
 		return "Codex"
 	case SectionNotes:
 		return "Notes"
+	case SectionSettings:
+		return "Settings"
+	case settingsTabCodexTypes:
+		return "Codex Types"
 	default:
 		return "Dashboard"
 	}
@@ -137,6 +149,12 @@ func (s Section) Style(theme *Theme) SectionStyle {
 			Accent:        theme.SectionNotes,
 			ScatterGlyphs: scatterNotes,
 			ScatterStyle:  &theme.ScatterNotes,
+		}
+	case SectionSettings, settingsTabAccounts, settingsTabCodexTypes:
+		return SectionStyle{
+			Accent:        theme.SectionSettings,
+			ScatterGlyphs: scatterSettings,
+			ScatterStyle:  &theme.ScatterSettings,
 		}
 	default:
 		return SectionStyle{

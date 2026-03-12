@@ -20,8 +20,8 @@ func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	for _, token := range []string{
 		"LootSheet TUI",
 		"Section: Dashboard",
-		"Sections: [Dashboard]   Accounts     Journal      Quests       Loot",
-		"1-8 jump",
+		"Sections: [Dashboard]   Journal      Quests       Loot",
+		"1-7 jump",
 		"e/i/a entry",
 		"? terms",
 		"q quit",
@@ -38,23 +38,23 @@ func TestShellTabsLineKeepsStableWidthAcrossSections(t *testing.T) {
 	shell := NewShell(&data)
 
 	dashboardTabs := shell.tabsLine()
-	shell.Section = SectionAccounts
-	accountsTabs := shell.tabsLine()
+	shell.Section = SectionJournal
+	journalTabs := shell.tabsLine()
 	shell.Section = SectionLoot
 	lootTabs := shell.tabsLine()
 
-	if len(dashboardTabs) != len(accountsTabs) || len(accountsTabs) != len(lootTabs) {
-		t.Fatalf("tab widths changed across sections: dashboard=%d accounts=%d loot=%d", len(dashboardTabs), len(accountsTabs), len(lootTabs))
+	if len(dashboardTabs) != len(journalTabs) || len(journalTabs) != len(lootTabs) {
+		t.Fatalf("tab widths changed across sections: dashboard=%d journal=%d loot=%d", len(dashboardTabs), len(journalTabs), len(lootTabs))
 	}
 
-	for _, token := range []string{"[Dashboard]", "[Accounts]", "[Loot]"} {
-		if !strings.Contains(dashboardTabs+accountsTabs+lootTabs, token) {
+	for _, token := range []string{"[Dashboard]", "[Journal]", "[Loot]"} {
+		if !strings.Contains(dashboardTabs+journalTabs+lootTabs, token) {
 			t.Fatalf("tabs output missing active marker %q", token)
 		}
 	}
 }
 
-func TestShellRenderShowsScrollableAccountsScreen(t *testing.T) {
+func TestShellRenderShowsScrollableSettingsScreen(t *testing.T) {
 	theme := DefaultTheme()
 	keymap := DefaultKeyMap()
 	buffer := NewBuffer(96, 28, theme.Base)
@@ -72,38 +72,38 @@ func TestShellRenderShowsScrollableAccountsScreen(t *testing.T) {
 
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
-			HeaderLines:  []string{"Chart of accounts from smoke.db.", "Read-only list view."},
+		SettingsAccounts: ListScreenData{
+			HeaderLines:  []string{"Accounts from smoke.db.", "Chart of accounts."},
 			SummaryLines: []string{"Accounts: 12 total", "Active: 12  Inactive: 0"},
 			Items:        items,
 		},
 	}
 	shell := NewShell(&data)
 
-	shell.HandleAction(ActionShowAccounts)
+	shell.HandleAction(ActionShowSettings)
 	for range 6 {
 		shell.HandleAction(ActionMoveDown)
 	}
 	shell.Render(buffer, &theme, keymap)
 
 	output := buffer.PlainText()
-	if !strings.Contains(output, "Section: Accounts") {
-		t.Fatalf("accounts screen missing section header:\n%s", output)
+	if !strings.Contains(output, "Section: Settings") {
+		t.Fatalf("settings screen missing section header:\n%s", output)
 	}
 	if !strings.Contains(output, "Accounts ") || !strings.Contains(output, "/12") {
-		t.Fatalf("accounts screen missing scroll title:\n%s", output)
+		t.Fatalf("settings screen missing scroll title:\n%s", output)
 	}
 	if strings.Contains(output, "Account 00") {
-		t.Fatalf("accounts screen did not scroll:\n%s", output)
+		t.Fatalf("settings screen did not scroll:\n%s", output)
 	}
 	if !strings.Contains(output, "Account 06") {
-		t.Fatalf("accounts screen missing expected visible row:\n%s", output)
+		t.Fatalf("settings screen missing expected visible row:\n%s", output)
 	}
 	if !strings.Contains(output, "↑↓ select") {
-		t.Fatalf("accounts screen missing selection help:\n%s", output)
+		t.Fatalf("settings screen missing selection help:\n%s", output)
 	}
 	if !strings.Contains(output, "Detail for account 06") {
-		t.Fatalf("accounts screen missing detail pane content:\n%s", output)
+		t.Fatalf("settings screen missing detail pane content:\n%s", output)
 	}
 }
 
@@ -114,8 +114,8 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
-			HeaderLines:  []string{"Chart of accounts from smoke.db.", "Interactive list view."},
+		SettingsAccounts: ListScreenData{
+			HeaderLines:  []string{"Accounts from smoke.db.", "Chart of accounts."},
 			SummaryLines: []string{"Accounts: 2 total", "Active: 2  Inactive: 0"},
 			Items: []ListItemData{
 				{
@@ -135,7 +135,7 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 	}
 
 	shell := NewShell(&data)
-	shell.HandleAction(ActionShowAccounts)
+	shell.HandleAction(ActionShowSettings)
 	shell.Render(buffer, &theme, keymap)
 
 	output := buffer.PlainText()
@@ -149,7 +149,7 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 func TestShellActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
+		SettingsAccounts: ListScreenData{
 			Items: []ListItemData{
 				{
 					Key:         "1000",
@@ -168,7 +168,7 @@ func TestShellActionOpensConfirmAndEmitsCommand(t *testing.T) {
 		},
 	}
 	shell := NewShell(&data)
-	shell.HandleAction(ActionShowAccounts)
+	shell.HandleAction(ActionShowSettings)
 
 	result := shell.HandleAction(ActionToggle)
 	if !result.Redraw {
@@ -519,7 +519,7 @@ func TestShellInputModalShowsBlankSubmitErrorAndClearHelp(t *testing.T) {
 func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
+		SettingsAccounts: ListScreenData{
 			Items: []ListItemData{
 				{Key: "1000", Row: "1000 asset active Party Cash"},
 				{Key: "1100", Row: "1100 asset active Quest Receivable"},
@@ -528,16 +528,16 @@ func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 		},
 	}
 	shell := NewShell(&data)
-	shell.HandleAction(ActionShowAccounts)
+	shell.HandleAction(ActionShowSettings)
 	shell.HandleAction(ActionMoveDown)
 
-	if item := shell.currentSelectedItem(SectionAccounts); item == nil || item.Key != "1100" {
+	if item := shell.currentSelectedItem(settingsTabAccounts); item == nil || item.Key != "1100" {
 		t.Fatalf("selected item before reload = %#v, want key 1100", item)
 	}
 
 	reloaded := ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
+		SettingsAccounts: ListScreenData{
 			Items: []ListItemData{
 				{Key: "0900", Row: "0900 asset active Treasury Box"},
 				{Key: "1100", Row: "1100 asset active Quest Receivable"},
@@ -547,7 +547,7 @@ func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 	}
 	shell.Reload(&reloaded)
 
-	if item := shell.currentSelectedItem(SectionAccounts); item == nil || item.Key != "1100" {
+	if item := shell.currentSelectedItem(settingsTabAccounts); item == nil || item.Key != "1100" {
 		t.Fatalf("selected item after reload = %#v, want key 1100", item)
 	}
 }
@@ -669,7 +669,7 @@ func TestShellExpenseComposeAcceptsArrowKeyNavigation(t *testing.T) {
 func TestShellSectionLaunchersFollowCurrentScreen(t *testing.T) {
 	data := ShellData{
 		Dashboard: DefaultDashboardData(),
-		Accounts: ListScreenData{
+		SettingsAccounts: ListScreenData{
 			Items: []ListItemData{{
 				Key: "1000",
 				Row: "1000 asset active Party Cash",
@@ -707,9 +707,9 @@ func TestShellSectionLaunchersFollowCurrentScreen(t *testing.T) {
 		t.Fatalf("dashboard help = %q", help)
 	}
 
-	shell.HandleAction(ActionShowAccounts)
-	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add") || !strings.Contains(help, "d remove") || !strings.Contains(help, "t deactivate") {
-		t.Fatalf("accounts help = %q", help)
+	shell.HandleAction(ActionShowSettings)
+	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add account") || !strings.Contains(help, "d remove") || !strings.Contains(help, "t deactivate") {
+		t.Fatalf("settings help = %q", help)
 	}
 
 	shell.HandleAction(ActionShowJournal)
@@ -738,9 +738,9 @@ func TestShellSectionSpecificComposeLaunches(t *testing.T) {
 	}
 
 	shell.compose = nil
-	shell.HandleAction(ActionShowAccounts)
+	shell.HandleAction(ActionShowSettings)
 	if result := shell.HandleAction(ActionNewCustom); !result.Redraw || shell.compose == nil || shell.compose.Mode != composeModeAccount {
-		t.Fatalf("accounts a should open account compose: %#v %#v", result, shell.compose)
+		t.Fatalf("settings a should open account compose: %#v %#v", result, shell.compose)
 	}
 
 	shell.compose = nil

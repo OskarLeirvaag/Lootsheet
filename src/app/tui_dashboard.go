@@ -52,6 +52,9 @@ const (
 	tuiCommandNotesCreate         = "notes.create"
 	tuiCommandNotesUpdate         = "notes.update"
 	tuiCommandNotesDelete         = "notes.delete"
+	tuiCommandCodexTypeCreate     = "codex_type.create"
+	tuiCommandCodexTypeRename     = "codex_type.rename"
+	tuiCommandCodexTypeDelete     = "codex_type.delete"
 )
 
 var tuiNow = time.Now
@@ -77,7 +80,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
 				fmt.Sprintf("Read-only snapshot from %s.", databaseName),
-				"Use arrows, Tab, or 1-8 to move between boxed screens. Use e/i/a for guided entry creation.",
+				"Use arrows, Tab, or 1-7 to move between boxed screens. Use e/i/a for guided entry creation. @ opens settings.",
 			},
 			HoardLines: []string{
 				"To share now: awaiting ledger snapshot.",
@@ -334,6 +337,36 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 	}
 
+	// Build Settings tabs from accounts + codex types.
+	{
+		data.SettingsAccounts = render.ListScreenData{
+			HeaderLines: []string{
+				fmt.Sprintf("Accounts from %s.", databaseName),
+				"Chart of accounts. `a` adds, `u` renames, `d` deletes, `t` toggles active/inactive.",
+			},
+			SummaryLines:  summarizeSettingsAccounts(accounts),
+			ListHeaderRow: fmt.Sprintf("%-4s %-9s %-8s %s", "CODE", "TYPE", "STATUS", "NAME"),
+			Items:         buildSettingsAccountItems(accounts),
+			EmptyLines: []string{
+				"No accounts to display.",
+				"Create an account with `a`.",
+			},
+		}
+		data.SettingsCodexTypes = render.ListScreenData{
+			HeaderLines: []string{
+				fmt.Sprintf("Codex types from %s.", databaseName),
+				"Entry categories. `a` adds, `u` renames, `d` deletes.",
+			},
+			SummaryLines:  summarizeSettingsCodexTypes(codexTypes),
+			ListHeaderRow: fmt.Sprintf("%-12s %-12s %s", "ID", "FORM", "NAME"),
+			Items:         buildSettingsCodexTypeItems(codexTypes),
+			EmptyLines: []string{
+				"No codex types to display.",
+				"Create a codex type with `a`.",
+			},
+		}
+	}
+
 	// Load notes and references.
 	var allNotesRefs map[string][]refs.EntityReference
 
@@ -434,7 +467,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Created account %s.", result.Code),
 		}
-		navigateTo = render.SectionAccounts
+		navigateTo = render.SectionSettings
 		selectItemKey = result.Code
 	case tuiCommandAccountRename:
 		newName := strings.TrimSpace(command.Fields["name"])
@@ -853,6 +886,41 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		message = render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Deleted note %q.", command.ItemKey),
+		}
+	case tuiCommandCodexTypeCreate:
+		id := strings.TrimSpace(command.Fields["id"])
+		name := strings.TrimSpace(command.Fields["name"])
+		formID := strings.TrimSpace(command.Fields["form_id"])
+		result, err := codex.CreateType(ctx, databasePath, id, name, formID)
+		if err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Created codex type %q.", result.Name),
+		}
+		navigateTo = render.SectionSettings
+		selectItemKey = "codex_type:" + result.ID
+	case tuiCommandCodexTypeRename:
+		newName := strings.TrimSpace(command.Fields["name"])
+		// command.ItemKey is "codex_type:<id>", strip prefix.
+		typeID := strings.TrimPrefix(command.ItemKey, "codex_type:")
+		if err := codex.RenameType(ctx, databasePath, typeID, newName); err != nil {
+			return render.CommandResult{}, render.InputError{Message: err.Error()}
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Renamed codex type %q to %q.", typeID, newName),
+		}
+		selectItemKey = command.ItemKey
+	case tuiCommandCodexTypeDelete:
+		typeID := strings.TrimPrefix(command.ItemKey, "codex_type:")
+		if err := codex.DeleteType(ctx, databasePath, typeID); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Deleted codex type %q.", typeID),
 		}
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)

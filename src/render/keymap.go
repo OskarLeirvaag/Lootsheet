@@ -17,7 +17,7 @@ const (
 	ActionNextSection     Action = "next_section"
 	ActionPrevSection     Action = "prev_section"
 	ActionShowDashboard   Action = "show_dashboard"
-	ActionShowAccounts    Action = "show_accounts"
+	ActionShowSettings    Action = "show_settings"
 	ActionShowJournal     Action = "show_journal"
 	ActionShowQuests      Action = "show_quests"
 	ActionShowLoot        Action = "show_loot"
@@ -134,35 +134,36 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionShowDashboard,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '1'},
-				Label:  "1-8 jump",
-			},
-			{
-				Action: ActionShowAccounts,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '2'},
+				Label:  "1-7 jump",
 			},
 			{
 				Action: ActionShowJournal,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '3'},
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '2'},
 			},
 			{
 				Action: ActionShowQuests,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '4'},
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '3'},
 			},
 			{
 				Action: ActionShowLoot,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '4'},
 			},
 			{
 				Action: ActionShowAssets,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '6'},
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '5'},
 			},
 			{
 				Action: ActionShowCodex,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '7'},
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '6'},
 			},
 			{
 				Action: ActionShowNotes,
-				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '8'},
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '7'},
+			},
+			{
+				Action: ActionShowSettings,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '@'},
+				Label:  "@ settings",
 			},
 			{
 				Action: ActionNewExpense,

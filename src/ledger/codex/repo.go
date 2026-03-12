@@ -12,6 +12,98 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 )
 
+var validFormIDs = map[string]bool{
+	"player":     true,
+	"npc":        true,
+	"settlement": true,
+}
+
+// CreateType inserts a new codex type.
+func CreateType(ctx context.Context, databasePath string, id, name, formID string) (CodexType, error) {
+	id = strings.TrimSpace(id)
+	name = strings.TrimSpace(name)
+	formID = strings.TrimSpace(formID)
+
+	if id == "" {
+		return CodexType{}, fmt.Errorf("codex type ID is required")
+	}
+	if name == "" {
+		return CodexType{}, fmt.Errorf("codex type name is required")
+	}
+	if !validFormIDs[formID] {
+		return CodexType{}, fmt.Errorf("form_id must be one of: npc, player, settlement")
+	}
+
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (CodexType, error) {
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO codex_types (id, name, form_id) VALUES (?, ?, ?)`,
+			id, name, formID,
+		); err != nil {
+			return CodexType{}, fmt.Errorf("insert codex type: %w", err)
+		}
+		return CodexType{ID: id, Name: name, FormID: formID}, nil
+	})
+}
+
+// RenameType updates the display name of a codex type.
+func RenameType(ctx context.Context, databasePath string, typeID, newName string) error {
+	typeID = strings.TrimSpace(typeID)
+	newName = strings.TrimSpace(newName)
+
+	if typeID == "" {
+		return fmt.Errorf("codex type ID is required")
+	}
+	if newName == "" {
+		return fmt.Errorf("new name is required")
+	}
+
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		result, err := db.ExecContext(ctx, `UPDATE codex_types SET name = ? WHERE id = ?`, newName, typeID)
+		if err != nil {
+			return fmt.Errorf("rename codex type: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("check rename result: %w", err)
+		}
+		if affected == 0 {
+			return fmt.Errorf("codex type %q does not exist", typeID)
+		}
+		return nil
+	})
+}
+
+// DeleteType removes a codex type, refusing if entries reference it.
+func DeleteType(ctx context.Context, databasePath string, typeID string) error {
+	typeID = strings.TrimSpace(typeID)
+	if typeID == "" {
+		return fmt.Errorf("codex type ID is required")
+	}
+
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		var count int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM codex_entries WHERE type_id = ?`, typeID).Scan(&count); err != nil {
+			return fmt.Errorf("check codex entries: %w", err)
+		}
+		if count > 0 {
+			return fmt.Errorf("cannot delete codex type %q: %d entries still reference it", typeID, count)
+		}
+
+		result, err := db.ExecContext(ctx, `DELETE FROM codex_types WHERE id = ?`, typeID)
+		if err != nil {
+			return fmt.Errorf("delete codex type: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("check delete result: %w", err)
+		}
+		if affected == 0 {
+			return fmt.Errorf("codex type %q does not exist", typeID)
+		}
+		return nil
+	})
+}
+
 // ListTypes returns all codex types ordered by name.
 func ListTypes(ctx context.Context, databasePath string) ([]CodexType, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexType, error) {

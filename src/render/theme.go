@@ -40,6 +40,8 @@ type Theme struct {
 	ScatterCodex     tcell.Style
 	SectionNotes     tcell.Style
 	ScatterNotes     tcell.Style
+	SectionSettings  tcell.Style
+	ScatterSettings  tcell.Style
 
 	// Editor chrome styles.
 	EditorLineNumber  tcell.Style
@@ -83,6 +85,8 @@ func DefaultTheme() Theme {
 	scatterCodexTint := tcell.NewRGBColor(100, 75, 50)
 	sageGreen := tcell.NewRGBColor(140, 190, 160)
 	scatterNotesTint := tcell.NewRGBColor(70, 95, 80)
+	silver := tcell.NewRGBColor(180, 185, 195)
+	scatterSettingsTint := tcell.NewRGBColor(90, 92, 98)
 
 	return Theme{
 		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),
@@ -121,6 +125,8 @@ func DefaultTheme() Theme {
 		ScatterCodex:     tcell.StyleDefault.Foreground(scatterCodexTint).Background(panelBackground),
 		SectionNotes:     tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
 		ScatterNotes:     tcell.StyleDefault.Foreground(scatterNotesTint).Background(panelBackground),
+		SectionSettings:  tcell.StyleDefault.Foreground(silver).Background(panelBackground).Bold(true),
+		ScatterSettings:  tcell.StyleDefault.Foreground(scatterSettingsTint).Background(panelBackground),
 
 		EditorLineNumber:  tcell.StyleDefault.Foreground(muted).Background(panelBackground),
 		EditorCursor:      tcell.StyleDefault.Foreground(panelBackground).Background(ink),
