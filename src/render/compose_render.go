@@ -18,7 +18,7 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 	if gapX < right.X {
 		buffer.FillRect(Rect{X: gapX, Y: rect.Y, W: right.X - gapX, H: rect.H}, ' ', theme.Panel)
 	}
-	ss := s.Section.Style(theme)
+	ss := sectionStyleFor(s.Section, theme)
 	DrawPanel(buffer, left, theme, ss.Panel(s.composeTitle(), s.composeFormLines()))
 	DrawPanel(buffer, right, theme, ss.Panel("Preview", s.composePreviewLines()))
 

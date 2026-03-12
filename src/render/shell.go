@@ -2,6 +2,8 @@ package render
 
 import (
 	"strings"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/render/goldrain"
 )
 
 type confirmState struct {
@@ -60,7 +62,7 @@ type Shell struct {
 	editor          *editorState
 	codexPicker     *codexPickerState
 	search          *searchState
-	rain            *GoldRain
+	rain            *goldrain.GoldRain
 
 	editorSaveInFlight  bool
 	editorQuitAfterSave bool
@@ -75,7 +77,7 @@ func NewShell(data *ShellData) *Shell {
 		selectedKeys:    make(map[Section]string),
 		selectedIndexes: make(map[Section]int),
 		viewHeights:     make(map[Section]int),
-		rain:            NewGoldRain(),
+		rain:            goldrain.NewGoldRain(),
 	}
 	shell.reconcileSelections()
 
@@ -166,7 +168,7 @@ func (s *Shell) Navigate(section Section, selectedKey string) {
 		return
 	}
 
-	if section.scrollable() {
+	if section.Scrollable() {
 		s.Section = section
 		if strings.TrimSpace(selectedKey) != "" {
 			s.selectedKeys[section] = strings.TrimSpace(selectedKey)

@@ -28,7 +28,7 @@ func Run(ctx context.Context, options *Options) error {
 	keymap := DefaultKeyMap()
 	if options != nil {
 		theme = resolveTheme(&options.Theme)
-		keymap = options.KeyMap.withDefaults()
+		keymap = options.KeyMap.WithDefaults()
 	}
 
 	var factory ScreenFactory

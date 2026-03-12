@@ -2,7 +2,7 @@ package render
 
 func (s *Shell) moveSelection(delta int) bool {
 	section := s.listSection()
-	if !section.scrollable() || delta == 0 {
+	if !section.Scrollable() || delta == 0 {
 		return false
 	}
 
@@ -23,7 +23,7 @@ func (s *Shell) moveSelection(delta int) bool {
 
 func (s *Shell) moveSelectionTo(index int) bool {
 	section := s.listSection()
-	if !section.scrollable() {
+	if !section.Scrollable() {
 		return false
 	}
 
@@ -69,7 +69,7 @@ func (s *Shell) currentSelectedItem(section Section) *ListItemData {
 }
 
 func (s *Shell) currentSelectionIndex(section Section) int {
-	if !section.scrollable() {
+	if !section.Scrollable() {
 		return -1
 	}
 
@@ -104,7 +104,7 @@ func (s *Shell) setSelection(section Section, index int) {
 
 func (s *Shell) reconcileSelections() {
 	for _, section := range orderedSections {
-		if !section.scrollable() {
+		if !section.Scrollable() {
 			continue
 		}
 		s.reconcileSelection(section)

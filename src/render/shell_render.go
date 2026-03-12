@@ -118,7 +118,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		fallback := defaultListScreenData(section)
 		view = &fallback
 	}
-	ss := section.Style(theme)
+	ss := sectionStyleFor(section, theme)
 
 	if rect.W < 48 || rect.H < 10 {
 		DrawPanel(buffer, rect, theme, ss.Panel(section.Title(), []string{
@@ -188,7 +188,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section Section, data *ListScreenData, selectedIndex int) {
 	items := data.Items
 	title := section.Title()
-	ss := section.Style(theme)
+	ss := sectionStyleFor(section, theme)
 	if len(items) == 0 {
 		DrawPanel(buffer, rect, theme, ss.Panel(title, data.EmptyLines))
 		s.viewHeights[section] = 0

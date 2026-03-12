@@ -12,7 +12,7 @@ func (s *Shell) renderEditor(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 	e := s.editor
-	ss := SectionNotes.Style(theme)
+	ss := sectionStyleFor(SectionNotes, theme)
 
 	// Layout: split into left (editor) and right (sidebar).
 	sidebarW := clampInt(rect.W/5, 18, 26)
@@ -169,7 +169,7 @@ func (s *Shell) renderEditor(buffer *Buffer, rect Rect, theme *Theme) {
 
 func (s *Shell) renderEditorSidebar(buffer *Buffer, rect Rect, theme *Theme) {
 	e := s.editor
-	ss := SectionNotes.Style(theme)
+	ss := sectionStyleFor(SectionNotes, theme)
 
 	DrawPanel(buffer, rect, theme, Panel{
 		Title:       "Info",

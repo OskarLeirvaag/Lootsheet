@@ -70,7 +70,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			s.reconcileSelection(s.activeSettingsSection())
 			return handleResult{Redraw: true}
 		}
-		s.Section = s.Section.next()
+		s.Section = s.Section.Next()
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
 	case ActionPrevSection:
@@ -79,7 +79,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			s.reconcileSelection(s.activeSettingsSection())
 			return handleResult{Redraw: true}
 		}
-		s.Section = s.Section.previous()
+		s.Section = s.Section.Previous()
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
 	case ActionShowDashboard:

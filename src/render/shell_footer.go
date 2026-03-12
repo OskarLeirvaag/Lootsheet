@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
+
+	"github.com/OskarLeirvaag/Lootsheet/src/render/model"
 )
 
 func (s *Shell) footerHelpText(keymap KeyMap) string {
@@ -29,7 +31,7 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	}
 
 	help := keymap.HelpTextFor(ActionNextSection, ActionShowDashboard)
-	if s.Section.scrollable() {
+	if s.Section.Scrollable() {
 		help = joinHelp(help, keymap.HelpTextFor(ActionMoveDown))
 	}
 
@@ -119,7 +121,7 @@ func (s *Shell) currentHeaderLines() []string {
 }
 
 func (s *Shell) tabsLine() string {
-	width := maxSectionTitleWidth() + 2
+	width := model.MaxSectionTitleWidth() + 2
 	var line strings.Builder
 	for index, section := range orderedSections {
 		if index > 0 {
@@ -169,17 +171,17 @@ func (s *Shell) drawHeaderHighlights(buffer *Buffer, rect Rect, theme *Theme) {
 		style := theme.TabInactive
 		if section == s.Section {
 			label = "[" + label + "]"
-			style = section.Style(theme).Accent
+			style = sectionStyleFor(section, theme).Accent
 		} else {
 			label = " " + label + " "
 		}
-		width := maxSectionTitleWidth() + 2
+		width := model.MaxSectionTitleWidth() + 2
 		x += buffer.WriteString(x, tabY, style, fmt.Sprintf("%-*s", width, label))
 	}
 }
 
 func (s *Shell) sectionStyle(theme *Theme) tcell.Style {
-	return s.Section.Style(theme).Accent
+	return sectionStyleFor(s.Section, theme).Accent
 }
 
 func (s *Shell) glossaryTitle() string {

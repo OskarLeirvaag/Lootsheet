@@ -1,8 +1,9 @@
-package render
+package goldrain
 
 import (
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/render/canvas"
 	"github.com/OskarLeirvaag/Lootsheet/src/texture/animation"
 )
 
@@ -25,8 +26,8 @@ func (r *GoldRain) Update() {
 }
 
 // Render draws the current rain state into the buffer.
-func (r *GoldRain) Render(buffer *Buffer, rect Rect, theme *Theme) {
-	if r == nil || buffer == nil || rect.Empty() || theme == nil {
+func (r *GoldRain) Render(buffer *canvas.Buffer, rect canvas.Rect, goldStyle tcell.Style, textStyle tcell.Style) {
+	if r == nil || buffer == nil || rect.Empty() {
 		return
 	}
 
@@ -50,15 +51,15 @@ func (r *GoldRain) Render(buffer *Buffer, rect Rect, theme *Theme) {
 				if d.Spark {
 					ch = '*'
 				}
-				buffer.Set(sx, sy, ch, theme.HoardGold)
+				buffer.Set(sx, sy, ch, goldStyle)
 			} else {
-				buffer.Set(sx, sy, '.', trailStyle(t, d.Trail, theme))
+				buffer.Set(sx, sy, '.', trailStyle(t, d.Trail, textStyle))
 			}
 		}
 	}
 }
 
-func trailStyle(position int, length int, theme *Theme) tcell.Style {
+func trailStyle(position int, length int, baseStyle tcell.Style) tcell.Style {
 	// Interpolate from bright (ink) to dim (near-background).
 	const r0, g0, b0 = 244, 239, 228 // ink / bright end
 	const r1, g1, b1 = 50, 55, 65    // dim end
@@ -70,5 +71,5 @@ func trailStyle(position int, length int, theme *Theme) tcell.Style {
 	cg := int32(float64(g0) + float64(g1-g0)*frac)
 	cb := int32(float64(b0) + float64(b1-b0)*frac)
 
-	return theme.Text.Foreground(tcell.NewRGBColor(cr, cg, cb))
+	return baseStyle.Foreground(tcell.NewRGBColor(cr, cg, cb))
 }
