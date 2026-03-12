@@ -80,7 +80,7 @@ func DefaultTheme() Theme {
 	scatterQuestsTint := tcell.NewRGBColor(55, 110, 65)
 	scatterLootTint := tcell.NewRGBColor(110, 100, 30)
 	copper := tcell.NewRGBColor(220, 160, 100)
-	scatterPeopleTint := tcell.NewRGBColor(100, 75, 50)
+	scatterCodexTint := tcell.NewRGBColor(100, 75, 50)
 	sageGreen := tcell.NewRGBColor(140, 190, 160)
 	scatterNotesTint := tcell.NewRGBColor(70, 95, 80)
 
@@ -118,7 +118,7 @@ func DefaultTheme() Theme {
 		ScatterQuests:    tcell.StyleDefault.Foreground(scatterQuestsTint).Background(panelBackground),
 		ScatterLoot:      tcell.StyleDefault.Foreground(scatterLootTint).Background(panelBackground),
 		SectionCodex:     tcell.StyleDefault.Foreground(copper).Background(panelBackground).Bold(true),
-		ScatterCodex:     tcell.StyleDefault.Foreground(scatterPeopleTint).Background(panelBackground),
+		ScatterCodex:     tcell.StyleDefault.Foreground(scatterCodexTint).Background(panelBackground),
 		SectionNotes:     tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
 		ScatterNotes:     tcell.StyleDefault.Foreground(scatterNotesTint).Background(panelBackground),
 

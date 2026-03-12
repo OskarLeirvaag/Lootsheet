@@ -61,20 +61,20 @@ func parseBlockLine(line string, theme *Theme) ([]styledSpan, int) {
 
 	// Headings.
 	if text, ok := strings.CutPrefix(trimmed, "### "); ok {
-		return parseInlineSpans(text, theme.MarkdownBold), 0
+		return parseInlineSpans(text, theme.MarkdownBold, theme.MarkdownReference), 0
 	}
 	if text, ok := strings.CutPrefix(trimmed, "## "); ok {
-		return parseInlineSpans(text, theme.MarkdownBold), 0
+		return parseInlineSpans(text, theme.MarkdownBold, theme.MarkdownReference), 0
 	}
 	if text, ok := strings.CutPrefix(trimmed, "# "); ok {
-		return parseInlineSpans(text, theme.MarkdownHeading), 0
+		return parseInlineSpans(text, theme.MarkdownHeading, theme.MarkdownReference), 0
 	}
 
 	// List items.
 	if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
 		bullet := string(trimmed[0])
 		text := trimmed[2:]
-		spans := append([]styledSpan{{Text: bullet + " ", Style: theme.MarkdownHeading}}, parseInlineSpans(text, theme.Text)...) //nolint:gocritic // appendAssign: intentional inline append
+		spans := append([]styledSpan{{Text: bullet + " ", Style: theme.MarkdownHeading}}, parseInlineSpans(text, theme.Text, theme.MarkdownReference)...) //nolint:gocritic // appendAssign: intentional inline append
 		return spans, 2
 	}
 
@@ -90,14 +90,14 @@ func parseBlockLine(line string, theme *Theme) ([]styledSpan, int) {
 		}
 		if allDigits {
 			text := trimmed[idx+2:]
-			spans := append([]styledSpan{{Text: prefix, Style: theme.MarkdownHeading}}, parseInlineSpans(text, theme.Text)...) //nolint:gocritic // appendAssign: intentional inline append
+			spans := append([]styledSpan{{Text: prefix, Style: theme.MarkdownHeading}}, parseInlineSpans(text, theme.Text, theme.MarkdownReference)...) //nolint:gocritic // appendAssign: intentional inline append
 			return spans, len([]rune(prefix))
 		}
 	}
 
 	// Blockquote.
 	if text, ok := strings.CutPrefix(trimmed, "> "); ok {
-		spans := append([]styledSpan{{Text: "> ", Style: theme.MarkdownBlockquote}}, parseInlineSpans(text, theme.MarkdownBlockquote)...) //nolint:gocritic // appendAssign: intentional inline append
+		spans := append([]styledSpan{{Text: "> ", Style: theme.MarkdownBlockquote}}, parseInlineSpans(text, theme.MarkdownBlockquote, theme.MarkdownReference)...) //nolint:gocritic // appendAssign: intentional inline append
 		return spans, 2
 	}
 
@@ -105,11 +105,11 @@ func parseBlockLine(line string, theme *Theme) ([]styledSpan, int) {
 	if trimmed == "" {
 		return []styledSpan{{Text: "", Style: theme.Text}}, 0
 	}
-	return parseInlineSpans(trimmed, theme.Text), 0
+	return parseInlineSpans(trimmed, theme.Text, theme.MarkdownReference), 0
 }
 
 // parseInlineSpans processes inline markdown formatting within a line.
-func parseInlineSpans(text string, baseStyle tcell.Style) []styledSpan {
+func parseInlineSpans(text string, baseStyle tcell.Style, opts ...tcell.Style) []styledSpan {
 	if text == "" {
 		return nil
 	}
@@ -175,10 +175,11 @@ func parseInlineSpans(text string, baseStyle tcell.Style) []styledSpan {
 			ref := string(runes[i:end])
 			if strings.Contains(ref, "/") && len(ref) > 2 {
 				flushCurrent()
-				// Use MarkdownReference style from theme via a small hack:
-				// we pass it through as underlined base
-				refStyle := baseStyle.Foreground(tcell.NewRGBColor(140, 190, 160))
-				spans = append(spans, styledSpan{Text: ref, Style: refStyle})
+				rs := baseStyle.Foreground(tcell.NewRGBColor(140, 190, 160))
+				if len(opts) > 0 {
+					rs = opts[0]
+				}
+				spans = append(spans, styledSpan{Text: ref, Style: rs})
 				i = end
 				continue
 			}
