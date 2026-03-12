@@ -1,25 +1,14 @@
 package render
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"github.com/gdamore/tcell/v2"
 
-// Screen captures the small part of tcell used by the first dashboard slice.
-type Screen interface {
-	Init() error
-	Fini()
-	Size() (int, int)
-	SetStyle(tcell.Style)
-	Clear()
-	HideCursor()
-	Show()
-	Sync()
-	EnableMouse(...tcell.MouseFlags)
-	PollEvent() tcell.Event
-	PostEvent(tcell.Event) error
-	SetContent(x int, y int, primary rune, combining []rune, style tcell.Style)
-}
+	"github.com/OskarLeirvaag/Lootsheet/src/render/canvas"
+)
 
-// ScreenFactory creates a terminal screen implementation.
-type ScreenFactory func() (Screen, error)
+// Type aliases re-export canvas screen types.
+type Screen = canvas.Screen
+type ScreenFactory = canvas.ScreenFactory
 
 // Terminal owns the screen lifecycle and frame presentation.
 type Terminal struct {

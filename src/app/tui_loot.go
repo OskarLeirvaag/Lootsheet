@@ -121,12 +121,13 @@ func buildLootItems(rows []loot.BrowseItemRecord, today string) []render.ListIte
 			})
 		} else if lootSellable(row) {
 			actions = append(actions, render.ItemActionData{
-				Trigger:     render.ActionSell,
-				ID:          tuiCommandLootSell,
-				Label:       "s sell",
-				Mode:        render.ItemActionModeInput,
-				InputTitle:  fmt.Sprintf("Sell %q?", row.Name),
-				InputPrompt: "Sale amount",
+				Trigger:       render.ActionSell,
+				ID:            tuiCommandLootSell,
+				Label:         "s sell",
+				Mode:          render.ItemActionModeInput,
+				InputTitle:    fmt.Sprintf("Sell %q?", row.Name),
+				InputPrompt:   "Sale amount",
+				InputRequired: "Sale amount is required.",
 				InputHelp: []string{
 					"Sale date: " + today,
 					"Recognized value: " + lootRecognizedValueText(row),

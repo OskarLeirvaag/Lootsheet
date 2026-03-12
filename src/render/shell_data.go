@@ -36,6 +36,7 @@ type ItemActionData struct {
 	ConfirmLines  []string
 	InputTitle    string
 	InputPrompt   string
+	InputRequired string
 	InputHelp     []string
 	Placeholder   string
 	ComposeMode   string
