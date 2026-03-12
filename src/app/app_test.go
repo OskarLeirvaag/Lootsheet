@@ -103,7 +103,7 @@ func TestRunDatabaseStatusBeforeInit(t *testing.T) {
 		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
-	if !strings.Contains(output, "Target schema version: 5") {
+	if !strings.Contains(output, "Target schema version: 8") {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
@@ -664,15 +664,15 @@ func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
-	if !strings.Contains(output, "Schema version: 5") {
+	if !strings.Contains(output, "Schema version: 8") {
 		t.Fatalf("db status missing schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Target schema version: 5") {
+	if !strings.Contains(output, "Target schema version: 8") {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Applied migrations: 5") {
+	if !strings.Contains(output, "Applied migrations: 8") {
 		t.Fatalf("db status missing migration count: %q", output)
 	}
 
@@ -726,7 +726,7 @@ func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Pending migrations: 4") {
+	if !strings.Contains(output, "Pending migrations: 7") {
 		t.Fatalf("db status missing pending migration count: %q", output)
 	}
 
@@ -838,7 +838,7 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 		t.Fatalf("db migrate missing from schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "To schema version: 5") {
+	if !strings.Contains(output, "To schema version: 8") {
 		t.Fatalf("db migrate missing to schema version: %q", output)
 	}
 

@@ -8,6 +8,8 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
@@ -49,6 +51,8 @@ func (a *Application) newRootCommand() *cobra.Command {
 		a.newJournalCommand(),
 		a.newQuestCommand(),
 		a.newLootCommand(),
+		a.newCodexCommand(),
+		a.newNotesCommand(),
 		a.newReportCommand(),
 	)
 
@@ -221,6 +225,48 @@ func (a *Application) newLootCommand() *cobra.Command {
 		a.newLootAppraiseCommand(),
 		a.newLootRecognizeCommand(),
 		a.newLootSellCommand(),
+	)
+
+	return cmd
+}
+
+func (a *Application) newCodexCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "codex",
+		Short: "Manage codex entries — players, NPCs, and contacts with type-specific forms",
+		Long:  codexHelpText,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return a.writeCommandHelp(cmd)
+		},
+	}
+
+	cmd.AddCommand(
+		a.newCodexCreateCommand(),
+		a.newNoArgsLeafCommand("list", "List codex entries", codexListHelpText, func(ctx context.Context) error {
+			return codex.RunList(ctx, a.handlerContext())
+		}),
+		a.newCodexSearchCommand(),
+	)
+
+	return cmd
+}
+
+func (a *Application) newNotesCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "notes",
+		Short: "Manage campaign and session notes with cross-reference support",
+		Long:  notesHelpText,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return a.writeCommandHelp(cmd)
+		},
+	}
+
+	cmd.AddCommand(
+		a.newNotesCreateCommand(),
+		a.newNoArgsLeafCommand("list", "List all notes", notesListHelpText, func(ctx context.Context) error {
+			return notes.RunList(ctx, a.handlerContext())
+		}),
+		a.newNotesSearchCommand(),
 	)
 
 	return cmd

@@ -45,6 +45,8 @@ const (
 	ActionExecuteTemplate Action = "execute_template"
 	ActionSubmitCompose   Action = "submit_compose"
 	ActionConfirm         Action = "confirm"
+	ActionShowCodex       Action = "show_codex"
+	ActionShowNotes       Action = "show_notes"
 	ActionHelp            Action = "help"
 )
 
@@ -132,7 +134,7 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionShowDashboard,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '1'},
-				Label:  "1-6 jump",
+				Label:  "1-8 jump",
 			},
 			{
 				Action: ActionShowAccounts,
@@ -153,6 +155,14 @@ func DefaultKeyMap() KeyMap {
 			{
 				Action: ActionShowAssets,
 				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '6'},
+			},
+			{
+				Action: ActionShowCodex,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '7'},
+			},
+			{
+				Action: ActionShowNotes,
+				Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '8'},
 			},
 			{
 				Action: ActionNewExpense,

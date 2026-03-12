@@ -12,6 +12,8 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
@@ -43,6 +45,12 @@ const (
 	tuiCommandAssetRecognize      = "asset.recognize_latest"
 	tuiCommandAssetTransferToLoot = "asset.transfer_to_loot"
 	tuiCommandAssetTemplateSave   = "asset.template.save"
+	tuiCommandCodexCreate         = "codex.create"
+	tuiCommandCodexUpdate         = "codex.update"
+	tuiCommandCodexDelete         = "codex.delete"
+	tuiCommandNotesCreate         = "notes.create"
+	tuiCommandNotesUpdate         = "notes.update"
+	tuiCommandNotesDelete         = "notes.delete"
 )
 
 var tuiNow = time.Now
@@ -68,7 +76,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
 				fmt.Sprintf("Read-only snapshot from %s.", databaseName),
-				"Use arrows, Tab, or 1-6 to move between boxed screens. Use e/i/a for guided entry creation.",
+				"Use arrows, Tab, or 1-8 to move between boxed screens. Use e/i/a for guided entry creation.",
 			},
 			HoardLines: []string{
 				"To share now: awaiting ledger snapshot.",
@@ -128,6 +136,26 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			EmptyLines: []string{
 				"No assets tracked yet.",
 				"Assets are high-value items the party keeps. Transfer to loot when ready to sell.",
+			},
+		},
+		Codex: render.ListScreenData{
+			HeaderLines: []string{
+				fmt.Sprintf("Codex from %s.", databaseName),
+				"Select an entry to inspect. `a` adds, `u` edits, `d` deletes. Use @type/name in notes for cross-references.",
+			},
+			EmptyLines: []string{
+				"No codex entries yet.",
+				"Add players, NPCs, and contacts here.",
+			},
+		},
+		Notes: render.ListScreenData{
+			HeaderLines: []string{
+				fmt.Sprintf("Campaign notes from %s.", databaseName),
+				"Select a note to inspect. `a` adds, `u` edits, `d` deletes. Use @type/name in body for cross-references.",
+			},
+			EmptyLines: []string{
+				"No notes yet.",
+				"Add campaign and session notes here.",
 			},
 		},
 	}
@@ -268,6 +296,115 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		} else {
 			data.Assets.ListHeaderRow = fmt.Sprintf("%-12s %-11s %-4s %-12s %s", "VALUE", "STATUS", "TPL", "HOLDER", "NAME")
 			data.Assets.Items = buildAssetItems(assetBrowseItems, tuiToday())
+		}
+	}
+
+	// Load codex entries, references, and types.
+	var allCodexEntries []codex.CodexEntry
+	var allCodexRefs map[string][]codex.Reference
+
+	codexEntries, codexErr := loader.ListCodexEntries(ctx)
+	if codexErr != nil {
+		data.Codex = unavailableSectionData("Codex unavailable.", codexErr.Error())
+		panelErrors = append(panelErrors, "codex")
+	} else {
+		allCodexEntries = codexEntries
+		data.Codex.SummaryLines = summarizeCodex(codexEntries)
+		data.Codex.ListHeaderRow = fmt.Sprintf("%-8s %-14s %s", "TYPE", "SECONDARY", "NAME")
+
+		refs, refsErr := loader.ListAllCodexReferences(ctx)
+		if refsErr != nil {
+			panelErrors = append(panelErrors, "codex-refs")
+		} else {
+			allCodexRefs = refs
+		}
+
+		data.Codex.Items = buildCodexItems(codexEntries, allCodexRefs)
+	}
+
+	// Load codex types for the picker.
+	codexTypes, codexTypesErr := loader.ListCodexTypes(ctx)
+	if codexTypesErr == nil {
+		data.CodexTypes = make([]render.CodexTypeOption, len(codexTypes))
+		for i, ct := range codexTypes {
+			data.CodexTypes[i] = render.CodexTypeOption{
+				ID:     ct.ID,
+				Name:   ct.Name,
+				FormID: ct.FormID,
+			}
+		}
+	}
+
+	// Load notes and references.
+	var allNotes []notes.NoteRecord
+	var allNotesRefs map[string][]notes.ReferenceRecord
+
+	noteRecords, notesErr := loader.ListNotes(ctx)
+	if notesErr != nil {
+		data.Notes = unavailableSectionData("Notes unavailable.", notesErr.Error())
+		panelErrors = append(panelErrors, "notes")
+	} else {
+		allNotes = noteRecords
+		data.Notes.SummaryLines = summarizeNotes(noteRecords)
+		data.Notes.ListHeaderRow = fmt.Sprintf("%-11s %s", "UPDATED", "TITLE")
+
+		noteRefs, noteRefsErr := loader.ListAllNotesReferences(ctx)
+		if noteRefsErr != nil {
+			panelErrors = append(panelErrors, "notes-refs")
+		} else {
+			allNotesRefs = noteRefs
+		}
+
+		data.Notes.Items = buildNotesItems(noteRecords, allNotesRefs)
+	}
+
+	// Append "Mentioned by:" lines to quest detail views.
+	if allCodexRefs != nil && allCodexEntries != nil {
+		for i, item := range data.Quests.Items {
+			mentionLines := buildMentionedByLines(allCodexRefs, allCodexEntries, "quest", item.DetailTitle)
+			if len(mentionLines) > 0 {
+				data.Quests.Items[i].DetailLines = append(data.Quests.Items[i].DetailLines, mentionLines...)
+			}
+		}
+		for i, item := range data.Loot.Items {
+			mentionLines := buildMentionedByLines(allCodexRefs, allCodexEntries, "loot", item.DetailTitle)
+			if len(mentionLines) > 0 {
+				data.Loot.Items[i].DetailLines = append(data.Loot.Items[i].DetailLines, mentionLines...)
+			}
+		}
+		for i, item := range data.Assets.Items {
+			mentionLines := buildMentionedByLines(allCodexRefs, allCodexEntries, "asset", item.DetailTitle)
+			if len(mentionLines) > 0 {
+				data.Assets.Items[i].DetailLines = append(data.Assets.Items[i].DetailLines, mentionLines...)
+			}
+		}
+	}
+
+	// Append "Referenced in:" lines from notes to quest/loot/asset/people detail views.
+	if allNotesRefs != nil && allNotes != nil {
+		for i, item := range data.Quests.Items {
+			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "quest", item.DetailTitle)
+			if len(refLines) > 0 {
+				data.Quests.Items[i].DetailLines = append(data.Quests.Items[i].DetailLines, refLines...)
+			}
+		}
+		for i, item := range data.Loot.Items {
+			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "loot", item.DetailTitle)
+			if len(refLines) > 0 {
+				data.Loot.Items[i].DetailLines = append(data.Loot.Items[i].DetailLines, refLines...)
+			}
+		}
+		for i, item := range data.Assets.Items {
+			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "asset", item.DetailTitle)
+			if len(refLines) > 0 {
+				data.Assets.Items[i].DetailLines = append(data.Assets.Items[i].DetailLines, refLines...)
+			}
+		}
+		for i, item := range data.Codex.Items {
+			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "person", item.DetailTitle)
+			if len(refLines) > 0 {
+				data.Codex.Items[i].DetailLines = append(data.Codex.Items[i].DetailLines, refLines...)
+			}
 		}
 	}
 
@@ -682,6 +819,54 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		navigateTo = render.SectionAssets
 		selectItemKey = command.ItemKey
+	case tuiCommandCodexCreate:
+		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, true)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
+	case tuiCommandCodexUpdate:
+		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, false)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
+	case tuiCommandCodexDelete:
+		if err := codex.DeleteEntry(ctx, databasePath, command.ItemKey); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Deleted codex entry %q.", command.ItemKey),
+		}
+	case tuiCommandNotesCreate:
+		result, err := handleNotesCreateOrUpdate(ctx, command, databasePath, true)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
+	case tuiCommandNotesUpdate:
+		result, err := handleNotesCreateOrUpdate(ctx, command, databasePath, false)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
+	case tuiCommandNotesDelete:
+		if err := notes.DeleteNote(ctx, databasePath, command.ItemKey); err != nil {
+			return render.CommandResult{}, err
+		}
+		message = render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("Deleted note %q.", command.ItemKey),
+		}
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
@@ -734,6 +919,8 @@ func unavailableShellData(status *ledger.DatabaseStatus, detail string) render.S
 		Quests:   unavailableSectionData(stateLine, detail),
 		Loot:     unavailableSectionData(stateLine, detail),
 		Assets:   unavailableSectionData(stateLine, detail),
+		Codex:   unavailableSectionData(stateLine, detail),
+		Notes:    unavailableSectionData(stateLine, detail),
 	}
 }
 
@@ -1118,6 +1305,131 @@ func blankStatusDetail(detail string) string {
 		return "TUI data is not available for this database state."
 	}
 	return detail
+}
+
+// handleCodexCreateOrUpdate extracts the shared codex create and update TUI
+// command logic. When create is true it calls CreateEntry; otherwise UpdateEntry.
+func handleCodexCreateOrUpdate(
+	ctx context.Context,
+	command render.Command,
+	databasePath string,
+	create bool,
+) (tuiCommandResult, error) {
+	typeID := strings.TrimSpace(command.Fields["_type_id"])
+	name := strings.TrimSpace(command.Fields["name"])
+	title := strings.TrimSpace(command.Fields["title"])
+	location := strings.TrimSpace(command.Fields["location"])
+	faction := strings.TrimSpace(command.Fields["faction"])
+	disposition := strings.TrimSpace(command.Fields["disposition"])
+	class := strings.TrimSpace(command.Fields["class"])
+	race := strings.TrimSpace(command.Fields["race"])
+	background := strings.TrimSpace(command.Fields["background"])
+	description := strings.TrimSpace(command.Fields["description"])
+	notes := strings.TrimSpace(command.Fields["notes"])
+
+	var resultName, resultID string
+	if create {
+		result, err := codex.CreateEntry(ctx, databasePath, &codex.CreateInput{
+			TypeID:      typeID,
+			Name:        name,
+			Title:       title,
+			Location:    location,
+			Faction:     faction,
+			Disposition: disposition,
+			Class:       class,
+			Race:        race,
+			Background:  background,
+			Description: description,
+			Notes:       notes,
+		})
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		resultName = result.Name
+		resultID = result.ID
+	} else {
+		result, err := codex.UpdateEntry(ctx, databasePath, command.ItemKey, &codex.UpdateInput{
+			TypeID:      typeID,
+			Name:        name,
+			Title:       title,
+			Location:    location,
+			Faction:     faction,
+			Disposition: disposition,
+			Class:       class,
+			Race:        race,
+			Background:  background,
+			Description: description,
+			Notes:       notes,
+		})
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		resultName = result.Name
+		resultID = result.ID
+	}
+
+	verb := "Created"
+	if !create {
+		verb = "Updated"
+	}
+
+	return tuiCommandResult{
+		message: render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("%s codex entry %q.", verb, resultName),
+		},
+		navigateTo:    render.SectionCodex,
+		selectItemKey: resultID,
+	}, nil
+}
+
+// handleNotesCreateOrUpdate extracts the shared notes create and update TUI
+// command logic. When create is true it calls CreateNote; otherwise UpdateNote.
+func handleNotesCreateOrUpdate(
+	ctx context.Context,
+	command render.Command,
+	databasePath string,
+	create bool,
+) (tuiCommandResult, error) {
+	title := strings.TrimSpace(command.Fields["title"])
+	body := strings.TrimSpace(command.Fields["body"])
+
+	var resultTitle, resultID string
+	if create {
+		result, err := notes.CreateNote(ctx, databasePath, &notes.CreateNoteInput{
+			Title: title,
+			Body:  body,
+		})
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		resultTitle = result.Title
+		resultID = result.ID
+	} else {
+		result, err := notes.UpdateNote(ctx, databasePath, command.ItemKey, &notes.UpdateNoteInput{
+			Title: title,
+			Body:  body,
+		})
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		resultTitle = result.Title
+		resultID = result.ID
+	}
+
+	verb := "Created"
+	if !create {
+		verb = "Updated"
+	}
+
+	return tuiCommandResult{
+		message: render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  fmt.Sprintf("%s note %q.", verb, resultTitle),
+		},
+		navigateTo:    render.SectionNotes,
+		selectItemKey: resultID,
+	}, nil
 }
 
 func uniqueStrings(values []string) []string {

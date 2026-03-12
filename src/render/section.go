@@ -12,6 +12,8 @@ const (
 	SectionQuests
 	SectionLoot
 	SectionAssets
+	SectionCodex
+	SectionNotes
 )
 
 var orderedSections = []Section{
@@ -21,6 +23,8 @@ var orderedSections = []Section{
 	SectionQuests,
 	SectionLoot,
 	SectionAssets,
+	SectionCodex,
+	SectionNotes,
 }
 
 // Title returns the user-facing section name.
@@ -36,6 +40,10 @@ func (s Section) Title() string {
 		return "Loot"
 	case SectionAssets:
 		return "Assets"
+	case SectionCodex:
+		return "Codex"
+	case SectionNotes:
+		return "Notes"
 	default:
 		return "Dashboard"
 	}
@@ -117,6 +125,18 @@ func (s Section) Style(theme *Theme) SectionStyle {
 			Borders:       &runicBorders,
 			ScatterGlyphs: scatterGlyphs,
 			ScatterStyle:  &theme.ScatterAssets,
+		}
+	case SectionCodex:
+		return SectionStyle{
+			Accent:        theme.SectionCodex,
+			ScatterGlyphs: scatterPeople,
+			ScatterStyle:  &theme.ScatterCodex,
+		}
+	case SectionNotes:
+		return SectionStyle{
+			Accent:        theme.SectionNotes,
+			ScatterGlyphs: scatterNotes,
+			ScatterStyle:  &theme.ScatterNotes,
 		}
 	default:
 		return SectionStyle{

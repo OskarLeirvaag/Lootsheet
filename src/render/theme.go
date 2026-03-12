@@ -36,6 +36,24 @@ type Theme struct {
 	ScatterJournal   tcell.Style
 	ScatterQuests    tcell.Style
 	ScatterLoot      tcell.Style
+	SectionCodex     tcell.Style
+	ScatterCodex     tcell.Style
+	SectionNotes     tcell.Style
+	ScatterNotes     tcell.Style
+
+	// Editor chrome styles.
+	EditorLineNumber  tcell.Style
+	EditorCursor      tcell.Style
+	EditorStatusBar   tcell.Style
+	EditorCommandLine tcell.Style
+
+	// Markdown rendering styles.
+	MarkdownHeading    tcell.Style
+	MarkdownBold       tcell.Style
+	MarkdownItalic     tcell.Style
+	MarkdownCode       tcell.Style
+	MarkdownBlockquote tcell.Style
+	MarkdownReference  tcell.Style
 }
 
 // DefaultTheme returns the boxed-dashboard palette used by the first slice.
@@ -61,6 +79,10 @@ func DefaultTheme() Theme {
 	scatterJournalTint := tcell.NewRGBColor(120, 50, 45)
 	scatterQuestsTint := tcell.NewRGBColor(55, 110, 65)
 	scatterLootTint := tcell.NewRGBColor(110, 100, 30)
+	copper := tcell.NewRGBColor(220, 160, 100)
+	scatterPeopleTint := tcell.NewRGBColor(100, 75, 50)
+	sageGreen := tcell.NewRGBColor(140, 190, 160)
+	scatterNotesTint := tcell.NewRGBColor(70, 95, 80)
 
 	return Theme{
 		Base:             tcell.StyleDefault.Foreground(ink).Background(panelBackground),
@@ -95,6 +117,22 @@ func DefaultTheme() Theme {
 		ScatterJournal:   tcell.StyleDefault.Foreground(scatterJournalTint).Background(panelBackground),
 		ScatterQuests:    tcell.StyleDefault.Foreground(scatterQuestsTint).Background(panelBackground),
 		ScatterLoot:      tcell.StyleDefault.Foreground(scatterLootTint).Background(panelBackground),
+		SectionCodex:     tcell.StyleDefault.Foreground(copper).Background(panelBackground).Bold(true),
+		ScatterCodex:     tcell.StyleDefault.Foreground(scatterPeopleTint).Background(panelBackground),
+		SectionNotes:     tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
+		ScatterNotes:     tcell.StyleDefault.Foreground(scatterNotesTint).Background(panelBackground),
+
+		EditorLineNumber:  tcell.StyleDefault.Foreground(muted).Background(panelBackground),
+		EditorCursor:      tcell.StyleDefault.Foreground(panelBackground).Background(ink),
+		EditorStatusBar:   tcell.StyleDefault.Foreground(ink).Background(footerBackground).Bold(true),
+		EditorCommandLine: tcell.StyleDefault.Foreground(ink).Background(footerBackground).Bold(true),
+
+		MarkdownHeading:    tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
+		MarkdownBold:       tcell.StyleDefault.Foreground(ink).Background(panelBackground).Bold(true),
+		MarkdownItalic:     tcell.StyleDefault.Foreground(ink).Background(panelBackground).Italic(true),
+		MarkdownCode:       tcell.StyleDefault.Foreground(muted).Background(panelBackground),
+		MarkdownBlockquote: tcell.StyleDefault.Foreground(muted).Background(panelBackground).Italic(true),
+		MarkdownReference:  tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground),
 	}
 }
 

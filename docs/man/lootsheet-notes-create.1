@@ -1,0 +1,31 @@
+.TH LOOTSHEET-NOTES-CREATE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-notes-create \\- Create a new note
+.SH SYNOPSIS
+lootsheet notes create [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Subcommand: notes create
+
+Create a new note entry.
+
+Flags:
+  --title   note title (required)
+  --body    note body; use @type/name for cross-references
+
+Examples:
+  lootsheet notes create --title "Session 5" --body "Met @person/Mayor Elra near @quest/Clear the Watchtower"
+  lootsheet notes create --title "Shopping List" --body "Need potions from @person/Alchemist Bree"
+.SH OPTIONS
+.TP
+--body=string
+note body; use @type/name for cross-references (default: )
+.TP
+-h, --help
+help for create
+.TP
+--title=string
+note title (required) (default: )
+.SH SEE ALSO
+lootsheet-notes(1)
