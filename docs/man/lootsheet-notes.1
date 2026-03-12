@@ -1,0 +1,31 @@
+.TH LOOTSHEET-NOTES 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-notes \\- Manage campaign and session notes with cross-reference support
+.SH SYNOPSIS
+lootsheet notes [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Subcommand: notes
+
+Manage campaign and session notes with cross-reference support.
+Use @type/name syntax in body text to create links between entities.
+
+Subcommands:
+  create   Create a new note
+  list     List all notes
+  search   Search notes by title or body content
+
+Examples:
+  lootsheet notes create --title "Session 5" --body "Met @person/Mayor Elra near @quest/Clear the Watchtower"
+  lootsheet notes list
+  lootsheet notes search --query "Session"
+.SH OPTIONS
+.TP
+-h, --help
+help for notes
+.SH SEE ALSO
+lootsheet(1)
+lootsheet-notes-create(1)
+lootsheet-notes-list(1)
+lootsheet-notes-search(1)

@@ -10,11 +10,11 @@ Usage:
   lootsheet tui
 
 Opens the full-screen LootSheet TUI using tcell.
-The current slice is interactive: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the dashboard exposes guided expense, income, and custom journal-entry launchers, the Accounts screen supports add/remove/toggle actions, the Journal screen exposes guided expense/income launchers plus reversal, the Quest screen supports add/edit plus collect/write-off actions, and the Loot screen supports add/edit plus recognize/sell actions.
+The current slice is interactive: a boxed dashboard plus Accounts, Journal, Quest, Loot, Assets, Codex, and Notes screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the dashboard exposes guided expense, income, and custom journal-entry launchers, the Accounts screen supports add/remove/toggle actions, the Journal screen exposes guided expense/income launchers plus reversal, the Quest screen supports add/edit plus collect/write-off actions, the Loot screen supports add/edit plus recognize/sell actions, the Codex screen supports add/edit/delete actions with type-specific forms, and the Notes screen supports add/edit/delete actions.
 
 Keys:
   Left/Right, Tab/Shift+Tab  move between top-level sections
-  1-5                        jump directly to dashboard/accounts/journal/quests/loot
+  1-8                        jump directly to dashboard/accounts/journal/quests/loot/assets/codex/notes
   Up/Down, j/k               move the selected row on list screens
   PgUp/PgDn, Home/End        jump through longer list screens
   e                          open guided expense entry creation on the Dashboard or Journal screen

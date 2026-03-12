@@ -219,6 +219,8 @@ var (
 	scatterQuests   = []rune{'⚔', '☆', '⚑', '►'}
 	scatterJournal  = []rune{'§', '¶', '†', '‡', '※'}
 	scatterAccounts = []rune{'#', 'Σ', '∞', '≡'}
+	scatterPeople   = []rune{'@', '&', '~', '*'}
+	scatterNotes    = []rune{'*', '~', '#', '+'}
 )
 
 // scatterRunes places a few random glyphs into the texture area.

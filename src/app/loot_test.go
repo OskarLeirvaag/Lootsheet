@@ -171,7 +171,7 @@ func getFirstLootItemID(t *testing.T, databasePath string) string {
 	defer db.Close()
 
 	var id string
-	if err := db.QueryRow("SELECT id FROM loot_items ORDER BY created_at LIMIT 1").Scan(&id); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM loot_items ORDER BY created_at LIMIT 1").Scan(&id); err != nil {
 		t.Fatalf("query first loot item ID: %v", err)
 	}
 
@@ -188,7 +188,7 @@ func getFirstLootAppraisalID(t *testing.T, databasePath string) string {
 	defer db.Close()
 
 	var id string
-	if err := db.QueryRow("SELECT id FROM loot_appraisals ORDER BY created_at LIMIT 1").Scan(&id); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM loot_appraisals ORDER BY created_at LIMIT 1").Scan(&id); err != nil {
 		t.Fatalf("query first loot appraisal ID: %v", err)
 	}
 

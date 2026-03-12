@@ -22,6 +22,8 @@ Command groups:
   journal    post and reverse balanced journal entries
   quest      track promised, earned, collected, and written-off quest rewards
   loot       track loot appraisal, recognition, and sale workflows
+  codex      manage codex entries — players, NPCs, and contacts with type-specific forms
+  notes      manage campaign and session notes with cross-reference support
   report     run read-only accounting and register reports
 
 Examples:
@@ -31,6 +33,8 @@ Examples:
   lootsheet entry expense --account 5100 --amount 2SP5CP --description "Restock arrows"
   lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
   lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
+  lootsheet codex create --name "Mayor Elra" --type npc --title "Mayor" --notes "Met during @quest/Clear the Watchtower"
+  lootsheet notes create --title "Session 5" --body "Met @person/Mayor Elra near @quest/Clear the Watchtower"
   lootsheet report trial-balance
 
 Help examples:
@@ -45,11 +49,13 @@ Help examples:
 help for lootsheet
 .SH SEE ALSO
 lootsheet-account(1)
+lootsheet-codex(1)
 lootsheet-db(1)
 lootsheet-entry(1)
 lootsheet-init(1)
 lootsheet-journal(1)
 lootsheet-loot(1)
+lootsheet-notes(1)
 lootsheet-quest(1)
 lootsheet-report(1)
 lootsheet-tui(1)

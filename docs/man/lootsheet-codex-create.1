@@ -1,0 +1,68 @@
+.TH LOOTSHEET-CODEX-CREATE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-codex-create \\- Create a new codex entry
+.SH SYNOPSIS
+lootsheet codex create [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Subcommand: codex create
+
+Create a new codex entry with type-specific fields.
+
+Flags:
+  --name           entry name (required)
+  --type           entry type ID (default: npc; e.g. player, npc)
+  --title          title or role
+  --location       where the entry can be found
+  --faction        faction or group affiliation
+  --disposition    friendly, neutral, hostile, etc.
+  --class          character class (player type)
+  --race           character race (player type)
+  --background     character background (player type)
+  --description    physical or personality description
+  --notes          notes text; use @type/name for cross-references
+
+Examples:
+  lootsheet codex create --name "Mayor Elra" --type npc --title "Mayor" --location "Millhaven"
+  lootsheet codex create --name "Thorin" --type player --class "Fighter" --race "Dwarf" --background "Noble"
+  lootsheet codex create --name "Garrick" --faction "Thieves Guild" --notes "Knows @person/Mayor Elra"
+.SH OPTIONS
+.TP
+--background=string
+character background (player type) (default: )
+.TP
+--class=string
+character class (player type) (default: )
+.TP
+--description=string
+physical or personality description (default: )
+.TP
+--disposition=string
+friendly, neutral, hostile, etc. (default: )
+.TP
+--faction=string
+faction or group affiliation (default: )
+.TP
+-h, --help
+help for create
+.TP
+--location=string
+where the entry can be found (default: )
+.TP
+--name=string
+entry name (required) (default: )
+.TP
+--notes=string
+notes text; use @type/name for cross-references (default: )
+.TP
+--race=string
+character race (player type) (default: )
+.TP
+--title=string
+title or role (default: )
+.TP
+--type=string
+entry type ID (e.g. player, npc) (default: npc)
+.SH SEE ALSO
+lootsheet-codex(1)

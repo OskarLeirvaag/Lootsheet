@@ -9,8 +9,10 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/spf13/cobra"
@@ -620,6 +622,108 @@ func (a *Application) newReportWriteoffCandidatesCommand() *cobra.Command {
 			AsOfDate:   asOfDate,
 			MinAgeDays: minAgeDays,
 		})
+	})
+}
+
+func (a *Application) newCodexCreateCommand() *cobra.Command {
+	var name, typeID, title, location, faction, disposition, class, race, background, description, notes string
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new codex entry",
+		Long:  codexCreateHelpText,
+	}
+	cmd.Flags().StringVar(&name, "name", "", "entry name (required)")
+	cmd.Flags().StringVar(&typeID, "type", "npc", "entry type ID (e.g. player, npc)")
+	cmd.Flags().StringVar(&title, "title", "", "title or role")
+	cmd.Flags().StringVar(&location, "location", "", "where the entry can be found")
+	cmd.Flags().StringVar(&faction, "faction", "", "faction or group affiliation")
+	cmd.Flags().StringVar(&disposition, "disposition", "", "friendly, neutral, hostile, etc.")
+	cmd.Flags().StringVar(&class, "class", "", "character class (player type)")
+	cmd.Flags().StringVar(&race, "race", "", "character race (player type)")
+	cmd.Flags().StringVar(&background, "background", "", "character background (player type)")
+	cmd.Flags().StringVar(&description, "description", "", "physical or personality description")
+	cmd.Flags().StringVar(&notes, "notes", "", "notes text; use @type/name for cross-references")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if name == "" {
+			return fmt.Errorf("--name is required")
+		}
+
+		return codex.RunCreate(ctx, a.handlerContext(), &codex.CreateInput{
+			TypeID:      typeID,
+			Name:        name,
+			Title:       title,
+			Location:    location,
+			Faction:     faction,
+			Disposition: disposition,
+			Class:       class,
+			Race:        race,
+			Background:  background,
+			Description: description,
+			Notes:       notes,
+		})
+	})
+}
+
+func (a *Application) newNotesCreateCommand() *cobra.Command {
+	var title, body string
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new note",
+		Long:  notesCreateHelpText,
+	}
+	cmd.Flags().StringVar(&title, "title", "", "note title (required)")
+	cmd.Flags().StringVar(&body, "body", "", "note body; use @type/name for cross-references")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if title == "" {
+			return fmt.Errorf("--title is required")
+		}
+
+		return notes.RunCreate(ctx, a.handlerContext(), &notes.CreateNoteInput{
+			Title: title,
+			Body:  body,
+		})
+	})
+}
+
+func (a *Application) newNotesSearchCommand() *cobra.Command {
+	var query string
+
+	cmd := &cobra.Command{
+		Use:   "search",
+		Short: "Search notes by title or body content",
+		Long:  notesSearchHelpText,
+	}
+	cmd.Flags().StringVar(&query, "query", "", "search query (required)")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if query == "" {
+			return fmt.Errorf("--query is required")
+		}
+
+		return notes.RunSearch(ctx, a.handlerContext(), query)
+	})
+}
+
+func (a *Application) newCodexSearchCommand() *cobra.Command {
+	var query string
+
+	cmd := &cobra.Command{
+		Use:   "search",
+		Short: "Search codex entries by name, title, location, faction, class, race, or notes",
+		Long:  codexSearchHelpText,
+	}
+	cmd.Flags().StringVar(&query, "query", "", "search query (required)")
+
+	return a.newLeafCommand(cmd, func(ctx context.Context) error {
+		if query == "" {
+			return fmt.Errorf("--query is required")
+		}
+
+		return codex.RunSearch(ctx, a.handlerContext(), query)
 	})
 }
 

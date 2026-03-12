@@ -30,6 +30,14 @@ type glossaryState struct {
 	Lines []string
 }
 
+type codexPickerState struct {
+	Section   Section
+	Name      string
+	TypeIndex int
+	Focus     int // 0 = name, 1 = type list
+	ErrorText string
+}
+
 type handleResult struct {
 	Command *Command
 	Quit    bool
@@ -50,7 +58,12 @@ type Shell struct {
 	input           *inputState
 	compose         *composeState
 	glossary        *glossaryState
+	editor          *editorState
+	codexPicker     *codexPickerState
 	rain            *GoldRain
+
+	editorSaveInFlight  bool
+	editorQuitAfterSave bool
 }
 
 // NewShell constructs the interactive TUI shell state.
@@ -88,6 +101,22 @@ func (s *Shell) Reload(data *ShellData) {
 	s.input = nil
 	s.compose = nil
 	s.glossary = nil
+	s.codexPicker = nil
+
+	if s.editorSaveInFlight {
+		s.editorSaveInFlight = false
+		if s.editor != nil {
+			s.editor.Dirty = false
+			s.editor.StatusText = "Saved."
+		}
+		if s.editorQuitAfterSave {
+			s.editorQuitAfterSave = false
+			s.editor = nil
+		}
+	} else {
+		s.editor = nil
+	}
+
 	s.reconcileSelections()
 }
 
@@ -106,6 +135,15 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		return handleResult{}
 	}
 
+	if s.editor != nil {
+		switch action {
+		case ActionRedraw:
+			s.editor = nil
+			return handleResult{Reload: true}
+		default:
+			return handleResult{}
+		}
+	}
 	if s.input != nil {
 		return s.handleInputAction(action)
 	}
@@ -114,11 +152,12 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	}
 	if s.compose != nil {
 		switch action {
-		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
+		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
-			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose:
+			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
+			ActionShowNotes:
 			return handleResult{}
 		case ActionQuit:
 			s.compose = nil
@@ -175,6 +214,14 @@ func (s *Shell) HandleAction(action Action) handleResult {
 		s.Section = SectionAssets
 		s.reconcileSelection(s.Section)
 		return handleResult{Redraw: true}
+	case ActionShowCodex:
+		s.Section = SectionCodex
+		s.reconcileSelection(s.Section)
+		return handleResult{Redraw: true}
+	case ActionShowNotes:
+		s.Section = SectionNotes
+		s.reconcileSelection(s.Section)
+		return handleResult{Redraw: true}
 	case ActionMoveUp:
 		if s.moveSelection(-1) {
 			return handleResult{Redraw: true}
@@ -228,6 +275,16 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 	}
 
 	action := keymap.Resolve(event)
+	if s.editor != nil {
+		if result, handled := s.handleEditorKeyEvent(event, action); handled {
+			return result
+		}
+	}
+	if s.codexPicker != nil {
+		if result, handled := s.handleCodexPickerKeyEvent(event, action); handled {
+			return result
+		}
+	}
 	if s.input != nil {
 		if result, handled := s.handleInputKeyEvent(event, action); handled {
 			return result
@@ -264,7 +321,7 @@ func (s *Shell) handleConfirmAction(action Action) handleResult {
 
 func (s *Shell) handleInputAction(action Action) handleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
@@ -384,6 +441,8 @@ func (s *Shell) CloseModal() {
 	s.input = nil
 	s.compose = nil
 	s.glossary = nil
+	s.codexPicker = nil
+	s.editor = nil
 }
 
 // Render draws the full shell for the current section.
@@ -427,6 +486,10 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 		s.renderListSection(buffer, body, theme, SectionLoot, &s.Data.Loot)
 	case SectionAssets:
 		s.renderListSection(buffer, body, theme, SectionAssets, &s.Data.Assets)
+	case SectionCodex:
+		s.renderListSection(buffer, body, theme, SectionCodex, &s.Data.Codex)
+	case SectionNotes:
+		s.renderListSection(buffer, body, theme, SectionNotes, &s.Data.Notes)
 	default:
 		drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
 	}
@@ -434,8 +497,13 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	drawStatusLine(buffer, statusRect, theme, s.status)
 	drawFooter(buffer, helpRect, theme, s.footerHelpText(keymap))
 
-	if s.compose != nil {
+	if s.editor != nil {
+		s.renderEditor(buffer, body, theme)
+	} else if s.compose != nil {
 		s.renderCompose(buffer, body, theme)
+	}
+	if s.codexPicker != nil {
+		s.renderCodexPickerModal(buffer, body, theme)
 	}
 	if s.input != nil {
 		s.renderInputModal(buffer, body, theme)
@@ -470,6 +538,10 @@ func (s *Shell) currentHeaderLines() []string {
 		return append([]string{}, s.Data.Loot.HeaderLines...)
 	case SectionAssets:
 		return append([]string{}, s.Data.Assets.HeaderLines...)
+	case SectionCodex:
+		return append([]string{}, s.Data.Codex.HeaderLines...)
+	case SectionNotes:
+		return append([]string{}, s.Data.Notes.HeaderLines...)
 	default:
 		return append([]string{}, resolveDashboardData(&s.Data.Dashboard).HeaderLines...)
 	}
@@ -540,6 +612,9 @@ func (s *Shell) sectionStyle(theme *Theme) tcell.Style {
 }
 
 func (s *Shell) footerHelpText(keymap KeyMap) string {
+	if s.editor != nil {
+		return ":w save  :q quit  :wq save+quit  i insert  Esc normal/close  Tab title/body"
+	}
 	if s.input != nil {
 		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel  q cancel"
 	}
@@ -569,18 +644,16 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	return help
 }
 
+const helpAddEdit = "a add  u edit"
+
 func (s *Shell) sectionLauncherHelpText() string {
 	switch s.Section {
 	case SectionAccounts:
 		return "a add"
 	case SectionJournal:
 		return "e/i entry"
-	case SectionQuests:
-		return "a add  u edit"
-	case SectionLoot:
-		return "a add  u edit"
-	case SectionAssets:
-		return "a add  u edit"
+	case SectionQuests, SectionLoot, SectionAssets, SectionCodex, SectionNotes:
+		return helpAddEdit
 	default:
 		return "e/i/a entry"
 	}
@@ -633,6 +706,22 @@ func (s *Shell) glossaryLines() []string {
 			"Transfer: move an asset to the loot register for sale, or vice versa.",
 			"Appraisal: estimated value, shared with the loot system.",
 			"Recognize: move an appraisal onto the ledger as inventory and gain.",
+		}
+	case SectionCodex:
+		return []string{
+			"Codex: a D&D-flavored encyclopedia of people and entities.",
+			"Player: a party member with class, race, and background.",
+			"NPC: a non-player character with title, location, and disposition.",
+			"@type/name: inline cross-reference in notes.",
+			"References: parsed @mentions linking to quests, loot, assets, or other people.",
+		}
+	case SectionNotes:
+		return []string{
+			"Note: a general-purpose campaign or session note.",
+			"Title: the note's heading, shown in the list.",
+			"Body: free-form text content of the note.",
+			"@type/name: inline cross-reference in body text.",
+			"References: parsed @mentions linking to quests, loot, assets, people, or other notes.",
 		}
 	default:
 		return []string{
@@ -708,6 +797,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		detailLines = []string{"No rows loaded."}
 	}
 
+	var detailBody string
 	if item := s.currentSelectedItem(section); item != nil {
 		if item.DetailTitle != "" {
 			detailTitle = item.DetailTitle
@@ -717,9 +807,20 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		} else {
 			detailLines = []string{"No detail available."}
 		}
+		detailBody = item.DetailBody
 	}
 
-	DrawPanel(buffer, detailRect, theme, ss.Panel(detailTitle, detailLines))
+	if detailBody != "" {
+		detailContent := panelContentRect(detailRect, buffer.Bounds())
+		mdWidth := detailContent.W
+		if mdWidth <= 0 {
+			mdWidth = 40
+		}
+		mdLines := parseMarkdownLines(detailBody, mdWidth, theme)
+		DrawStyledPanel(buffer, detailRect, theme, detailTitle, detailLines, mdLines, ss.Accent, ss.Accent)
+	} else {
+		DrawPanel(buffer, detailRect, theme, ss.Panel(detailTitle, detailLines))
+	}
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
 }
@@ -1108,6 +1209,10 @@ func (s *Shell) listDataForSection(section Section) *ListScreenData {
 		return &s.Data.Loot
 	case SectionAssets:
 		return &s.Data.Assets
+	case SectionCodex:
+		return &s.Data.Codex
+	case SectionNotes:
+		return &s.Data.Notes
 	default:
 		return nil
 	}

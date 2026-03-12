@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+// SchemaVersion is the current database schema version. It must match the
+// version of the last embedded migration file.
+const SchemaVersion = "8"
+
 //go:embed setup/migrations/*.sql setup/seed_accounts.json
 var initFS embed.FS
 
@@ -93,9 +97,13 @@ func LoadInitAssets() (InitAssets, error) {
 		return InitAssets{}, fmt.Errorf("parse seed accounts asset: %w", err)
 	}
 
+	if migrations[len(migrations)-1].Version != SchemaVersion {
+		return InitAssets{}, fmt.Errorf("SchemaVersion const %q does not match last migration %q", SchemaVersion, migrations[len(migrations)-1].Version)
+	}
+
 	return InitAssets{
 		Migrations:    migrations,
-		SchemaVersion: migrations[len(migrations)-1].Version,
+		SchemaVersion: SchemaVersion,
 		Accounts:      accounts,
 	}, nil
 }

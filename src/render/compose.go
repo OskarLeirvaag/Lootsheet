@@ -26,6 +26,8 @@ const (
 	composeModeLoot          composeMode = "loot"
 	composeModeAsset         composeMode = "asset"
 	composeModeAssetTemplate composeMode = "asset_template"
+	composeModeCodex         composeMode = "codex"
+	composeModeNotes         composeMode = "notes"
 )
 
 type composeLineState struct {
@@ -47,6 +49,8 @@ type composeState struct {
 	Lines           []composeLineState
 	GeneralError    string
 	picker          *accountPickerState
+	CodexFormID     string
+	CodexTypeID     string
 }
 
 type accountPickerState struct {
@@ -227,6 +231,46 @@ func newAssetTemplateCompose(previous Section, itemKey string, lines []composeLi
 	}
 }
 
+func newCodexCompose(formID, typeID, name string, previous Section) *composeState {
+	form, _ := LookupCodexForm(formID)
+	fields := make(map[string]string, len(form.Fields))
+	for _, f := range form.Fields {
+		fields[f.ID] = ""
+	}
+	fields["name"] = name
+	return &composeState{
+		Mode:            composeModeCodex,
+		PreviousSection: previous,
+		CommandID:       "codex.create",
+		Fields:          fields,
+		FieldErrors:     make(map[string]string),
+		CodexFormID:     formID,
+		CodexTypeID:     typeID,
+	}
+}
+
+func newCodexEditCompose(previous Section, itemKey string, fields map[string]string) *composeState {
+	formID := fields["_form_id"]
+	typeID := fields["_type_id"]
+	if formID == "" {
+		formID = "npc"
+	}
+	if typeID == "" {
+		typeID = "npc"
+	}
+	delete(fields, "_form_id")
+	delete(fields, "_type_id")
+
+	base := newCodexCompose(formID, typeID, "", previous)
+	base.CommandID = "codex.update"
+	base.ItemKey = strings.TrimSpace(itemKey)
+	base.Title = "Edit Entry"
+	for key, value := range fields {
+		base.Fields[key] = strings.TrimSpace(value)
+	}
+	return base
+}
+
 func newCustomComposeFromTemplate(previous Section, catalog *EntryCatalog, assetName string, lines []composeLineState) *composeState {
 	if catalog == nil {
 		catalog = &EntryCatalog{}
@@ -276,6 +320,11 @@ func (s *Shell) openCompose(mode composeMode) bool {
 		s.compose = newLootCompose(s.Section)
 	case composeModeAsset:
 		s.compose = newAssetCompose(s.Section)
+	case composeModeCodex:
+		return false
+	case composeModeNotes:
+		s.openEditor()
+		return true
 	default:
 		return false
 	}
@@ -300,6 +349,11 @@ func (s *Shell) openComposeFromAction(itemKey string, action *ItemActionData) bo
 	case "asset_template":
 		lines := commandLinesToComposeLines(action.ComposeLines)
 		s.compose = newAssetTemplateCompose(s.Section, itemKey, lines)
+	case "codex":
+		s.compose = newCodexEditCompose(s.Section, itemKey, action.ComposeFields)
+	case "notes":
+		s.openEditorFromAction(itemKey, action)
+		return true
 	case "custom_from_template":
 		lines := commandLinesToComposeLines(action.ComposeLines)
 		s.compose = newCustomComposeFromTemplate(s.Section, &s.Data.EntryCatalog, strings.TrimSpace(action.ComposeTitle), lines)
@@ -351,6 +405,10 @@ func (s *Shell) openComposeForAction(action Action) bool {
 			return s.openCompose(composeModeLoot)
 		case SectionAssets:
 			return s.openCompose(composeModeAsset)
+		case SectionCodex:
+			return s.openCodexPicker()
+		case SectionNotes:
+			return s.openCompose(composeModeNotes)
 		case SectionJournal:
 			return false
 		default:
@@ -488,7 +546,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 			return handleResult{Command: command}, true
 		}
 		return handleResult{Redraw: true}, true
-	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets,
+	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowAccounts, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
@@ -570,6 +628,21 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "quantity", Label: "Quantity", Placeholder: "1"},
 			{ID: "holder", Label: "Holder", Placeholder: "Wizard"},
 			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
+		}
+	case composeModeCodex:
+		form, ok := LookupCodexForm(s.compose.CodexFormID)
+		if !ok {
+			return nil
+		}
+		fields := make([]composeField, len(form.Fields))
+		for i, f := range form.Fields {
+			fields[i] = composeField(f)
+		}
+		return fields
+	case composeModeNotes:
+		return []composeField{
+			{ID: "title", Label: "Title", Placeholder: "Session 5"},
+			{ID: "body", Label: "Body", Placeholder: "Met @person/Mayor Elra near @quest/Clear the Watchtower"},
 		}
 	case composeModeAssetTemplate:
 		return nil
@@ -700,7 +773,9 @@ func (s *Shell) composeEditCurrentField(op fieldOp) {
 		return
 	case "date", "description", "amount", fieldAccountCode, "offset_account_code", "memo",
 		"code", "name", "account_type", "title", "patron", "reward", "advance", "bonus", "notes", "status", "accepted_on",
-		"source", "quantity", "holder":
+		"source", "quantity", "holder",
+		"location", "faction", "disposition", "party_member",
+		"body":
 		s.compose.Fields[fieldID] = op(s.compose.Fields[fieldID])
 		delete(s.compose.FieldErrors, fieldID)
 	default:
@@ -803,7 +878,7 @@ func (s *Shell) pickerAccountsForCurrentField() []AccountOption {
 		if fieldID == "code" || fieldID == "name" {
 			return s.Data.EntryCatalog.AllAccounts
 		}
-	case composeModeQuest, composeModeLoot, composeModeAsset:
+	case composeModeQuest, composeModeLoot, composeModeAsset, composeModeCodex, composeModeNotes:
 	}
 	return nil
 }
@@ -966,6 +1041,10 @@ func (s *Shell) composeCommand() (*Command, bool) {
 			command.ID = "loot.create"
 		case composeModeAsset:
 			command.ID = "asset.create"
+		case composeModeCodex:
+			command.ID = "codex.create"
+		case composeModeNotes:
+			command.ID = "notes.create"
 		default:
 			command.ID = "entry.custom.create"
 		}
@@ -974,6 +1053,11 @@ func (s *Shell) composeCommand() (*Command, bool) {
 
 	for key, value := range s.compose.Fields {
 		command.Fields[key] = strings.TrimSpace(value)
+	}
+
+	if s.compose.Mode == composeModeCodex {
+		command.Fields["_type_id"] = s.compose.CodexTypeID
+		command.Fields["_form_id"] = s.compose.CodexFormID
 	}
 
 	required := []string{"date", "description"}
@@ -991,6 +1075,10 @@ func (s *Shell) composeCommand() (*Command, bool) {
 		required = []string{"name", "quantity"}
 	case composeModeAsset:
 		required = []string{"name", "quantity"}
+	case composeModeCodex:
+		required = []string{"name"}
+	case composeModeNotes:
+		required = []string{"title"}
 	case composeModeCustom:
 	case composeModeAssetTemplate:
 		required = nil
@@ -1196,6 +1284,16 @@ func (s *Shell) composeTitle() string {
 			return s.compose.Title
 		}
 		return "Edit Entry Template"
+	case composeModeCodex:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
+		return "Add to Codex"
+	case composeModeNotes:
+		if strings.TrimSpace(s.compose.Title) != "" {
+			return s.compose.Title
+		}
+		return "Add Note"
 	}
 
 	return "Compose"
@@ -1383,6 +1481,30 @@ func (s *Shell) composePreviewLines() []string {
 			"",
 			"Asset is created as held and off-ledger.",
 			"Transfer to loot register when ready to sell.",
+		)
+	case composeModeCodex:
+		form, ok := LookupCodexForm(s.compose.CodexFormID)
+		if ok {
+			for _, f := range form.Fields {
+				req := "optional"
+				if f.ID == "name" {
+					req = "required"
+				}
+				lines = append(lines, f.Label+": "+displayComposeValue(s.compose.Fields[f.ID], req))
+			}
+		}
+		lines = append(lines,
+			"",
+			"Use @type/name in notes for cross-references:",
+			"@quest/Name, @loot/Name, @asset/Name, @person/Name",
+		)
+	case composeModeNotes:
+		lines = append(lines,
+			"Title: "+displayComposeValue(s.compose.Fields["title"], "required"),
+			"Body: "+displayComposeValue(s.compose.Fields["body"], "optional"),
+			"",
+			"Use @type/name in body for cross-references:",
+			"@quest/Name, @loot/Name, @asset/Name, @person/Name, @note/Name",
 		)
 	case composeModeAssetTemplate:
 		if balText, _, _ := s.composeBalanceSummary(); balText != "" {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -103,7 +104,7 @@ func TestRunDatabaseStatusBeforeInit(t *testing.T) {
 		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
-	if !strings.Contains(output, "Target schema version: 5") {
+	if !strings.Contains(output, "Target schema version: "+config.SchemaVersion) {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
@@ -446,7 +447,7 @@ func getFirstJournalEntryID(t *testing.T, databasePath string) string {
 	defer db.Close()
 
 	var entryID string
-	if err := db.QueryRow("SELECT id FROM journal_entries ORDER BY entry_number LIMIT 1").Scan(&entryID); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM journal_entries ORDER BY entry_number LIMIT 1").Scan(&entryID); err != nil {
 		t.Fatalf("query first journal entry ID: %v", err)
 	}
 
@@ -664,15 +665,15 @@ func TestRunDatabaseStatusAfterInitShowsAppliedMigrations(t *testing.T) {
 		t.Fatalf("db status missing blank detail: %q", output)
 	}
 
-	if !strings.Contains(output, "Schema version: 5") {
+	if !strings.Contains(output, "Schema version: "+config.SchemaVersion) {
 		t.Fatalf("db status missing schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Target schema version: 5") {
+	if !strings.Contains(output, "Target schema version: "+config.SchemaVersion) {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Applied migrations: 5") {
+	if !strings.Contains(output, "Applied migrations: "+config.SchemaVersion) {
 		t.Fatalf("db status missing migration count: %q", output)
 	}
 
@@ -726,7 +727,8 @@ func TestRunDatabaseStatusShowsUpgradeableDatabase(t *testing.T) {
 		t.Fatalf("db status missing target schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "Pending migrations: 4") {
+	pendingCount := strconv.Itoa(mustAtoi(t, config.SchemaVersion) - 1)
+	if !strings.Contains(output, "Pending migrations: "+pendingCount) {
 		t.Fatalf("db status missing pending migration count: %q", output)
 	}
 
@@ -838,7 +840,7 @@ func TestRunDatabaseMigrateAppliesPendingMigration(t *testing.T) {
 		t.Fatalf("db migrate missing from schema version: %q", output)
 	}
 
-	if !strings.Contains(output, "To schema version: 5") {
+	if !strings.Contains(output, "To schema version: "+config.SchemaVersion) {
 		t.Fatalf("db migrate missing to schema version: %q", output)
 	}
 
@@ -1074,11 +1076,20 @@ func getFirstQuestID(t *testing.T, databasePath string) string {
 	defer db.Close()
 
 	var questID string
-	if err := db.QueryRow("SELECT id FROM quests ORDER BY created_at LIMIT 1").Scan(&questID); err != nil {
+	if err := db.QueryRowContext(context.Background(), "SELECT id FROM quests ORDER BY created_at LIMIT 1").Scan(&questID); err != nil {
 		t.Fatalf("query first quest ID: %v", err)
 	}
 
 	return questID
+}
+
+func mustAtoi(t *testing.T, s string) int {
+	t.Helper()
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		t.Fatalf("mustAtoi(%q): %v", s, err)
+	}
+	return n
 }
 
 func loadMigrationAssetsForAppTest(t *testing.T) (config.InitAssets, config.InitAssets) {

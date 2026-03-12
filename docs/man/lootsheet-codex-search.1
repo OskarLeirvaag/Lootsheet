@@ -1,0 +1,27 @@
+.TH LOOTSHEET-CODEX-SEARCH 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-codex-search \\- Search codex entries by name, title, location, faction, class, race, or notes
+.SH SYNOPSIS
+lootsheet codex search [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Subcommand: codex search
+
+Search codex entries by name, title, location, faction, class, race, description, or notes content.
+
+Flags:
+  --query   search query (required)
+
+Examples:
+  lootsheet codex search --query "thieves guild"
+  lootsheet codex search --query "Fighter"
+.SH OPTIONS
+.TP
+-h, --help
+help for search
+.TP
+--query=string
+search query (required) (default: )
+.SH SEE ALSO
+lootsheet-codex(1)

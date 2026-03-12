@@ -18,6 +18,8 @@ Command groups:
   journal    post and reverse balanced journal entries
   quest      track promised, earned, collected, and written-off quest rewards
   loot       track loot appraisal, recognition, and sale workflows
+  codex      manage codex entries — players, NPCs, and contacts with type-specific forms
+  notes      manage campaign and session notes with cross-reference support
   report     run read-only accounting and register reports
 
 Examples:
@@ -27,6 +29,8 @@ Examples:
   lootsheet entry expense --account 5100 --amount 2SP5CP --description "Restock arrows"
   lootsheet journal post --date 2026-03-08 --description "Restock arrows" --debit 5100:2SP5CP --credit 1000:2SP5CP
   lootsheet quest create --title "Goblin Bounty" --patron "Mayor Rowan" --reward 25GP
+  lootsheet codex create --name "Mayor Elra" --type npc --title "Mayor" --notes "Met during @quest/Clear the Watchtower"
+  lootsheet notes create --title "Session 5" --body "Met @person/Mayor Elra near @quest/Clear the Watchtower"
   lootsheet report trial-balance
 
 Help examples:
@@ -92,11 +96,11 @@ Usage:
   lootsheet tui
 
 Opens the full-screen LootSheet TUI using tcell.
-The current slice is interactive: a boxed dashboard plus Accounts, Journal, Quest, and Loot screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the dashboard exposes guided expense, income, and custom journal-entry launchers, the Accounts screen supports add/remove/toggle actions, the Journal screen exposes guided expense/income launchers plus reversal, the Quest screen supports add/edit plus collect/write-off actions, and the Loot screen supports add/edit plus recognize/sell actions.
+The current slice is interactive: a boxed dashboard plus Accounts, Journal, Quest, Loot, Assets, Codex, and Notes screens backed by app-facing adapters. List screens keep a selected row and detail pane visible, the shell redraws cleanly on resize, the dashboard exposes guided expense, income, and custom journal-entry launchers, the Accounts screen supports add/remove/toggle actions, the Journal screen exposes guided expense/income launchers plus reversal, the Quest screen supports add/edit plus collect/write-off actions, the Loot screen supports add/edit plus recognize/sell actions, the Codex screen supports add/edit/delete actions with type-specific forms, and the Notes screen supports add/edit/delete actions.
 
 Keys:
   Left/Right, Tab/Shift+Tab  move between top-level sections
-  1-5                        jump directly to dashboard/accounts/journal/quests/loot
+  1-8                        jump directly to dashboard/accounts/journal/quests/loot/assets/codex/notes
   Up/Down, j/k               move the selected row on list screens
   PgUp/PgDn, Home/End        jump through longer list screens
   e                          open guided expense entry creation on the Dashboard or Journal screen
@@ -498,4 +502,129 @@ Defaults:
 Examples:
   lootsheet report writeoff-candidates
   lootsheet report writeoff-candidates --as-of 2026-04-01 --min-age-days 45
+`
+
+const codexHelpText = `LootSheet CLI
+
+Subcommand: codex
+
+Manage codex entries — players, NPCs, and contacts with type-specific forms.
+Use @type/name syntax in notes to create links between entities.
+
+Subcommands:
+  create   Create a new codex entry
+  list     List all codex entries
+  search   Search codex entries by name, title, location, faction, class, race, or notes
+
+Examples:
+  lootsheet codex create --name "Mayor Elra" --type npc --title "Mayor" --location "Millhaven" --notes "Met during @quest/Clear the Watchtower"
+  lootsheet codex create --name "Thorin" --type player --class "Fighter" --race "Dwarf"
+  lootsheet codex list
+  lootsheet codex search --query "thieves guild"
+`
+
+const codexCreateHelpText = `LootSheet CLI
+
+Subcommand: codex create
+
+Create a new codex entry with type-specific fields.
+
+Flags:
+  --name           entry name (required)
+  --type           entry type ID (default: npc; e.g. player, npc)
+  --title          title or role
+  --location       where the entry can be found
+  --faction        faction or group affiliation
+  --disposition    friendly, neutral, hostile, etc.
+  --class          character class (player type)
+  --race           character race (player type)
+  --background     character background (player type)
+  --description    physical or personality description
+  --notes          notes text; use @type/name for cross-references
+
+Examples:
+  lootsheet codex create --name "Mayor Elra" --type npc --title "Mayor" --location "Millhaven"
+  lootsheet codex create --name "Thorin" --type player --class "Fighter" --race "Dwarf" --background "Noble"
+  lootsheet codex create --name "Garrick" --faction "Thieves Guild" --notes "Knows @person/Mayor Elra"
+`
+
+const codexListHelpText = `LootSheet CLI
+
+Subcommand: codex list
+
+List all codex entries, ordered by type then name.
+
+Examples:
+  lootsheet codex list
+`
+
+const codexSearchHelpText = `LootSheet CLI
+
+Subcommand: codex search
+
+Search codex entries by name, title, location, faction, class, race, description, or notes content.
+
+Flags:
+  --query   search query (required)
+
+Examples:
+  lootsheet codex search --query "thieves guild"
+  lootsheet codex search --query "Fighter"
+`
+
+const notesHelpText = `LootSheet CLI
+
+Subcommand: notes
+
+Manage campaign and session notes with cross-reference support.
+Use @type/name syntax in body text to create links between entities.
+
+Subcommands:
+  create   Create a new note
+  list     List all notes
+  search   Search notes by title or body content
+
+Examples:
+  lootsheet notes create --title "Session 5" --body "Met @person/Mayor Elra near @quest/Clear the Watchtower"
+  lootsheet notes list
+  lootsheet notes search --query "Session"
+`
+
+const notesCreateHelpText = `LootSheet CLI
+
+Subcommand: notes create
+
+Create a new note entry.
+
+Flags:
+  --title   note title (required)
+  --body    note body; use @type/name for cross-references
+
+Examples:
+  lootsheet notes create --title "Session 5" --body "Met @person/Mayor Elra near @quest/Clear the Watchtower"
+  lootsheet notes create --title "Shopping List" --body "Need potions from @person/Alchemist Bree"
+`
+
+const notesListHelpText = `LootSheet CLI
+
+Subcommand: notes list
+
+List all notes, ordered by most recently updated first.
+
+Examples:
+  lootsheet notes list
+`
+
+const notesSearchHelpText = `LootSheet CLI
+
+Subcommand: notes search
+
+Search notes by title or body content.
+
+Flags:
+  --query   search query (required)
+
+Examples:
+  lootsheet notes search --query "Session"
+  lootsheet notes search --query "Mayor Elra"
 `

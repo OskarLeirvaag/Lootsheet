@@ -50,6 +50,7 @@ type ListItemData struct {
 	Row         string
 	DetailTitle string
 	DetailLines []string
+	DetailBody  string // if set, rendered as styled markdown in the detail pane
 	Actions     []ItemActionData
 }
 
@@ -70,7 +71,10 @@ type ShellData struct {
 	Quests       ListScreenData
 	Loot         ListScreenData
 	Assets       ListScreenData
+	Codex        ListScreenData
+	Notes        ListScreenData
 	EntryCatalog EntryCatalog
+	CodexTypes   []CodexTypeOption
 }
 
 // DefaultShellData returns placeholder content for the full shell.
@@ -82,6 +86,8 @@ func DefaultShellData() ShellData {
 		Quests:    defaultListScreenData(SectionQuests),
 		Loot:      defaultListScreenData(SectionLoot),
 		Assets:    defaultListScreenData(SectionAssets),
+		Codex:     defaultListScreenData(SectionCodex),
+		Notes:     defaultListScreenData(SectionNotes),
 	}
 }
 
@@ -121,6 +127,16 @@ func ErrorShellData(summary string, detail string) ShellData {
 			SummaryLines: []string{"Asset data unavailable.", detail},
 			EmptyLines:   []string{"No asset rows loaded.", detail},
 		},
+		Codex: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Codex data unavailable.", detail},
+			EmptyLines:   []string{"No codex rows loaded.", detail},
+		},
+		Notes: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Notes data unavailable.", detail},
+			EmptyLines:   []string{"No notes rows loaded.", detail},
+		},
 	}
 }
 
@@ -149,6 +165,12 @@ func resolveShellData(data *ShellData) ShellData {
 	if listScreenDataEmpty(&resolved.Assets) {
 		resolved.Assets = defaultListScreenData(SectionAssets)
 	}
+	if listScreenDataEmpty(&resolved.Codex) {
+		resolved.Codex = defaultListScreenData(SectionCodex)
+	}
+	if listScreenDataEmpty(&resolved.Notes) {
+		resolved.Notes = defaultListScreenData(SectionNotes)
+	}
 
 	return resolved
 }
@@ -163,7 +185,9 @@ func shellDataEmpty(data *ShellData) bool {
 		listScreenDataEmpty(&data.Journal) &&
 		listScreenDataEmpty(&data.Quests) &&
 		listScreenDataEmpty(&data.Loot) &&
-		listScreenDataEmpty(&data.Assets)
+		listScreenDataEmpty(&data.Assets) &&
+		listScreenDataEmpty(&data.Codex) &&
+		listScreenDataEmpty(&data.Notes)
 }
 
 func listScreenDataEmpty(data *ListScreenData) bool {
@@ -254,6 +278,36 @@ func defaultListScreenData(section Section) ListScreenData {
 			EmptyLines: []string{
 				"No asset rows loaded yet.",
 				"App-side adapters fill this screen with live asset data and actions.",
+			},
+		}
+	case SectionCodex:
+		return ListScreenData{
+			HeaderLines: []string{
+				"Codex shell.",
+				"Players, NPCs, and contacts with type-specific forms and cross-references.",
+			},
+			SummaryLines: []string{
+				"Codex entries can reference quests, loot, assets, and other people.",
+				"Use @type/name syntax in notes for cross-references.",
+			},
+			EmptyLines: []string{
+				"No codex entries loaded yet.",
+				"App-side adapters fill this screen with live codex data and actions.",
+			},
+		}
+	case SectionNotes:
+		return ListScreenData{
+			HeaderLines: []string{
+				"Campaign notes shell.",
+				"General-purpose session and campaign notes with cross-references.",
+			},
+			SummaryLines: []string{
+				"Notes can reference quests, loot, assets, people, and other notes.",
+				"Use @type/name syntax in body text for cross-references.",
+			},
+			EmptyLines: []string{
+				"No notes loaded yet.",
+				"App-side adapters fill this screen with live note data and actions.",
 			},
 		}
 	default:
