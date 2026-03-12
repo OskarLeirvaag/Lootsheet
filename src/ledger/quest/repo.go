@@ -52,14 +52,20 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 			acceptedOnVal = &acceptedOn
 		}
 
+		notes := strings.TrimSpace(input.Notes)
+
 		if _, err := db.ExecContext(ctx,
 			`INSERT INTO quests (id, title, patron, description, promised_base_reward, partial_advance, bonus_conditions, status, notes, accepted_on)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, title, strings.TrimSpace(input.Patron), strings.TrimSpace(input.Description),
 			input.PromisedBaseReward, input.PartialAdvance, strings.TrimSpace(input.BonusConditions),
-			status, strings.TrimSpace(input.Notes), acceptedOnVal,
+			status, notes, acceptedOnVal,
 		); err != nil {
 			return QuestRecord{}, fmt.Errorf("insert quest: %w", err)
+		}
+
+		if err := rebuildReferences(ctx, db, id, title, notes); err != nil {
+			return QuestRecord{}, err
 		}
 
 		return QuestRecord{
@@ -70,7 +76,7 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 			PromisedBaseReward: input.PromisedBaseReward,
 			PartialAdvance:     input.PartialAdvance,
 			BonusConditions:    strings.TrimSpace(input.BonusConditions),
-			Notes:              strings.TrimSpace(input.Notes),
+			Notes:              notes,
 			Status:             ledger.QuestStatus(status),
 			AcceptedOn:         acceptedOn,
 		}, nil
@@ -127,6 +133,8 @@ func UpdateQuest(ctx context.Context, databasePath string, questID string, input
 			acceptedOn = current.AcceptedOn
 		}
 
+		notes := strings.TrimSpace(input.Notes)
+
 		if _, err := db.ExecContext(ctx,
 			`UPDATE quests
 			 SET title = ?, patron = ?, description = ?, promised_base_reward = ?, partial_advance = ?,
@@ -138,11 +146,15 @@ func UpdateQuest(ctx context.Context, databasePath string, questID string, input
 			input.PromisedBaseReward,
 			input.PartialAdvance,
 			strings.TrimSpace(input.BonusConditions),
-			strings.TrimSpace(input.Notes),
+			notes,
 			nullString(acceptedOn),
 			questID,
 		); err != nil {
 			return QuestRecord{}, fmt.Errorf("update quest: %w", err)
+		}
+
+		if err := rebuildReferences(ctx, db, questID, title, notes); err != nil {
+			return QuestRecord{}, err
 		}
 
 		return getQuestByID(ctx, db, questID)

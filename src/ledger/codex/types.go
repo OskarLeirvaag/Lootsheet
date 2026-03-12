@@ -58,12 +58,3 @@ type UpdateInput struct {
 	Description string
 	Notes       string
 }
-
-// Reference represents a parsed @type/name mention from a codex entry's notes.
-type Reference struct {
-	ID         string
-	EntryID    string
-	TargetType string
-	TargetName string
-	CreatedAt  string
-}

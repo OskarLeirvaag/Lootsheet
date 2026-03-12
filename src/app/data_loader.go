@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
@@ -12,6 +13,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 )
 
@@ -32,10 +34,11 @@ type TUIDataLoader interface {
 	GetLootSummary(ctx context.Context, itemType string) ([]report.LootSummaryRow, error)
 	ListBrowseLootItems(ctx context.Context, itemType string) ([]loot.BrowseItemRecord, error)
 	ListCodexEntries(ctx context.Context) ([]codex.CodexEntry, error)
-	ListAllCodexReferences(ctx context.Context) (map[string][]codex.Reference, error)
+	ListAllCodexReferences(ctx context.Context) (map[string][]refs.EntityReference, error)
 	ListCodexTypes(ctx context.Context) ([]codex.CodexType, error)
 	ListNotes(ctx context.Context) ([]notes.NoteRecord, error)
-	ListAllNotesReferences(ctx context.Context) (map[string][]notes.ReferenceRecord, error)
+	ListAllNotesReferences(ctx context.Context) (map[string][]refs.EntityReference, error)
+	ListAllEntityReferences(ctx context.Context) (map[string][]refs.EntityReference, error)
 }
 
 // sqliteDataLoader implements TUIDataLoader by delegating each method to the
@@ -111,7 +114,7 @@ func (s *sqliteDataLoader) ListCodexEntries(ctx context.Context) ([]codex.CodexE
 	return codex.ListEntries(ctx, s.databasePath)
 }
 
-func (s *sqliteDataLoader) ListAllCodexReferences(ctx context.Context) (map[string][]codex.Reference, error) {
+func (s *sqliteDataLoader) ListAllCodexReferences(ctx context.Context) (map[string][]refs.EntityReference, error) {
 	return codex.ListAllReferences(ctx, s.databasePath)
 }
 
@@ -123,6 +126,12 @@ func (s *sqliteDataLoader) ListNotes(ctx context.Context) ([]notes.NoteRecord, e
 	return notes.ListNotes(ctx, s.databasePath)
 }
 
-func (s *sqliteDataLoader) ListAllNotesReferences(ctx context.Context) (map[string][]notes.ReferenceRecord, error) {
+func (s *sqliteDataLoader) ListAllNotesReferences(ctx context.Context) (map[string][]refs.EntityReference, error) {
 	return notes.ListAllReferences(ctx, s.databasePath)
+}
+
+func (s *sqliteDataLoader) ListAllEntityReferences(ctx context.Context) (map[string][]refs.EntityReference, error) {
+	return ledger.WithDBResult(ctx, s.databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
+		return refs.ListAllByTarget(ctx, db)
+	})
 }

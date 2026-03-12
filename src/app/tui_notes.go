@@ -2,9 +2,9 @@ package app
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
@@ -14,7 +14,7 @@ func summarizeNotes(records []notes.NoteRecord) []string {
 	}
 }
 
-func buildNotesItems(records []notes.NoteRecord, refs map[string][]notes.ReferenceRecord) []render.ListItemData {
+func buildNotesItems(records []notes.NoteRecord, noteRefs map[string][]refs.EntityReference) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(records))
 	for index := range records {
 		n := &records[index]
@@ -28,9 +28,9 @@ func buildNotesItems(records []notes.NoteRecord, refs map[string][]notes.Referen
 		}
 
 		// Show parsed references.
-		if noteRefs, ok := refs[n.ID]; ok && len(noteRefs) > 0 {
+		if nRefs, ok := noteRefs[n.ID]; ok && len(nRefs) > 0 {
 			detailLines = append(detailLines, "", "References:")
-			for _, ref := range noteRefs {
+			for _, ref := range nRefs {
 				detailLines = append(detailLines, fmt.Sprintf("  @%s/%s", ref.TargetType, ref.TargetName))
 			}
 		}
@@ -71,31 +71,4 @@ func buildNotesItems(records []notes.NoteRecord, refs map[string][]notes.Referen
 	}
 
 	return items
-}
-
-// buildNoteReferencedInLines returns "Referenced in:" detail lines for an entity
-// that is mentioned in notes.
-func buildNoteReferencedInLines(allRefs map[string][]notes.ReferenceRecord, allNotes []notes.NoteRecord, targetType, targetName string) []string {
-	notesByID := make(map[string]*notes.NoteRecord, len(allNotes))
-	for i := range allNotes {
-		notesByID[allNotes[i].ID] = &allNotes[i]
-	}
-
-	var mentioners []string
-	for noteID, refs := range allRefs {
-		for _, ref := range refs {
-			if ref.TargetType == targetType && strings.EqualFold(ref.TargetName, targetName) {
-				if n, ok := notesByID[noteID]; ok {
-					mentioners = append(mentioners, n.Title)
-				}
-				break
-			}
-		}
-	}
-
-	if len(mentioners) == 0 {
-		return nil
-	}
-
-	return []string{"Referenced in: " + strings.Join(mentioners, ", ")}
 }

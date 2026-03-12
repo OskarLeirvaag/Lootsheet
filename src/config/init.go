@@ -12,7 +12,7 @@ import (
 
 // SchemaVersion is the current database schema version. It must match the
 // version of the last embedded migration file.
-const SchemaVersion = "7"
+const SchemaVersion = "8"
 
 //go:embed setup/migrations/*.sql setup/seed_accounts.json
 var initFS embed.FS

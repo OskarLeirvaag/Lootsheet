@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 )
 
 // CreateNote inserts a new note into the database and rebuilds references.
@@ -34,7 +35,7 @@ func CreateNote(ctx context.Context, databasePath string, input *CreateNoteInput
 			return NoteRecord{}, fmt.Errorf("insert note: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, id, body); err != nil {
+		if err := rebuildReferences(ctx, db, id, title, body); err != nil {
 			return NoteRecord{}, err
 		}
 
@@ -82,7 +83,7 @@ func UpdateNote(ctx context.Context, databasePath string, noteID string, input *
 			return NoteRecord{}, fmt.Errorf("update note: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, noteID, body); err != nil {
+		if err := rebuildReferences(ctx, db, noteID, title, body); err != nil {
 			return NoteRecord{}, err
 		}
 
@@ -180,19 +181,10 @@ func SearchNotes(ctx context.Context, databasePath string, query string) ([]Note
 	})
 }
 
-// ListAllReferences returns all notes_references rows grouped by note_id.
-func ListAllReferences(ctx context.Context, databasePath string) (map[string][]ReferenceRecord, error) {
-	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (map[string][]ReferenceRecord, error) {
-		refs, err := queryReferences(ctx, db, "SELECT id, note_id, target_type, target_name, created_at FROM notes_references ORDER BY created_at")
-		if err != nil {
-			return nil, err
-		}
-
-		result := make(map[string][]ReferenceRecord)
-		for _, ref := range refs {
-			result[ref.NoteID] = append(result[ref.NoteID], ref)
-		}
-		return result, nil
+// ListAllReferences returns all entity_references rows for note source type, grouped by source_id.
+func ListAllReferences(ctx context.Context, databasePath string) (map[string][]refs.EntityReference, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
+		return refs.ListBySource(ctx, db, "note")
 	})
 }
 
@@ -213,27 +205,4 @@ func getNoteByID(ctx context.Context, db *sql.DB, noteID string) (NoteRecord, er
 	}
 
 	return record, nil
-}
-
-func queryReferences(ctx context.Context, db *sql.DB, query string, args ...any) ([]ReferenceRecord, error) {
-	rows, err := db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query references: %w", err)
-	}
-	defer rows.Close()
-
-	refs := []ReferenceRecord{}
-	for rows.Next() {
-		var r ReferenceRecord
-		if err := rows.Scan(&r.ID, &r.NoteID, &r.TargetType, &r.TargetName, &r.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan reference row: %w", err)
-		}
-		refs = append(refs, r)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate reference rows: %w", err)
-	}
-
-	return refs, nil
 }

@@ -1,4 +1,4 @@
-package codex
+package refs
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ func TestParseReferences(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  []parsedRef
+		want  []ParsedRef
 	}{
 		{
 			name:  "empty string",
@@ -23,43 +23,58 @@ func TestParseReferences(t *testing.T) {
 		{
 			name:  "quest ref terminated by period",
 			input: "See @quest/Clear the Tower.",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "quest", TargetName: "Clear the Tower"},
 			},
 		},
 		{
 			name:  "person ref terminated by period",
 			input: "Met @person/Mayor Elra.",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "person", TargetName: "Mayor Elra"},
+			},
+		},
+		{
+			name:  "note referencing another note",
+			input: "Continued from @note/Session 3.",
+			want: []ParsedRef{
+				{TargetType: "note", TargetName: "Session 3"},
 			},
 		},
 		{
 			name:  "loot ref at end of string",
 			input: "Found @loot/Ruby Pendant",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "loot", TargetName: "Ruby Pendant"},
 			},
 		},
 		{
 			name:  "asset ref at end of string",
 			input: "Stored @asset/Ship",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "asset", TargetName: "Ship"},
 			},
 		},
 		{
 			name:  "multiple refs separated by @",
 			input: "@quest/Dragon Slaying @person/Garrick",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "quest", TargetName: "Dragon Slaying"},
 				{TargetType: "person", TargetName: "Garrick"},
 			},
 		},
 		{
+			name:  "loot and asset refs separated by @",
+			input: "@loot/Ruby Pendant @asset/Ship",
+			want: []ParsedRef{
+				{TargetType: "loot", TargetName: "Ruby Pendant"},
+				{TargetType: "asset", TargetName: "Ship"},
+			},
+		},
+		{
 			name:  "trailing period stripped",
 			input: "Talked to @person/Garrick.",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "person", TargetName: "Garrick"},
 			},
 		},
@@ -71,21 +86,21 @@ func TestParseReferences(t *testing.T) {
 		{
 			name:  "single word ref at end",
 			input: "See @quest/Rescue",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "quest", TargetName: "Rescue"},
 			},
 		},
 		{
 			name:  "ref with trailing exclamation",
 			input: "Found @loot/Gem!",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "loot", TargetName: "Gem"},
 			},
 		},
 		{
 			name:  "ref with trailing semicolon",
 			input: "@person/Elra; @person/Garrick.",
-			want: []parsedRef{
+			want: []ParsedRef{
 				{TargetType: "person", TargetName: "Elra"},
 				{TargetType: "person", TargetName: "Garrick"},
 			},

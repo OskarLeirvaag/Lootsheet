@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
@@ -23,7 +24,7 @@ func summarizeCodex(entries []codex.CodexEntry) []string {
 	return lines
 }
 
-func buildCodexItems(entries []codex.CodexEntry, refs map[string][]codex.Reference) []render.ListItemData {
+func buildCodexItems(entries []codex.CodexEntry, entryRefs map[string][]refs.EntityReference) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(entries))
 	for index := range entries {
 		e := &entries[index]
@@ -63,9 +64,9 @@ func buildCodexItems(entries []codex.CodexEntry, refs map[string][]codex.Referen
 		}
 
 		// Show parsed references.
-		if entryRefs, ok := refs[e.ID]; ok && len(entryRefs) > 0 {
+		if eRefs, ok := entryRefs[e.ID]; ok && len(eRefs) > 0 {
 			detailLines = append(detailLines, "", "References:")
-			for _, ref := range entryRefs {
+			for _, ref := range eRefs {
 				detailLines = append(detailLines, fmt.Sprintf("  @%s/%s", ref.TargetType, ref.TargetName))
 			}
 		}
@@ -150,28 +151,25 @@ func codexFormIDForType(typeID string) string {
 	}
 }
 
-// buildMentionedByLines returns "Mentioned by:" detail lines for an entity.
-func buildMentionedByLines(allRefs map[string][]codex.Reference, entries []codex.CodexEntry, targetType, targetName string) []string {
-	entriesByID := make(map[string]*codex.CodexEntry, len(entries))
-	for i := range entries {
-		entriesByID[entries[i].ID] = &entries[i]
-	}
-
-	var mentioners []string
-	for entryID, refs := range allRefs {
-		for _, ref := range refs {
-			if ref.TargetType == targetType && strings.EqualFold(ref.TargetName, targetName) {
-				if e, ok := entriesByID[entryID]; ok {
-					mentioners = append(mentioners, e.Name)
-				}
-				break
-			}
-		}
-	}
-
-	if len(mentioners) == 0 {
+// buildLinkedFromLines returns "Linked from:" detail lines for an entity
+// using the unified entity_references indexed by target key.
+func buildLinkedFromLines(allRefsByTarget map[string][]refs.EntityReference, targetType, targetName string) []string {
+	key := targetType + ":" + strings.ToLower(targetName)
+	targetRefs, ok := allRefsByTarget[key]
+	if !ok || len(targetRefs) == 0 {
 		return nil
 	}
 
-	return []string{"", "Mentioned by: " + strings.Join(mentioners, ", ")}
+	var names []string
+	for _, ref := range targetRefs {
+		if ref.SourceName != "" {
+			names = append(names, ref.SourceName)
+		}
+	}
+
+	if len(names) == 0 {
+		return nil
+	}
+
+	return []string{"", "Linked from: " + strings.Join(names, ", ")}
 }

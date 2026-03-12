@@ -15,6 +15,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
@@ -300,23 +301,21 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	}
 
 	// Load codex entries, references, and types.
-	var allCodexEntries []codex.CodexEntry
-	var allCodexRefs map[string][]codex.Reference
+	var allCodexRefs map[string][]refs.EntityReference
 
 	codexEntries, codexErr := loader.ListCodexEntries(ctx)
 	if codexErr != nil {
 		data.Codex = unavailableSectionData("Codex unavailable.", codexErr.Error())
 		panelErrors = append(panelErrors, "codex")
 	} else {
-		allCodexEntries = codexEntries
 		data.Codex.SummaryLines = summarizeCodex(codexEntries)
 		data.Codex.ListHeaderRow = fmt.Sprintf("%-8s %-14s %s", "TYPE", "SECONDARY", "NAME")
 
-		refs, refsErr := loader.ListAllCodexReferences(ctx)
+		codexRefs, refsErr := loader.ListAllCodexReferences(ctx)
 		if refsErr != nil {
 			panelErrors = append(panelErrors, "codex-refs")
 		} else {
-			allCodexRefs = refs
+			allCodexRefs = codexRefs
 		}
 
 		data.Codex.Items = buildCodexItems(codexEntries, allCodexRefs)
@@ -336,15 +335,13 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	}
 
 	// Load notes and references.
-	var allNotes []notes.NoteRecord
-	var allNotesRefs map[string][]notes.ReferenceRecord
+	var allNotesRefs map[string][]refs.EntityReference
 
 	noteRecords, notesErr := loader.ListNotes(ctx)
 	if notesErr != nil {
 		data.Notes = unavailableSectionData("Notes unavailable.", notesErr.Error())
 		panelErrors = append(panelErrors, "notes")
 	} else {
-		allNotes = noteRecords
 		data.Notes.SummaryLines = summarizeNotes(noteRecords)
 		data.Notes.ListHeaderRow = fmt.Sprintf("%-11s %s", "UPDATED", "TITLE")
 
@@ -358,54 +355,42 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		data.Notes.Items = buildNotesItems(noteRecords, allNotesRefs)
 	}
 
-	// Append "Mentioned by:" lines to quest detail views.
-	if allCodexRefs != nil && allCodexEntries != nil {
-		for i, item := range data.Quests.Items {
-			mentionLines := buildMentionedByLines(allCodexRefs, allCodexEntries, "quest", item.DetailTitle)
-			if len(mentionLines) > 0 {
-				data.Quests.Items[i].DetailLines = append(data.Quests.Items[i].DetailLines, mentionLines...)
-			}
-		}
-		for i, item := range data.Loot.Items {
-			mentionLines := buildMentionedByLines(allCodexRefs, allCodexEntries, "loot", item.DetailTitle)
-			if len(mentionLines) > 0 {
-				data.Loot.Items[i].DetailLines = append(data.Loot.Items[i].DetailLines, mentionLines...)
-			}
-		}
-		for i, item := range data.Assets.Items {
-			mentionLines := buildMentionedByLines(allCodexRefs, allCodexEntries, "asset", item.DetailTitle)
-			if len(mentionLines) > 0 {
-				data.Assets.Items[i].DetailLines = append(data.Assets.Items[i].DetailLines, mentionLines...)
-			}
-		}
+	// Load unified entity references indexed by target for cross-reference display.
+	allRefsByTarget, entityRefsErr := loader.ListAllEntityReferences(ctx)
+	if entityRefsErr != nil {
+		panelErrors = append(panelErrors, "entity-refs")
 	}
 
-	// Append "Referenced in:" lines from notes to quest/loot/asset/people detail views.
-	if allNotesRefs != nil && allNotes != nil {
+	// Append "Linked from:" lines to all entity detail views.
+	if allRefsByTarget != nil {
 		for i, item := range data.Quests.Items {
-			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "quest", item.DetailTitle)
-			if len(refLines) > 0 {
-				data.Quests.Items[i].DetailLines = append(data.Quests.Items[i].DetailLines, refLines...)
+			linkLines := buildLinkedFromLines(allRefsByTarget, "quest", item.DetailTitle)
+			if len(linkLines) > 0 {
+				data.Quests.Items[i].DetailLines = append(data.Quests.Items[i].DetailLines, linkLines...)
 			}
 		}
 		for i, item := range data.Loot.Items {
-			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "loot", item.DetailTitle)
-			if len(refLines) > 0 {
-				data.Loot.Items[i].DetailLines = append(data.Loot.Items[i].DetailLines, refLines...)
+			linkLines := buildLinkedFromLines(allRefsByTarget, "loot", item.DetailTitle)
+			if len(linkLines) > 0 {
+				data.Loot.Items[i].DetailLines = append(data.Loot.Items[i].DetailLines, linkLines...)
 			}
 		}
 		for i, item := range data.Assets.Items {
-			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "asset", item.DetailTitle)
-			if len(refLines) > 0 {
-				data.Assets.Items[i].DetailLines = append(data.Assets.Items[i].DetailLines, refLines...)
+			linkLines := buildLinkedFromLines(allRefsByTarget, "asset", item.DetailTitle)
+			if len(linkLines) > 0 {
+				data.Assets.Items[i].DetailLines = append(data.Assets.Items[i].DetailLines, linkLines...)
 			}
 		}
 		for i, item := range data.Codex.Items {
-			// Notes reference codex entries as @person/Name (the original target type
-			// predating the People→Codex rename), so we match on "person" here.
-			refLines := buildNoteReferencedInLines(allNotesRefs, allNotes, "person", item.DetailTitle)
-			if len(refLines) > 0 {
-				data.Codex.Items[i].DetailLines = append(data.Codex.Items[i].DetailLines, refLines...)
+			linkLines := buildLinkedFromLines(allRefsByTarget, "person", item.DetailTitle)
+			if len(linkLines) > 0 {
+				data.Codex.Items[i].DetailLines = append(data.Codex.Items[i].DetailLines, linkLines...)
+			}
+		}
+		for i, item := range data.Notes.Items {
+			linkLines := buildLinkedFromLines(allRefsByTarget, "note", item.DetailTitle)
+			if len(linkLines) > 0 {
+				data.Notes.Items[i].DetailLines = append(data.Notes.Items[i].DetailLines, linkLines...)
 			}
 		}
 	}

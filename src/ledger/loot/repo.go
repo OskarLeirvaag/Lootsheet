@@ -30,6 +30,8 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 		return LootItemRecord{}, fmt.Errorf("item type must be loot or asset")
 	}
 
+	notes = strings.TrimSpace(notes)
+
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootItemRecord, error) {
 		id := uuid.NewString()
 
@@ -37,9 +39,13 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 			`INSERT INTO loot_items (id, name, source, status, quantity, holder, notes, item_type)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, name, strings.TrimSpace(source), string(ledger.LootStatusHeld),
-			quantity, strings.TrimSpace(holder), strings.TrimSpace(notes), itemType,
+			quantity, strings.TrimSpace(holder), notes, itemType,
 		); err != nil {
 			return LootItemRecord{}, fmt.Errorf("insert loot item: %w", err)
+		}
+
+		if err := rebuildReferences(ctx, db, id, name, notes); err != nil {
+			return LootItemRecord{}, err
 		}
 
 		return LootItemRecord{
@@ -50,7 +56,7 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 			ItemType: itemType,
 			Quantity: quantity,
 			Holder:   strings.TrimSpace(holder),
-			Notes:    strings.TrimSpace(notes),
+			Notes:    notes,
 		}, nil
 	})
 }
@@ -83,6 +89,8 @@ func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string,
 			return LootItemRecord{}, fmt.Errorf("quantity can only be edited while loot is held")
 		}
 
+		notes := strings.TrimSpace(input.Notes)
+
 		if _, err := db.ExecContext(ctx,
 			`UPDATE loot_items
 			 SET name = ?, source = ?, quantity = ?, holder = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
@@ -91,10 +99,14 @@ func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string,
 			strings.TrimSpace(input.Source),
 			input.Quantity,
 			strings.TrimSpace(input.Holder),
-			strings.TrimSpace(input.Notes),
+			notes,
 			lootItemID,
 		); err != nil {
 			return LootItemRecord{}, fmt.Errorf("update loot item: %w", err)
+		}
+
+		if err := rebuildReferences(ctx, db, lootItemID, name, notes); err != nil {
+			return LootItemRecord{}, err
 		}
 
 		return getLootItemByID(ctx, db, lootItemID)

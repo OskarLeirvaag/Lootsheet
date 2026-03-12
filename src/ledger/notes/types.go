@@ -22,12 +22,3 @@ type UpdateNoteInput struct {
 	Title string
 	Body  string
 }
-
-// ReferenceRecord represents a parsed @type/name mention from a note's body.
-type ReferenceRecord struct {
-	ID         string
-	NoteID     string
-	TargetType string
-	TargetName string
-	CreatedAt  string
-}

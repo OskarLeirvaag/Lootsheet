@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/refs"
 )
 
 // ListTypes returns all codex types ordered by name.
@@ -77,7 +78,7 @@ func CreateEntry(ctx context.Context, databasePath string, input *CreateInput) (
 			return CodexEntry{}, fmt.Errorf("insert codex entry: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, id, notes); err != nil {
+		if err := rebuildReferences(ctx, db, id, name, notes); err != nil {
 			return CodexEntry{}, err
 		}
 
@@ -137,7 +138,7 @@ func UpdateEntry(ctx context.Context, databasePath string, entryID string, input
 			return CodexEntry{}, fmt.Errorf("update codex entry: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, entryID, notes); err != nil {
+		if err := rebuildReferences(ctx, db, entryID, name, notes); err != nil {
 			return CodexEntry{}, err
 		}
 
@@ -258,26 +259,10 @@ func SearchEntries(ctx context.Context, databasePath string, query string) ([]Co
 	})
 }
 
-// ListReferencesForEntry returns all references attached to an entry.
-func ListReferencesForEntry(ctx context.Context, databasePath string, entryID string) ([]Reference, error) {
-	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Reference, error) {
-		return queryReferences(ctx, db, "SELECT id, entry_id, target_type, target_name, created_at FROM codex_references WHERE entry_id = ? ORDER BY created_at", entryID)
-	})
-}
-
-// ListAllReferences returns all codex_references rows grouped by entry_id.
-func ListAllReferences(ctx context.Context, databasePath string) (map[string][]Reference, error) {
-	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (map[string][]Reference, error) {
-		refs, err := queryReferences(ctx, db, "SELECT id, entry_id, target_type, target_name, created_at FROM codex_references ORDER BY created_at")
-		if err != nil {
-			return nil, err
-		}
-
-		result := make(map[string][]Reference)
-		for _, ref := range refs {
-			result[ref.EntryID] = append(result[ref.EntryID], ref)
-		}
-		return result, nil
+// ListAllReferences returns all entity_references rows for codex source type, grouped by source_id.
+func ListAllReferences(ctx context.Context, databasePath string) (map[string][]refs.EntityReference, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
+		return refs.ListBySource(ctx, db, "codex")
 	})
 }
 
@@ -305,27 +290,4 @@ func getEntryByID(ctx context.Context, db *sql.DB, entryID string) (CodexEntry, 
 
 	record.PartyMember = partyMember != 0
 	return record, nil
-}
-
-func queryReferences(ctx context.Context, db *sql.DB, query string, args ...any) ([]Reference, error) {
-	rows, err := db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query references: %w", err)
-	}
-	defer rows.Close()
-
-	refs := []Reference{}
-	for rows.Next() {
-		var r Reference
-		if err := rows.Scan(&r.ID, &r.EntryID, &r.TargetType, &r.TargetName, &r.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan reference row: %w", err)
-		}
-		refs = append(refs, r)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate reference rows: %w", err)
-	}
-
-	return refs, nil
 }
