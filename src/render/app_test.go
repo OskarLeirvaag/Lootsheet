@@ -86,8 +86,8 @@ func TestRunHandlesResizeAndRedrawBeforeExit(t *testing.T) {
 			sim.SetSize(60, 20)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.SetSize(72, 24)
-			_ = sim.PostEvent(tcell.NewEventResize(72, 24))
+			sim.SetSize(84, 24)
+			_ = sim.PostEvent(tcell.NewEventResize(84, 24))
 			sim.InjectKey(tcell.KeyEsc, 0, tcell.ModNone)
 		},
 	}

@@ -572,7 +572,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
-		ActionNewExpense, ActionNewIncome, ActionNewCustom:
+		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSearch:
 		return handleResult{}, false
 	case ActionHelp:
 		return handleResult{}, true
