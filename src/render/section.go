@@ -1,103 +1,36 @@
 package render
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"github.com/gdamore/tcell/v2"
 
-// Section identifies a top-level TUI screen.
-type Section int
-
-const (
-	SectionDashboard Section = iota
-	SectionAccounts
-	SectionJournal
-	SectionQuests
-	SectionLoot
-	SectionAssets
-	SectionCodex
-	SectionNotes
-	SectionSettings
+	"github.com/OskarLeirvaag/Lootsheet/src/render/model"
 )
 
-// Virtual sections for settings tabs — not in orderedSections.
+// Type aliases re-export model section types.
+type Section = model.Section
+
 const (
-	settingsTabAccounts Section = 100 + iota
-	settingsTabCodexTypes
+	SectionDashboard = model.SectionDashboard
+	SectionAccounts  = model.SectionAccounts
+	SectionJournal   = model.SectionJournal
+	SectionQuests    = model.SectionQuests
+	SectionLoot      = model.SectionLoot
+	SectionAssets    = model.SectionAssets
+	SectionCodex     = model.SectionCodex
+	SectionNotes     = model.SectionNotes
+	SectionSettings  = model.SectionSettings
 )
 
-var settingsTabs = []Section{settingsTabAccounts, settingsTabCodexTypes}
+const (
+	settingsTabAccounts   = model.SettingsTabAccounts
+	settingsTabCodexTypes = model.SettingsTabCodexTypes
+)
 
-var searchableSections = []Section{
-	SectionJournal, SectionQuests, SectionLoot,
-	SectionAssets, SectionCodex, SectionNotes,
-}
-
-var orderedSections = []Section{
-	SectionDashboard,
-	SectionJournal,
-	SectionQuests,
-	SectionLoot,
-	SectionAssets,
-	SectionCodex,
-	SectionNotes,
-}
-
-// Title returns the user-facing section name.
-func (s Section) Title() string {
-	switch s {
-	case SectionAccounts, settingsTabAccounts:
-		return "Accounts"
-	case SectionJournal:
-		return "Journal"
-	case SectionQuests:
-		return "Quests"
-	case SectionLoot:
-		return "Loot"
-	case SectionAssets:
-		return "Assets"
-	case SectionCodex:
-		return "Codex"
-	case SectionNotes:
-		return "Notes"
-	case SectionSettings:
-		return "Settings"
-	case settingsTabCodexTypes:
-		return "Codex Types"
-	default:
-		return "Dashboard"
-	}
-}
-
-func (s Section) next() Section {
-	for index, current := range orderedSections {
-		if current == s {
-			return orderedSections[(index+1)%len(orderedSections)]
-		}
-	}
-	return SectionDashboard
-}
-
-func (s Section) previous() Section {
-	for index, current := range orderedSections {
-		if current == s {
-			return orderedSections[(index+len(orderedSections)-1)%len(orderedSections)]
-		}
-	}
-	return SectionDashboard
-}
-
-func (s Section) scrollable() bool {
-	return s != SectionDashboard
-}
-
-func maxSectionTitleWidth() int {
-	width := 0
-	for _, section := range orderedSections {
-		titleWidth := len(section.Title())
-		if titleWidth > width {
-			width = titleWidth
-		}
-	}
-	return width
-}
+var (
+	settingsTabs       = model.SettingsTabs
+	searchableSections = model.SearchableSections
+	orderedSections    = model.OrderedSections
+)
 
 // SectionStyle bundles visual properties derived from a Section.
 type SectionStyle struct {
@@ -108,8 +41,8 @@ type SectionStyle struct {
 	ScatterStyle  *tcell.Style
 }
 
-// Style returns the visual properties for this section under the given theme.
-func (s Section) Style(theme *Theme) SectionStyle {
+// sectionStyleFor returns the visual properties for a section under the given theme.
+func sectionStyleFor(s Section, theme *Theme) SectionStyle {
 	switch s {
 	case SectionAccounts:
 		return SectionStyle{

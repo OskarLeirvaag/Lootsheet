@@ -1,61 +1,18 @@
 package render
 
-import "context"
+import "github.com/OskarLeirvaag/Lootsheet/src/render/model"
 
-// Command is a user action emitted by the interactive shell for the app layer.
-type Command struct {
-	ID      string
-	Section Section
-	ItemKey string
-	Fields  map[string]string
-	Lines   []CommandLine
-}
-
-// CommandLine is a structured line payload for multi-line compose actions.
-type CommandLine struct {
-	Side        string
-	AccountCode string
-	Amount      string
-	Memo        string
-}
-
-// CommandResult is the app-facing outcome of a TUI command.
-type CommandResult struct {
-	Data          ShellData
-	Status        StatusMessage
-	NavigateTo    Section
-	SelectItemKey string
-}
-
-// StatusLevel describes the severity of a transient TUI status message.
-type StatusLevel string
+// Type aliases re-export model command types.
+type Command = model.Command
+type CommandLine = model.CommandLine
+type CommandResult = model.CommandResult
+type StatusLevel = model.StatusLevel
+type StatusMessage = model.StatusMessage
+type InputError = model.InputError
+type CommandHandler = model.CommandHandler
 
 const (
-	StatusInfo    StatusLevel = "info"
-	StatusSuccess StatusLevel = "success"
-	StatusError   StatusLevel = "error"
+	StatusInfo    = model.StatusInfo
+	StatusSuccess = model.StatusSuccess
+	StatusError   = model.StatusError
 )
-
-// StatusMessage is shown above the footer help line.
-type StatusMessage struct {
-	Level StatusLevel
-	Text  string
-}
-
-// Empty reports whether the status message contains any visible content.
-func (s StatusMessage) Empty() bool {
-	return s.Text == ""
-}
-
-// InputError keeps an input modal open while surfacing a validation message.
-type InputError struct {
-	Message string
-}
-
-// Error implements error.
-func (e InputError) Error() string {
-	return e.Message
-}
-
-// CommandHandler performs an interactive TUI command and returns refreshed data.
-type CommandHandler func(context.Context, Command) (CommandResult, error)

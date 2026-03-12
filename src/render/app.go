@@ -28,7 +28,7 @@ func Run(ctx context.Context, options *Options) error {
 	keymap := DefaultKeyMap()
 	if options != nil {
 		theme = resolveTheme(&options.Theme)
-		keymap = options.KeyMap.withDefaults()
+		keymap = options.KeyMap.WithDefaults()
 	}
 
 	var factory ScreenFactory
@@ -183,7 +183,7 @@ func loadShellData(ctx context.Context, options *Options) ShellData {
 	}
 }
 
-func drawFrame(terminal *Terminal, shell *Shell, theme *Theme, keymap KeyMap, full bool) {
+func drawFrame(terminal *Terminal, shell ShellUI, theme *Theme, keymap KeyMap, full bool) {
 	if shell == nil {
 		return
 	}
