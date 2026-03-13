@@ -20,7 +20,7 @@ type Summary struct {
 }
 
 // GetSummary returns a compact journal summary for read-only dashboards.
-func GetSummary(ctx context.Context, databasePath string) (Summary, error) {
+func GetSummary(ctx context.Context, databasePath string, campaignID string) (Summary, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (Summary, error) {
 		var summary Summary
 
@@ -31,7 +31,8 @@ func GetSummary(ctx context.Context, databasePath string) (Summary, error) {
 				COALESCE(SUM(CASE WHEN status = 'reversed' THEN 1 ELSE 0 END), 0),
 				COALESCE(SUM(CASE WHEN reverses_entry_id IS NOT NULL THEN 1 ELSE 0 END), 0)
 			FROM journal_entries
-		`).Scan(
+			WHERE campaign_id = ?
+		`, campaignID).Scan(
 			&summary.TotalEntries,
 			&summary.PostedEntries,
 			&summary.ReversedEntries,
@@ -47,9 +48,10 @@ func GetSummary(ctx context.Context, databasePath string) (Summary, error) {
 		if err := db.QueryRowContext(ctx, `
 			SELECT entry_number, entry_date, description
 			FROM journal_entries
+			WHERE campaign_id = ?
 			ORDER BY entry_number DESC
 			LIMIT 1
-		`).Scan(
+		`, campaignID).Scan(
 			&summary.LatestEntryNumber,
 			&summary.LatestEntryDate,
 			&summary.LatestDescription,

@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	accountLedgerMaxEntries  = 50
-	accountLedgerDescWidth   = 20
+	accountLedgerMaxEntries = 50
+	accountLedgerDescWidth  = 20
 )
 
 func summarizeAccounts(accounts []ledger.AccountRecord) []string {

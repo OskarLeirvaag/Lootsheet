@@ -40,7 +40,7 @@ type WriteOffCandidateRow struct {
 // GetWriteOffCandidates returns completed, collectible, or partially paid
 // quests with outstanding balances whose completed date is at least the
 // requested age threshold.
-func GetWriteOffCandidates(ctx context.Context, databasePath string, filter WriteOffCandidateFilter) ([]WriteOffCandidateRow, error) {
+func GetWriteOffCandidates(ctx context.Context, databasePath string, campaignID string, filter WriteOffCandidateFilter) ([]WriteOffCandidateRow, error) {
 	asOfDate := strings.TrimSpace(filter.AsOfDate)
 	if asOfDate == "" {
 		return nil, fmt.Errorf("as_of date is required")
@@ -73,11 +73,11 @@ func GetWriteOffCandidates(ctx context.Context, databasePath string, filter Writ
 					  AND jl.memo = 'Quest payment: ' || q.title
 				), 0) AS total_paid
 			FROM quests q
-			WHERE q.status IN ('completed', 'collectible', 'partially_paid')
+			WHERE q.campaign_id = ? AND q.status IN ('completed', 'collectible', 'partially_paid')
 			  AND q.completed_on IS NOT NULL
 			  AND q.promised_base_reward > 0
 			ORDER BY q.completed_on, q.title
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query write-off candidates: %w", err)
 		}

@@ -61,6 +61,7 @@ type Shell struct {
 	glossary        *glossaryState
 	editor          *editorState
 	codexPicker     *codexPickerState
+	campaignPicker  *campaignPickerState
 	search          *searchState
 	searchHandler   SearchHandler
 	rain            *goldrain.GoldRain
@@ -129,6 +130,7 @@ func (s *Shell) Reload(data *ShellData) {
 	s.compose = nil
 	s.glossary = nil
 	s.codexPicker = nil
+	s.campaignPicker = nil
 	s.search = nil
 
 	if s.editorSaveInFlight {
@@ -167,6 +169,7 @@ func (s *Shell) CloseModal() {
 	s.compose = nil
 	s.glossary = nil
 	s.codexPicker = nil
+	s.campaignPicker = nil
 	s.search = nil
 	s.editor = nil
 }

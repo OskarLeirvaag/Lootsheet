@@ -14,18 +14,18 @@ import (
 //
 // Read-only queries (account resolution, next entry number) use db so they
 // do not widen the write transaction's lock scope. All inserts use tx.
-func PostJournalWithinTx(ctx context.Context, db *sql.DB, tx *sql.Tx, input JournalPostInput) (PostedJournalEntry, error) {
+func PostJournalWithinTx(ctx context.Context, db *sql.DB, tx *sql.Tx, campaignID string, input JournalPostInput) (PostedJournalEntry, error) {
 	validated, err := ValidateJournalPostInput(input)
 	if err != nil {
 		return PostedJournalEntry{}, err
 	}
 
-	accountIDsByCode, err := ResolveActiveAccountIDsByCode(ctx, db, validated.Lines)
+	accountIDsByCode, err := ResolveActiveAccountIDsByCode(ctx, db, campaignID, validated.Lines)
 	if err != nil {
 		return PostedJournalEntry{}, err
 	}
 
-	entryNumber, err := NextJournalEntryNumber(ctx, db)
+	entryNumber, err := NextJournalEntryNumber(ctx, db, campaignID)
 	if err != nil {
 		return PostedJournalEntry{}, err
 	}
@@ -33,8 +33,8 @@ func PostJournalWithinTx(ctx context.Context, db *sql.DB, tx *sql.Tx, input Jour
 	entryID := uuid.NewString()
 
 	if _, err := tx.ExecContext(ctx,
-		"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-		entryID, entryNumber, "posted", validated.EntryDate, validated.Description,
+		"INSERT INTO journal_entries (id, campaign_id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+		entryID, campaignID, entryNumber, "posted", validated.EntryDate, validated.Description,
 	); err != nil {
 		return PostedJournalEntry{}, fmt.Errorf("insert journal entry: %w", err)
 	}

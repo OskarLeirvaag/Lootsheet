@@ -35,7 +35,7 @@ type TrialBalanceReport struct {
 // The balance for each account is computed based on its normal balance:
 //   - Asset and Expense accounts: balance = total_debits - total_credits
 //   - Liability, Equity, and Income accounts: balance = total_credits - total_debits
-func GetTrialBalance(ctx context.Context, databasePath string) (TrialBalanceReport, error) {
+func GetTrialBalance(ctx context.Context, databasePath string, campaignID string) (TrialBalanceReport, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (TrialBalanceReport, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT a.code, a.name, a.type,
@@ -44,10 +44,10 @@ func GetTrialBalance(ctx context.Context, databasePath string) (TrialBalanceRepo
 			FROM journal_lines jl
 			JOIN journal_entries je ON je.id = jl.journal_entry_id
 			JOIN accounts a ON a.id = jl.account_id
-			WHERE je.status = 'posted'
+			WHERE je.status = 'posted' AND je.campaign_id = ?
 			GROUP BY a.id
 			ORDER BY a.code, a.id
-		`)
+		`, campaignID)
 		if err != nil {
 			return TrialBalanceReport{}, fmt.Errorf("query trial balance: %w", err)
 		}

@@ -36,12 +36,12 @@ type LedgerEntry struct {
 // Running balance follows normal accounting conventions:
 //   - Asset and expense accounts: debits increase, credits decrease
 //   - Liability, equity, and income accounts: credits increase, debits decrease
-func GetAccountLedger(ctx context.Context, databasePath string, accountCode string) (AccountLedgerReport, error) {
+func GetAccountLedger(ctx context.Context, databasePath string, campaignID string, accountCode string) (AccountLedgerReport, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (AccountLedgerReport, error) {
 		// Resolve the account code to account info.
 		var accountID, accountName, accountTypeStr string
 		if err := db.QueryRowContext(ctx,
-			"SELECT id, name, type FROM accounts WHERE code = ?", accountCode,
+			"SELECT id, name, type FROM accounts WHERE campaign_id = ? AND code = ?", campaignID, accountCode,
 		).Scan(&accountID, &accountName, &accountTypeStr); err != nil {
 			return AccountLedgerReport{}, fmt.Errorf("account code %q does not exist", accountCode)
 		}

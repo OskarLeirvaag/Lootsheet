@@ -11,8 +11,9 @@ import (
 
 func TestCreateLootItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Ruby Gemstone", "Dragon Hoard", 1, "Bard", "Large and shiny", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Ruby Gemstone", "Dragon Hoard", 1, "Bard", "Large and shiny", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -40,8 +41,9 @@ func TestCreateLootItem(t *testing.T) {
 
 func TestCreateLootItemRejectsEmptyName(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateLootItem(context.Background(), databasePath, "", "source", 1, "", "", "loot")
+	_, err := CreateLootItem(context.Background(), databasePath, campaignID, "", "source", 1, "", "", "loot")
 	if err == nil {
 		t.Fatal("expected error for empty name")
 	}
@@ -53,13 +55,14 @@ func TestCreateLootItemRejectsEmptyName(t *testing.T) {
 
 func TestAppraiseLootItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Emerald", "Cave", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Emerald", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 500, "Jeweler", "2026-03-08", "Fine quality")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 500, "Jeweler", "2026-03-08", "Fine quality")
 	if err != nil {
 		t.Fatalf("appraise loot item: %v", err)
 	}
@@ -83,24 +86,25 @@ func TestAppraiseLootItem(t *testing.T) {
 
 func TestAppraiseRejectsNonHeldItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Diamond", "Mine", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Diamond", "Mine", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
 
 	// Appraise and recognize to move to 'recognized' status.
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 1000, "", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 1000, "", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
 
-	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-08", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-08", ""); err != nil {
 		t.Fatalf("recognize: %v", err)
 	}
 
 	// Try to appraise again — item is now 'recognized', not 'held'.
-	_, err = AppraiseLootItem(context.Background(), databasePath, item.ID, 1200, "", "2026-03-09", "")
+	_, err = AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 1200, "", "2026-03-09", "")
 	if err == nil {
 		t.Fatal("expected error appraising a recognized item")
 	}
@@ -112,18 +116,19 @@ func TestAppraiseRejectsNonHeldItem(t *testing.T) {
 
 func TestRecognizeLootAppraisal(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 750, "Goldsmith", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 750, "Goldsmith", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
 
-	entry, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-09", "Recognize gold necklace")
+	entry, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-09", "Recognize gold necklace")
 	if err != nil {
 		t.Fatalf("recognize: %v", err)
 	}
@@ -153,23 +158,24 @@ func TestRecognizeLootAppraisal(t *testing.T) {
 
 func TestRecognizeAlreadyRecognizedAppraisal(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Silver Ring", "Dungeon", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Silver Ring", "Dungeon", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 200, "", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 200, "", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
 
-	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("first recognize: %v", err)
 	}
 
 	// Try to recognize again.
-	_, err = RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-10", "")
+	_, err = RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-10", "")
 	if err == nil {
 		t.Fatal("expected error recognizing an already-recognized appraisal")
 	}
@@ -181,22 +187,23 @@ func TestRecognizeAlreadyRecognizedAppraisal(t *testing.T) {
 
 func TestSellLootItemAtAppraisalValue(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Ruby", "Cave", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Ruby", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 500, "", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 500, "", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
 
-	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("recognize: %v", err)
 	}
 
-	entry, err := SellLootItem(context.Background(), databasePath, item.ID, 500, "2026-03-10", "Sell ruby at appraised value")
+	entry, err := SellLootItem(context.Background(), databasePath, campaignID, item.ID, 500, "2026-03-10", "Sell ruby at appraised value")
 	if err != nil {
 		t.Fatalf("sell: %v", err)
 	}
@@ -221,22 +228,23 @@ func TestSellLootItemAtAppraisalValue(t *testing.T) {
 
 func TestSellLootItemBelowAppraisalValue(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Damaged Gem", "Ruins", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Damaged Gem", "Ruins", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 500, "", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 500, "", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
 
-	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("recognize: %v", err)
 	}
 
-	entry, err := SellLootItem(context.Background(), databasePath, item.ID, 300, "2026-03-10", "Sell below appraisal")
+	entry, err := SellLootItem(context.Background(), databasePath, campaignID, item.ID, 300, "2026-03-10", "Sell below appraisal")
 	if err != nil {
 		t.Fatalf("sell: %v", err)
 	}
@@ -253,22 +261,23 @@ func TestSellLootItemBelowAppraisalValue(t *testing.T) {
 
 func TestSellLootItemAboveAppraisalValue(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Rare Pearl", "Ocean", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Rare Pearl", "Ocean", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 500, "", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 500, "", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
 
-	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("recognize: %v", err)
 	}
 
-	entry, err := SellLootItem(context.Background(), databasePath, item.ID, 700, "2026-03-10", "Sell above appraisal")
+	entry, err := SellLootItem(context.Background(), databasePath, campaignID, item.ID, 700, "2026-03-10", "Sell above appraisal")
 	if err != nil {
 		t.Fatalf("sell: %v", err)
 	}
@@ -285,13 +294,14 @@ func TestSellLootItemAboveAppraisalValue(t *testing.T) {
 
 func TestSellLootItemRejectsHeldItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Unsold Gem", "Cave", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Unsold Gem", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	_, err = SellLootItem(context.Background(), databasePath, item.ID, 100, "2026-03-10", "")
+	_, err = SellLootItem(context.Background(), databasePath, campaignID, item.ID, 100, "2026-03-10", "")
 	if err == nil {
 		t.Fatal("expected error selling a held item")
 	}
@@ -303,8 +313,9 @@ func TestSellLootItemRejectsHeldItem(t *testing.T) {
 
 func TestSellLootItemRejectsNonexistentItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := SellLootItem(context.Background(), databasePath, "nonexistent-id", 100, "2026-03-10", "")
+	_, err := SellLootItem(context.Background(), databasePath, campaignID, "nonexistent-id", 100, "2026-03-10", "")
 	if err == nil {
 		t.Fatal("expected error for nonexistent item")
 	}
@@ -316,8 +327,9 @@ func TestSellLootItemRejectsNonexistentItem(t *testing.T) {
 
 func TestRecognizeNonexistentAppraisal(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := RecognizeLootAppraisal(context.Background(), databasePath, "nonexistent-id", "2026-03-09", "")
+	_, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, "nonexistent-id", "2026-03-09", "")
 	if err == nil {
 		t.Fatal("expected error for nonexistent appraisal")
 	}
@@ -329,13 +341,14 @@ func TestRecognizeNonexistentAppraisal(t *testing.T) {
 
 func TestUpdateLootItemEditsHeldItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	updated, err := UpdateLootItem(context.Background(), databasePath, item.ID, &UpdateLootItemInput{
+	updated, err := UpdateLootItem(context.Background(), databasePath, campaignID, item.ID, &UpdateLootItemInput{
 		Name:     "Emerald Idol Fragment",
 		Source:   "Sunken crypt",
 		Quantity: 2,
@@ -353,20 +366,21 @@ func TestUpdateLootItemEditsHeldItem(t *testing.T) {
 
 func TestUpdateLootItemRejectsQuantityChangeAfterRecognition(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	item, err := CreateLootItem(context.Background(), databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
+	item, err := CreateLootItem(context.Background(), databasePath, campaignID, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	appraisal, err := AppraiseLootItem(context.Background(), databasePath, item.ID, 750, "Jeweler", "2026-03-09", "")
+	appraisal, err := AppraiseLootItem(context.Background(), databasePath, campaignID, item.ID, 750, "Jeweler", "2026-03-09", "")
 	if err != nil {
 		t.Fatalf("appraise: %v", err)
 	}
-	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, appraisal.ID, "2026-03-10", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(context.Background(), databasePath, campaignID, appraisal.ID, "2026-03-10", ""); err != nil {
 		t.Fatalf("recognize: %v", err)
 	}
 
-	_, err = UpdateLootItem(context.Background(), databasePath, item.ID, &UpdateLootItemInput{
+	_, err = UpdateLootItem(context.Background(), databasePath, campaignID, item.ID, &UpdateLootItemInput{
 		Name:     "Gold Necklace",
 		Source:   "Merchant",
 		Quantity: 2,

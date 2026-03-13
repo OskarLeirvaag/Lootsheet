@@ -9,6 +9,6 @@ import (
 
 // rebuildReferences deletes old references for a loot/asset item and inserts
 // new ones parsed from the notes text.
-func rebuildReferences(ctx context.Context, db *sql.DB, itemID, itemName, notes string) error {
-	return refs.RebuildReferences(ctx, db, "loot", itemID, itemName, notes)
+func rebuildReferences(ctx context.Context, db *sql.DB, itemID, campaignID, itemName, notes string) error {
+	return refs.RebuildReferences(ctx, db, "loot", itemID, campaignID, itemName, notes)
 }

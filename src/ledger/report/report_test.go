@@ -6,17 +6,18 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
-	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	// Post an entry: Dr Adventuring Supplies 5000:50, Cr Party Cash 1000:50
-	_, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	_, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Buy supplies",
 		Lines: []ledger.JournalLineInput{
@@ -29,7 +30,7 @@ func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
 	}
 
 	// Post another entry: Dr Party Cash 1000:200, Cr Quest Income 4000:200
-	_, err = journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	_, err = journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-02",
 		Description: "Quest reward",
 		Lines: []ledger.JournalLineInput{
@@ -41,7 +42,7 @@ func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	report, err := GetTrialBalance(ctx, databasePath)
+	report, err := GetTrialBalance(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get trial balance: %v", err)
 	}
@@ -94,9 +95,10 @@ func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
 
 func TestGetTrialBalanceEmptyLedger(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	report, err := GetTrialBalance(ctx, databasePath)
+	report, err := GetTrialBalance(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get trial balance: %v", err)
 	}
@@ -116,10 +118,11 @@ func TestGetTrialBalanceEmptyLedger(t *testing.T) {
 
 func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	// Post a single entry touching only two accounts.
-	_, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	_, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Simple entry",
 		Lines: []ledger.JournalLineInput{
@@ -131,7 +134,7 @@ func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	report, err := GetTrialBalance(ctx, databasePath)
+	report, err := GetTrialBalance(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get trial balance: %v", err)
 	}
@@ -144,10 +147,11 @@ func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
 
 func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	// Post an entry: Dr 5000:75, Cr 1000:75
-	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Buy supplies",
 		Lines: []ledger.JournalLineInput{
@@ -160,7 +164,7 @@ func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
 	}
 
 	// Also post a second entry that stays posted: Dr 1000:200, Cr 4000:200
-	_, err = journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	_, err = journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Quest reward",
 		Lines: []ledger.JournalLineInput{
@@ -173,12 +177,12 @@ func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
 	}
 
 	// Reverse the first entry.
-	_, err = journal.ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-02", "")
+	_, err = journal.ReverseJournalEntry(ctx, databasePath, campaignID, posted.ID, "2026-03-02", "")
 	if err != nil {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	report, err := GetTrialBalance(ctx, databasePath)
+	report, err := GetTrialBalance(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get trial balance: %v", err)
 	}
@@ -217,22 +221,23 @@ func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
 
 func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	// Create a liability account for testing.
-	_, err := account.CreateAccount(ctx, databasePath, "2100", "Test Liability", ledger.AccountTypeLiability)
+	_, err := account.CreateAccount(ctx, databasePath, campaignID, "2100", "Test Liability", ledger.AccountTypeLiability)
 	if err != nil {
 		t.Fatalf("create account: %v", err)
 	}
 
 	// Create an equity account for testing.
-	_, err = account.CreateAccount(ctx, databasePath, "3100", "Test Equity", ledger.AccountTypeEquity)
+	_, err = account.CreateAccount(ctx, databasePath, campaignID, "3100", "Test Equity", ledger.AccountTypeEquity)
 	if err != nil {
 		t.Fatalf("create account: %v", err)
 	}
 
 	// Dr Party Cash 1000:500, Cr Test Liability 2100:300, Cr Test Equity 3100:200
-	_, err = journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	_, err = journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-01",
 		Description: "Test normal balances",
 		Lines: []ledger.JournalLineInput{
@@ -245,7 +250,7 @@ func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	report, err := GetTrialBalance(ctx, databasePath)
+	report, err := GetTrialBalance(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get trial balance: %v", err)
 	}
@@ -276,9 +281,10 @@ func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
 
 func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	createdQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	createdQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Custom Description Payment",
 		Patron:             "Guildmaster Rena",
 		PromisedBaseReward: 500,
@@ -291,7 +297,7 @@ func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, createdQuest.ID, "2026-03-05")
 
-	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, campaignID, quest.CollectQuestPaymentInput{
 		QuestID:     createdQuest.ID,
 		Amount:      200,
 		Date:        "2026-03-06",
@@ -300,7 +306,7 @@ func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 		t.Fatalf("collect quest payment: %v", err)
 	}
 
-	rows, err := GetQuestReceivables(ctx, databasePath)
+	rows, err := GetQuestReceivables(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get quest receivables: %v", err)
 	}
@@ -320,9 +326,10 @@ func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 
 func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	offeredQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	offeredQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Scout the Ruins",
 		Patron:             "Archivist Pell",
 		PromisedBaseReward: 350,
@@ -334,7 +341,7 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 		t.Fatalf("create offered quest: %v", err)
 	}
 
-	acceptedQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	acceptedQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Guard the Caravan",
 		Patron:             "Merchant Hall",
 		PromisedBaseReward: 275,
@@ -345,7 +352,7 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 		t.Fatalf("create accepted quest: %v", err)
 	}
 
-	completedQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	completedQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Already Earned",
 		PromisedBaseReward: 999,
 		Status:             "accepted",
@@ -357,7 +364,7 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, completedQuest.ID, "2026-03-04")
 
-	rows, err := GetPromisedQuests(ctx, databasePath)
+	rows, err := GetPromisedQuests(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get promised quests: %v", err)
 	}
@@ -389,9 +396,10 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 
 func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	oldPartialQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	oldPartialQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Old Partial Balance",
 		Patron:             "Baron Voss",
 		PromisedBaseReward: 500,
@@ -404,7 +412,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, oldPartialQuest.ID, "2026-01-02")
 
-	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, campaignID, quest.CollectQuestPaymentInput{
 		QuestID:     oldPartialQuest.ID,
 		Amount:      200,
 		Date:        "2026-01-05",
@@ -413,7 +421,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 		t.Fatalf("collect old partial quest payment: %v", err)
 	}
 
-	recentQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	recentQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Recent Balance",
 		Patron:             "Captain Ilya",
 		PromisedBaseReward: 400,
@@ -426,7 +434,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, recentQuest.ID, "2026-03-10")
 
-	fullyPaidQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	fullyPaidQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Settled Balance",
 		Patron:             "Temple of Dawn",
 		PromisedBaseReward: 250,
@@ -439,7 +447,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, fullyPaidQuest.ID, "2026-01-04")
 
-	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+	if _, err := quest.CollectQuestPayment(ctx, databasePath, campaignID, quest.CollectQuestPaymentInput{
 		QuestID: fullyPaidQuest.ID,
 		Amount:  250,
 		Date:    "2026-01-10",
@@ -447,7 +455,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 		t.Fatalf("collect fully paid quest payment: %v", err)
 	}
 
-	rows, err := GetWriteOffCandidates(ctx, databasePath, WriteOffCandidateFilter{
+	rows, err := GetWriteOffCandidates(ctx, databasePath, campaignID, WriteOffCandidateFilter{
 		AsOfDate:   "2026-03-15",
 		MinAgeDays: 30,
 	})
@@ -480,9 +488,10 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
 	testutil.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")
+	campaignID := "sample-campaign"
 	ctx := context.Background()
 
-	trialBalance, err := GetTrialBalance(ctx, databasePath)
+	trialBalance, err := GetTrialBalance(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get trial balance: %v", err)
 	}
@@ -502,7 +511,7 @@ func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 		t.Fatalf("loss on sale row balance = %d, want 200", row.Balance)
 	}
 
-	promised, err := GetPromisedQuests(ctx, databasePath)
+	promised, err := GetPromisedQuests(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get promised quests: %v", err)
 	}
@@ -516,7 +525,7 @@ func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 		t.Fatalf("second promised quest = %+v, want offered Clear the Old Watchtower", promised[1])
 	}
 
-	receivables, err := GetQuestReceivables(ctx, databasePath)
+	receivables, err := GetQuestReceivables(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get quest receivables: %v", err)
 	}
@@ -527,7 +536,7 @@ func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 		t.Fatalf("quest receivable row = %+v, want Moonlit Escort with 700 paid and 500 outstanding", receivables[0])
 	}
 
-	writeoffCandidates, err := GetWriteOffCandidates(ctx, databasePath, WriteOffCandidateFilter{
+	writeoffCandidates, err := GetWriteOffCandidates(ctx, databasePath, campaignID, WriteOffCandidateFilter{
 		AsOfDate:   "2026-03-20",
 		MinAgeDays: 30,
 	})
@@ -541,7 +550,7 @@ func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 		t.Fatalf("write-off candidate row = %+v, want Moonlit Escort aged 38 days", writeoffCandidates[0])
 	}
 
-	lootSummary, err := GetLootSummary(ctx, databasePath, "loot")
+	lootSummary, err := GetLootSummary(ctx, databasePath, campaignID, "loot")
 	if err != nil {
 		t.Fatalf("get loot summary: %v", err)
 	}

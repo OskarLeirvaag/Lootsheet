@@ -9,6 +9,6 @@ import (
 
 // rebuildReferences deletes old references for a quest and inserts new ones
 // parsed from the notes text.
-func rebuildReferences(ctx context.Context, db *sql.DB, questID, questTitle, notes string) error {
-	return refs.RebuildReferences(ctx, db, "quest", questID, questTitle, notes)
+func rebuildReferences(ctx context.Context, db *sql.DB, questID, campaignID, questTitle, notes string) error {
+	return refs.RebuildReferences(ctx, db, "quest", questID, campaignID, questTitle, notes)
 }

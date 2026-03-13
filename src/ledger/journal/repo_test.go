@@ -13,8 +13,9 @@ import (
 
 func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	result, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
+	result, err := PostJournalEntry(context.Background(), databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -60,8 +61,9 @@ func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
 
 func TestPostJournalEntryRejectsUnbalancedInput(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
+	_, err := PostJournalEntry(context.Background(), databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Broken entry",
 		Lines: []ledger.JournalLineInput{
@@ -85,8 +87,9 @@ func TestPostJournalEntryRejectsUnbalancedInput(t *testing.T) {
 
 func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
+	posted, err := PostJournalEntry(context.Background(), databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -98,7 +101,7 @@ func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	reversal, err := ReverseJournalEntry(context.Background(), databasePath, posted.ID, "2026-03-09", "")
+	reversal, err := ReverseJournalEntry(context.Background(), databasePath, campaignID, posted.ID, "2026-03-09", "")
 	if err != nil {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
@@ -159,8 +162,9 @@ func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T
 
 func TestReverseAlreadyReversedEntryFails(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
+	posted, err := PostJournalEntry(context.Background(), databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -172,11 +176,11 @@ func TestReverseAlreadyReversedEntryFails(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	if _, err := ReverseJournalEntry(context.Background(), databasePath, posted.ID, "2026-03-09", ""); err != nil {
+	if _, err := ReverseJournalEntry(context.Background(), databasePath, campaignID, posted.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("first reversal: %v", err)
 	}
 
-	_, err = ReverseJournalEntry(context.Background(), databasePath, posted.ID, "2026-03-10", "")
+	_, err = ReverseJournalEntry(context.Background(), databasePath, campaignID, posted.ID, "2026-03-10", "")
 	if err == nil {
 		t.Fatal("expected reversing an already-reversed entry to fail")
 	}
@@ -188,8 +192,9 @@ func TestReverseAlreadyReversedEntryFails(t *testing.T) {
 
 func TestReverseNonexistentEntryFails(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := ReverseJournalEntry(context.Background(), databasePath, "nonexistent-id", "2026-03-09", "")
+	_, err := ReverseJournalEntry(context.Background(), databasePath, campaignID, "nonexistent-id", "2026-03-09", "")
 	if err == nil {
 		t.Fatal("expected reversing a nonexistent entry to fail")
 	}
@@ -201,13 +206,14 @@ func TestReverseNonexistentEntryFails(t *testing.T) {
 
 func TestDeactivatedAccountRejectsJournalPosting(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
 	// Deactivate account 1000 directly via SQL
 	testutil.RunSQLiteScriptForTest(t, databasePath,
 		"UPDATE accounts SET active = 0 WHERE code = '1000';",
 	)
 
-	_, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
+	_, err := PostJournalEntry(context.Background(), databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Should fail",
 		Lines: []ledger.JournalLineInput{

@@ -37,7 +37,7 @@ type BrowseItemRecord struct {
 }
 
 // ListBrowseItems returns held and recognized items of the given type with latest-appraisal detail.
-func ListBrowseItems(ctx context.Context, databasePath string, itemType string) ([]BrowseItemRecord, error) {
+func ListBrowseItems(ctx context.Context, databasePath string, campaignID string, itemType string) ([]BrowseItemRecord, error) {
 	itemType = strings.TrimSpace(itemType)
 	if itemType == "" {
 		itemType = "loot"
@@ -55,9 +55,9 @@ func ListBrowseItems(ctx context.Context, databasePath string, itemType string) 
 				holder,
 				notes
 			FROM loot_items
-			WHERE item_type = ? AND status IN ('held', 'recognized')
+			WHERE item_type = ? AND campaign_id = ? AND status IN ('held', 'recognized')
 			ORDER BY status, name, created_at, id
-		`, itemType)
+		`, itemType, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query loot browse items: %w", err)
 		}
@@ -110,9 +110,9 @@ func ListBrowseItems(ctx context.Context, databasePath string, itemType string) 
 				COALESCE(la.recognized_entry_id, '') AS recognized_entry_id
 			FROM loot_appraisals la
 			JOIN loot_items li ON li.id = la.loot_item_id
-			WHERE li.status IN ('held', 'recognized')
+			WHERE li.status IN ('held', 'recognized') AND li.campaign_id = ?
 			ORDER BY la.loot_item_id, la.appraised_at DESC, la.created_at DESC, la.id DESC
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query loot browse appraisals: %w", err)
 		}
@@ -156,10 +156,10 @@ func ListBrowseItems(ctx context.Context, databasePath string, itemType string) 
 				la.appraised_value
 			FROM loot_appraisals la
 			JOIN loot_items li ON li.id = la.loot_item_id
-			WHERE li.status IN ('held', 'recognized')
+			WHERE li.status IN ('held', 'recognized') AND li.campaign_id = ?
 			  AND la.recognized_entry_id IS NOT NULL
 			ORDER BY la.loot_item_id, la.appraised_at DESC, la.created_at DESC, la.id DESC
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query loot browse recognized appraisals: %w", err)
 		}

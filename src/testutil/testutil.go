@@ -147,6 +147,13 @@ func ExecSQLiteForTest(t testing.TB, databasePath string, query string, args ...
 	}
 }
 
+// DefaultCampaignID reads the active_campaign_id from settings — the campaign
+// created during InitTestDB.
+func DefaultCampaignID(t testing.TB, databasePath string) string {
+	t.Helper()
+	return RunSQLiteQueryForTest(t, databasePath, "SELECT value FROM settings WHERE key = 'active_campaign_id'")
+}
+
 // AcceptQuest transitions a quest to 'accepted' status via direct SQL.
 // Use this only for test setup — it skips domain validation.
 func AcceptQuest(t testing.TB, databasePath string, questID string, acceptedDate string) {

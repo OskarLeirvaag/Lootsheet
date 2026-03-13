@@ -14,7 +14,7 @@ import (
 )
 
 // PostJournalEntry validates, resolves accounts, and posts a balanced journal entry.
-func PostJournalEntry(ctx context.Context, databasePath string, input ledger.JournalPostInput) (ledger.PostedJournalEntry, error) {
+func PostJournalEntry(ctx context.Context, databasePath string, campaignID string, input ledger.JournalPostInput) (ledger.PostedJournalEntry, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
@@ -22,7 +22,7 @@ func PostJournalEntry(ctx context.Context, databasePath string, input ledger.Jou
 		}
 		defer tx.Rollback()
 
-		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, input)
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, campaignID, input)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -39,7 +39,7 @@ func PostJournalEntry(ctx context.Context, databasePath string, input ledger.Jou
 // original entry by swapping debits and credits. The original entry's status
 // is set to 'reversed' and its reversed_at timestamp is recorded.
 // The original entry must exist and have status='posted'.
-func ReverseJournalEntry(ctx context.Context, databasePath string, originalEntryID string, reversalDate string, description string) (ledger.PostedJournalEntry, error) {
+func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID string, originalEntryID string, reversalDate string, description string) (ledger.PostedJournalEntry, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
 		// Verify the original entry exists and is posted.
 		var originalStatus string
@@ -95,7 +95,7 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, originalEntry
 			description = fmt.Sprintf("Reversal of entry #%d", originalEntryNumber)
 		}
 
-		entryNumber, err := ledger.NextJournalEntryNumber(ctx, db)
+		entryNumber, err := ledger.NextJournalEntryNumber(ctx, db, campaignID)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -110,8 +110,8 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, originalEntry
 
 		// Create the reversal entry.
 		if _, err := tx.ExecContext(ctx,
-			"INSERT INTO journal_entries (id, entry_number, status, entry_date, description, reverses_entry_id, posted_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-			reversalEntryID, entryNumber, "posted", reversalDate, description, originalEntryID,
+			"INSERT INTO journal_entries (id, campaign_id, entry_number, status, entry_date, description, reverses_entry_id, posted_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+			reversalEntryID, campaignID, entryNumber, "posted", reversalDate, description, originalEntryID,
 		); err != nil {
 			return ledger.PostedJournalEntry{}, fmt.Errorf("insert reversal journal entry: %w", err)
 		}

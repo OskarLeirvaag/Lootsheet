@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"slices"
 
@@ -111,6 +112,14 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, backupDir s
 	}
 	defer db.Close()
 
+	// Disable FK checks for table-rebuild migrations (DROP+RENAME requires
+	// foreign_keys=OFF which cannot run inside a transaction). The migration
+	// SQL itself is still executed inside a transaction for atomicity. After
+	// commit we run foreign_key_check and re-enable foreign_keys.
+	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+		return MigrationResult{}, fmt.Errorf("disable foreign keys for migration: %w", err)
+	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("begin migration transaction: %w", err)
@@ -156,6 +165,11 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, backupDir s
 		return MigrationResult{}, fmt.Errorf("commit migration transaction: %w", err)
 	}
 
+	// Verify FK integrity and re-enable foreign keys after table rebuilds.
+	if err := verifyForeignKeys(ctx, db); err != nil {
+		return MigrationResult{}, err
+	}
+
 	return result, nil
 }
 
@@ -184,6 +198,32 @@ func toPendingMigrations(migrations []config.InitMigration) []PendingMigration {
 	}
 
 	return pending
+}
+
+func verifyForeignKeys(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, "PRAGMA foreign_key_check")
+	if err != nil {
+		return fmt.Errorf("foreign key check: %w", err)
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		var table, rowid, parent, fkid string
+		if scanErr := rows.Scan(&table, &rowid, &parent, &fkid); scanErr == nil {
+			return fmt.Errorf("foreign key violation after migration: table=%s rowid=%s parent=%s", table, rowid, parent)
+		}
+		return fmt.Errorf("foreign key violation detected after migration")
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("foreign key check iteration: %w", err)
+	}
+
+	if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("re-enable foreign keys: %w", err)
+	}
+
+	return nil
 }
 
 const schemaMigrationsTableSQL = `CREATE TABLE IF NOT EXISTS schema_migrations (

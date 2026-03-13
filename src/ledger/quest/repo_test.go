@@ -11,8 +11,9 @@ import (
 
 func TestCreateQuestOffered(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Clear the Goblin Cave",
 		Patron:             "Mayor Thornton",
 		Description:        "Goblins infesting the east cave",
@@ -43,8 +44,9 @@ func TestCreateQuestOffered(t *testing.T) {
 
 func TestCreateQuestAccepted(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Escort the Merchant",
 		PromisedBaseReward: 200,
 		Status:             "accepted",
@@ -65,8 +67,9 @@ func TestCreateQuestAccepted(t *testing.T) {
 
 func TestCreateQuestAcceptedRequiresDate(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:  "No Date Quest",
 		Status: "accepted",
 	})
@@ -81,8 +84,9 @@ func TestCreateQuestAcceptedRequiresDate(t *testing.T) {
 
 func TestCreateQuestRejectsEmptyTitle(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title: "",
 	})
 	if err == nil {
@@ -96,8 +100,9 @@ func TestCreateQuestRejectsEmptyTitle(t *testing.T) {
 
 func TestCreateQuestRejectsInvalidStatus(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:  "Bad Status Quest",
 		Status: "completed",
 	})
@@ -112,8 +117,9 @@ func TestCreateQuestRejectsInvalidStatus(t *testing.T) {
 
 func TestListQuests(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	_, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Quest A",
 		PromisedBaseReward: 100,
 		Status:             "offered",
@@ -122,7 +128,7 @@ func TestListQuests(t *testing.T) {
 		t.Fatalf("create quest A: %v", err)
 	}
 
-	_, err = CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	_, err = CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Quest B",
 		PromisedBaseReward: 200,
 		Status:             "accepted",
@@ -132,7 +138,7 @@ func TestListQuests(t *testing.T) {
 		t.Fatalf("create quest B: %v", err)
 	}
 
-	quests, err := ListQuests(context.Background(), databasePath)
+	quests, err := ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -149,8 +155,9 @@ func TestListQuests(t *testing.T) {
 
 func TestCollectQuestFullPayment(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Paid Quest",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -162,7 +169,7 @@ func TestCollectQuestFullPayment(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
-	entry, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	entry, err := CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  500,
 		Date:    "2026-03-12",
@@ -180,7 +187,7 @@ func TestCollectQuestFullPayment(t *testing.T) {
 	}
 
 	// Verify quest moved to 'paid'.
-	quests, err := ListQuests(context.Background(), databasePath)
+	quests, err := ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -202,8 +209,9 @@ func TestCollectQuestFullPayment(t *testing.T) {
 
 func TestCollectQuestPartialPayment(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Partial Quest",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -215,7 +223,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
-	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err = CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  200,
 		Date:    "2026-03-12",
@@ -225,7 +233,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 	}
 
 	// Verify quest moved to 'partially_paid'.
-	quests, err := ListQuests(context.Background(), databasePath)
+	quests, err := ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -235,7 +243,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 	}
 
 	// Collect the remainder.
-	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err = CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  300,
 		Date:    "2026-03-15",
@@ -244,7 +252,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 		t.Fatalf("collect remaining payment: %v", err)
 	}
 
-	quests, err = ListQuests(context.Background(), databasePath)
+	quests, err = ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests after full payment: %v", err)
 	}
@@ -256,8 +264,9 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 
 func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Not Ready",
 		PromisedBaseReward: 100,
 		Status:             "offered",
@@ -266,7 +275,7 @@ func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err = CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  100,
 		Date:    "2026-03-12",
@@ -282,8 +291,9 @@ func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
 
 func TestCollectQuestPaymentRejectsAcceptedQuest(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Still In Progress",
 		PromisedBaseReward: 100,
 		Status:             "accepted",
@@ -293,7 +303,7 @@ func TestCollectQuestPaymentRejectsAcceptedQuest(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err = CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  100,
 		Date:    "2026-03-12",
@@ -309,8 +319,9 @@ func TestCollectQuestPaymentRejectsAcceptedQuest(t *testing.T) {
 
 func TestCollectQuestPaymentRejectsNonexistentQuest(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err := CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: "nonexistent-id",
 		Amount:  100,
 		Date:    "2026-03-12",
@@ -326,8 +337,9 @@ func TestCollectQuestPaymentRejectsNonexistentQuest(t *testing.T) {
 
 func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	createdQuest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	createdQuest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Custom Description Balance",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -339,7 +351,7 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, createdQuest.ID, "2026-03-10")
 
-	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	if _, err := CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID:     createdQuest.ID,
 		Amount:      200,
 		Date:        "2026-03-12",
@@ -348,7 +360,7 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 		t.Fatalf("collect partial payment: %v", err)
 	}
 
-	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	if _, err := CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: createdQuest.ID,
 		Amount:  300,
 		Date:    "2026-03-15",
@@ -356,7 +368,7 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 		t.Fatalf("collect remaining payment: %v", err)
 	}
 
-	quests, err := ListQuests(context.Background(), databasePath)
+	quests, err := ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -368,8 +380,9 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 
 func TestWriteOffCompletedQuest(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Slay the Dragon",
 		Patron:             "King Aldric",
 		PromisedBaseReward: 1000,
@@ -382,7 +395,7 @@ func TestWriteOffCompletedQuest(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
-	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+	entry, err := WriteOffQuest(context.Background(), databasePath, campaignID, WriteOffQuestInput{
 		QuestID: quest.ID,
 		Date:    "2026-03-20",
 	})
@@ -402,7 +415,7 @@ func TestWriteOffCompletedQuest(t *testing.T) {
 		t.Fatalf("entry description = %q, want default write-off description", entry.Description)
 	}
 
-	quests, err := ListQuests(context.Background(), databasePath)
+	quests, err := ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -418,8 +431,9 @@ func TestWriteOffCompletedQuest(t *testing.T) {
 
 func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Escort the Caravan",
 		Patron:             "Merchant Guild",
 		PromisedBaseReward: 500,
@@ -432,7 +446,7 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
-	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err = CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  200,
 		Date:    "2026-03-12",
@@ -441,7 +455,7 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 		t.Fatalf("collect partial payment: %v", err)
 	}
 
-	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+	entry, err := WriteOffQuest(context.Background(), databasePath, campaignID, WriteOffQuestInput{
 		QuestID:     quest.ID,
 		Date:        "2026-03-25",
 		Description: "Merchant Guild defaulted on remainder",
@@ -458,7 +472,7 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 		t.Fatalf("entry description = %q, want custom description", entry.Description)
 	}
 
-	quests, err := ListQuests(context.Background(), databasePath)
+	quests, err := ListQuests(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -470,8 +484,9 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 
 func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	createdQuest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	createdQuest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Partial Payment Before Default",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -483,7 +498,7 @@ func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, createdQuest.ID, "2026-03-10")
 
-	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	if _, err := CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID:     createdQuest.ID,
 		Amount:      200,
 		Date:        "2026-03-12",
@@ -492,7 +507,7 @@ func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
 		t.Fatalf("collect partial payment: %v", err)
 	}
 
-	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+	entry, err := WriteOffQuest(context.Background(), databasePath, campaignID, WriteOffQuestInput{
 		QuestID: createdQuest.ID,
 		Date:    "2026-03-20",
 	})
@@ -507,8 +522,9 @@ func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
 
 func TestWriteOffQuestNotCompleted(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Offered Only Quest",
 		PromisedBaseReward: 100,
 		Status:             "offered",
@@ -517,7 +533,7 @@ func TestWriteOffQuestNotCompleted(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	_, err = WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+	_, err = WriteOffQuest(context.Background(), databasePath, campaignID, WriteOffQuestInput{
 		QuestID: quest.ID,
 		Date:    "2026-03-20",
 	})
@@ -532,8 +548,9 @@ func TestWriteOffQuestNotCompleted(t *testing.T) {
 
 func TestWriteOffQuestFullyPaid(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	quest, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Fully Paid Quest",
 		PromisedBaseReward: 500,
 		Status:             "accepted",
@@ -545,7 +562,7 @@ func TestWriteOffQuestFullyPaid(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
-	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
+	_, err = CollectQuestPayment(context.Background(), databasePath, campaignID, CollectQuestPaymentInput{
 		QuestID: quest.ID,
 		Amount:  500,
 		Date:    "2026-03-12",
@@ -554,7 +571,7 @@ func TestWriteOffQuestFullyPaid(t *testing.T) {
 		t.Fatalf("collect full payment: %v", err)
 	}
 
-	_, err = WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
+	_, err = WriteOffQuest(context.Background(), databasePath, campaignID, WriteOffQuestInput{
 		QuestID: quest.ID,
 		Date:    "2026-03-25",
 	})
@@ -569,8 +586,9 @@ func TestWriteOffQuestFullyPaid(t *testing.T) {
 
 func TestUpdateQuestEditsAcceptedQuestFields(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	record, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	record, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Goblin Bounty",
 		Patron:             "Mayor Rowan",
 		Description:        "Clear the cave",
@@ -585,7 +603,7 @@ func TestUpdateQuestEditsAcceptedQuestFields(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	updated, err := UpdateQuest(context.Background(), databasePath, record.ID, &UpdateQuestInput{
+	updated, err := UpdateQuest(context.Background(), databasePath, campaignID, record.ID, &UpdateQuestInput{
 		Title:              "Goblin Cave Cleanup",
 		Patron:             "Mayor Rowan",
 		Description:        "Sweep the tunnels",
@@ -609,8 +627,9 @@ func TestUpdateQuestEditsAcceptedQuestFields(t *testing.T) {
 
 func TestUpdateQuestRejectsRewardChangeAfterCompletion(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	record, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
+	record, err := CreateQuest(context.Background(), databasePath, campaignID, &CreateQuestInput{
 		Title:              "Late Reward Change",
 		PromisedBaseReward: 2500,
 		Status:             "accepted",
@@ -621,7 +640,7 @@ func TestUpdateQuestRejectsRewardChangeAfterCompletion(t *testing.T) {
 	}
 	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
-	_, err = UpdateQuest(context.Background(), databasePath, record.ID, &UpdateQuestInput{
+	_, err = UpdateQuest(context.Background(), databasePath, campaignID, record.ID, &UpdateQuestInput{
 		Title:              "Late Reward Change",
 		PromisedBaseReward: 3000,
 		PartialAdvance:     0,

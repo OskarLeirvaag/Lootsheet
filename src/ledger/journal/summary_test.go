@@ -10,8 +10,9 @@ import (
 
 func TestGetSummaryEmptyJournal(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	summary, err := GetSummary(context.Background(), databasePath)
+	summary, err := GetSummary(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get journal summary: %v", err)
 	}
@@ -26,9 +27,10 @@ func TestGetSummaryEmptyJournal(t *testing.T) {
 
 func TestGetSummaryTracksPostedAndReversalEntries(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	posted, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -40,11 +42,11 @@ func TestGetSummaryTracksPostedAndReversalEntries(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	if _, err := ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-09", "Correct duplicate"); err != nil {
+	if _, err := ReverseJournalEntry(ctx, databasePath, campaignID, posted.ID, "2026-03-09", "Correct duplicate"); err != nil {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	summary, err := GetSummary(ctx, databasePath)
+	summary, err := GetSummary(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("get journal summary: %v", err)
 	}

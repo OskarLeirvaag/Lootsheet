@@ -10,9 +10,10 @@ import (
 
 func TestListBrowseEntriesReturnsLinesAndReversalLinkage(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	first, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	first, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -24,7 +25,7 @@ func TestListBrowseEntriesReturnsLinesAndReversalLinkage(t *testing.T) {
 		t.Fatalf("post first journal entry: %v", err)
 	}
 
-	second, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	second, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-09",
 		Description: "Quest reward earned",
 		Lines: []ledger.JournalLineInput{
@@ -36,12 +37,12 @@ func TestListBrowseEntriesReturnsLinesAndReversalLinkage(t *testing.T) {
 		t.Fatalf("post second journal entry: %v", err)
 	}
 
-	reversal, err := ReverseJournalEntry(ctx, databasePath, first.ID, "2026-03-08", "")
+	reversal, err := ReverseJournalEntry(ctx, databasePath, campaignID, first.ID, "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("reverse first journal entry: %v", err)
 	}
 
-	entries, err := ListBrowseEntries(ctx, databasePath)
+	entries, err := ListBrowseEntries(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list browse entries: %v", err)
 	}

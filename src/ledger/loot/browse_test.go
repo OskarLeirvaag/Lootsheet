@@ -10,22 +10,23 @@ import (
 
 func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create item: %v", err)
 	}
 
-	if _, err := AppraiseLootItem(ctx, databasePath, item.ID, 600, "Guild factor", "2026-03-08", "First pass"); err != nil {
+	if _, err := AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 600, "Guild factor", "2026-03-08", "First pass"); err != nil {
 		t.Fatalf("first appraisal: %v", err)
 	}
-	latest, err := AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
+	latest, err := AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
 	if err != nil {
 		t.Fatalf("second appraisal: %v", err)
 	}
 
-	rows, err := ListBrowseItems(ctx, databasePath, "loot")
+	rows, err := ListBrowseItems(ctx, databasePath, campaignID, "loot")
 	if err != nil {
 		t.Fatalf("list browse items: %v", err)
 	}
@@ -62,24 +63,25 @@ func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
 
 func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 1, "", "", "loot")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Silver Chalice", "Goblin den", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create item: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(ctx, databasePath, item.ID, 800, "Guild factor", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 800, "Guild factor", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise item: %v", err)
 	}
 
-	entry, err := RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", "")
+	entry, err := RecognizeLootAppraisal(ctx, databasePath, campaignID, appraisal.ID, "2026-03-09", "")
 	if err != nil {
 		t.Fatalf("recognize appraisal: %v", err)
 	}
 
-	rows, err := ListBrowseItems(ctx, databasePath, "loot")
+	rows, err := ListBrowseItems(ctx, databasePath, campaignID, "loot")
 	if err != nil {
 		t.Fatalf("list browse items: %v", err)
 	}
@@ -107,25 +109,26 @@ func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *test
 
 func TestListBrowseItemsExcludesSoldItems(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "", "loot")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Ruby", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create item: %v", err)
 	}
 
-	appraisal, err := AppraiseLootItem(ctx, databasePath, item.ID, 500, "", "2026-03-08", "")
+	appraisal, err := AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 500, "", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise item: %v", err)
 	}
-	if _, err := RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+	if _, err := RecognizeLootAppraisal(ctx, databasePath, campaignID, appraisal.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("recognize appraisal: %v", err)
 	}
-	if _, err := SellLootItem(ctx, databasePath, item.ID, 500, "2026-03-10", ""); err != nil {
+	if _, err := SellLootItem(ctx, databasePath, campaignID, item.ID, 500, "2026-03-10", ""); err != nil {
 		t.Fatalf("sell item: %v", err)
 	}
 
-	rows, err := ListBrowseItems(ctx, databasePath, "loot")
+	rows, err := ListBrowseItems(ctx, databasePath, campaignID, "loot")
 	if err != nil {
 		t.Fatalf("list browse items: %v", err)
 	}

@@ -22,7 +22,7 @@ type AssetTemplateLineRecord struct {
 }
 
 // SaveAssetTemplate replaces all template lines for an asset in a single transaction.
-func SaveAssetTemplate(ctx context.Context, databasePath string, itemID string, lines []AssetTemplateLineRecord) error {
+func SaveAssetTemplate(ctx context.Context, databasePath string, campaignID string, itemID string, lines []AssetTemplateLineRecord) error {
 	itemID = strings.TrimSpace(itemID)
 	if itemID == "" {
 		return fmt.Errorf("item ID is required")
@@ -83,4 +83,3 @@ func SaveAssetTemplate(ctx context.Context, databasePath string, itemID string, 
 		return nil
 	})
 }
-
