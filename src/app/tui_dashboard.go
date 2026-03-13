@@ -81,7 +81,18 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 
 	databaseName := loader.DatabaseName()
 	campaignName := loader.CampaignName()
+
+	var campaignOptions []render.CampaignOption
+	if campaigns, listErr := loader.ListCampaigns(ctx); listErr == nil {
+		campaignOptions = make([]render.CampaignOption, len(campaigns))
+		for i, c := range campaigns {
+			campaignOptions[i] = render.CampaignOption{ID: c.ID, Name: c.Name}
+		}
+	}
+
 	data := render.ShellData{
+		CampaignName: campaignName,
+		Campaigns:    campaignOptions,
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
 				fmt.Sprintf("Campaign: %s  |  Read-only snapshot from %s.", campaignName, databaseName),
