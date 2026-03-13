@@ -1,9 +1,11 @@
 # LootSheet
 
 [![Go](https://img.shields.io/github/go-mod/go-version/OskarLeirvaag/Lootsheet)](https://go.dev/)
-[![License: GPL v3](https://img.shields.io/github/license/OskarLeirvaag/Lootsheet)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/OskarLeirvaag/Lootsheet)](https://goreportcard.com/report/github.com/OskarLeirvaag/Lootsheet)
 [![Top Language](https://img.shields.io/github/languages/top/OskarLeirvaag/Lootsheet)](https://github.com/OskarLeirvaag/Lootsheet)
 [![Code Size](https://img.shields.io/github/languages/code-size/OskarLeirvaag/Lootsheet)](https://github.com/OskarLeirvaag/Lootsheet)
+[![Last Commit](https://img.shields.io/github/last-commit/OskarLeirvaag/Lootsheet)](https://github.com/OskarLeirvaag/Lootsheet/commits)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue)](https://github.com/OskarLeirvaag/Lootsheet)
 
 LootSheet is a local bookkeeping tool for D&D 5e parties.
 
