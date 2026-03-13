@@ -5,18 +5,7 @@ package ledger
 import (
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 )
-
-// HandlerContext provides shared dependencies for CLI handler functions
-// in domain packages. This avoids circular imports between domain packages
-// and the app package.
-type HandlerContext struct {
-	DatabasePath string
-	Stdout       io.Writer
-	Logger       *slog.Logger
-}
 
 // AccountType represents the classification of a ledger account.
 type AccountType string

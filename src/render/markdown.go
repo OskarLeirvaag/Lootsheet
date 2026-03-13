@@ -7,7 +7,6 @@ import (
 
 // Type aliases re-export markdown types so render-internal code
 // can continue using unqualified names.
-type styledSpan = markdown.StyledSpan
 type styledLine = markdown.StyledLine
 
 // markdownStyles builds a MarkdownStyles from a Theme.
@@ -35,11 +34,6 @@ func parseMarkdownLines(body string, width int, theme *Theme) []styledLine {
 // isRefTerminatorRune delegates to the markdown sub-package.
 func isRefTerminatorRune(r rune) bool {
 	return markdown.IsRefTerminatorRune(r)
-}
-
-// WriteStyledSpans delegates to the markdown sub-package.
-func WriteStyledSpans(buffer *Buffer, x, y int, spans []styledSpan, maxWidth int) {
-	markdown.WriteStyledSpans(buffer, x, y, spans, maxWidth)
 }
 
 // DrawStyledPanel renders a panel with styled line content instead of plain strings.

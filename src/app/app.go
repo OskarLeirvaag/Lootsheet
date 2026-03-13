@@ -65,13 +65,6 @@ func New(cfg *config.Config, stdout io.Writer, logOutput io.Writer) (*Applicatio
 	}, nil
 }
 
-func (a *Application) handlerContext() ledger.HandlerContext {
-	return ledger.HandlerContext{
-		DatabasePath: a.config.Paths.DatabasePath,
-		Stdout:       a.stdout,
-	}
-}
-
 // Run parses the top-level command from args and dispatches to the appropriate
 // subcommand handler. It shuts down the logger on return.
 func (a *Application) Run(ctx context.Context, args []string) error {

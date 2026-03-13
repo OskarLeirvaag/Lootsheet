@@ -100,28 +100,3 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 		},
 	}, nil
 }
-
-// GetDatabaseStatus returns basic database status without comparing against
-// available migrations. For a status that includes pending migration info,
-// use GetDatabaseStatusWithAssets instead.
-func GetDatabaseStatus(ctx context.Context, databasePath string) (DatabaseStatus, error) {
-	state, err := InspectSQLiteDatabase(ctx, databasePath)
-	if err != nil {
-		return DatabaseStatus{}, err
-	}
-
-	stateLabel := state.LifecycleState
-	if state.SchemaVersion != "" && stateLabel == DatabaseStateUninitialized {
-		stateLabel = DatabaseStateCurrent
-	}
-
-	return DatabaseStatus{
-		Exists:            state.Exists,
-		Initialized:       state.SchemaVersion != "",
-		State:             stateLabel,
-		Detail:            state.Detail,
-		UserTableCount:    state.UserTableCount,
-		SchemaVersion:     state.SchemaVersion,
-		AppliedMigrations: state.AppliedMigrations,
-	}, nil
-}
