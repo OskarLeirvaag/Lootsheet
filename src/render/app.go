@@ -16,6 +16,7 @@ type Options struct {
 	DashboardLoader DashboardLoader
 	ShellLoader     ShellLoader
 	CommandHandler  CommandHandler
+	SearchHandler   SearchHandler
 	Theme           Theme
 	KeyMap          KeyMap
 }
@@ -69,6 +70,9 @@ func Run(ctx context.Context, options *Options) error {
 
 	data := loadShellData(ctx, options)
 	shell := NewShell(&data)
+	if options != nil {
+		shell.SetSearchHandler(options.SearchHandler)
+	}
 	drawFrame(terminal, shell, &theme, keymap, false)
 
 	for {

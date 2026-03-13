@@ -42,6 +42,8 @@ type TUIDataLoader interface {
 	ListAllEntityReferences(ctx context.Context) (map[string][]refs.EntityReference, error)
 	GetWriteOffCandidates(ctx context.Context) ([]report.WriteOffCandidateRow, error)
 	GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error)
+	SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error)
+	SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error)
 }
 
 // sqliteDataLoader implements TUIDataLoader by delegating each method to the
@@ -150,4 +152,12 @@ func (s *sqliteDataLoader) GetWriteOffCandidates(ctx context.Context) ([]report.
 
 func (s *sqliteDataLoader) GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error) {
 	return journal.GetAccountLedger(ctx, s.databasePath, accountCode)
+}
+
+func (s *sqliteDataLoader) SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error) {
+	return codex.SearchEntries(ctx, s.databasePath, query)
+}
+
+func (s *sqliteDataLoader) SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error) {
+	return notes.SearchNotes(ctx, s.databasePath, query)
 }

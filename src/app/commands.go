@@ -104,6 +104,7 @@ func (a *Application) newTUICommand() *cobra.Command {
 			CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
 				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, loader)
 			},
+			SearchHandler: buildSearchHandler(ctx, loader),
 		})
 	})
 }
