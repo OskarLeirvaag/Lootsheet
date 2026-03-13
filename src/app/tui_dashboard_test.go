@@ -17,18 +17,19 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
-func TestBuildTUIDashboardDataForUninitializedDatabase(t *testing.T) {
+func TestBuildTUIShellDataForUninitializedDatabase(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
 	}
 
 	databasePath := t.TempDir() + "/lootsheet.db"
-	data, err := buildTUIDashboardData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	shell, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
-		t.Fatalf("build dashboard data: %v", err)
+		t.Fatalf("build shell data: %v", err)
 	}
 
+	data := shell.Dashboard
 	if !strings.Contains(data.HeaderLines[0], "uninitialized") {
 		t.Fatalf("header = %q, want uninitialized state", data.HeaderLines[0])
 	}
@@ -37,7 +38,7 @@ func TestBuildTUIDashboardDataForUninitializedDatabase(t *testing.T) {
 	}
 }
 
-func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
+func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
@@ -101,11 +102,12 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("recognize loot appraisal: %v", err)
 	}
 
-	data, err := buildTUIDashboardData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	shell, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
-		t.Fatalf("build dashboard data: %v", err)
+		t.Fatalf("build shell data: %v", err)
 	}
 
+	data := shell.Dashboard
 	if !strings.Contains(strings.Join(data.AccountsLines, "\n"), "Accounts: 16 total") {
 		t.Fatalf("accounts lines = %q", data.AccountsLines)
 	}

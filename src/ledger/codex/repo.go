@@ -238,7 +238,7 @@ func UpdateEntry(ctx context.Context, databasePath string, entryID string, input
 	})
 }
 
-// DeleteEntry removes a codex entry from the database. References cascade.
+// DeleteEntry removes a codex entry and its outbound entity_references rows.
 func DeleteEntry(ctx context.Context, databasePath string, entryID string) error {
 	entryID = strings.TrimSpace(entryID)
 	if entryID == "" {
@@ -257,7 +257,7 @@ func DeleteEntry(ctx context.Context, databasePath string, entryID string) error
 		if affected == 0 {
 			return fmt.Errorf("codex entry %q does not exist", entryID)
 		}
-		return nil
+		return refs.DeleteBySource(ctx, db, "codex", entryID)
 	})
 }
 

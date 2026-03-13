@@ -20,7 +20,7 @@ type tuiQuestRow struct {
 	OffLedger   bool
 }
 
-func summarizeQuests(promised []report.PromisedQuestRow, receivables []report.QuestReceivableRow) []string {
+func summarizeQuests(promised []report.PromisedQuestRow, receivables []report.QuestReceivableRow, writeOffCandidates []report.WriteOffCandidateRow) []string {
 	var promisedValue int64
 	for _, row := range promised {
 		promisedValue += row.PromisedReward
@@ -31,12 +31,18 @@ func summarizeQuests(promised []report.PromisedQuestRow, receivables []report.Qu
 		receivableValue += row.Outstanding
 	}
 
-	return []string{
+	lines := []string{
 		fmt.Sprintf("Promised quests: %d", len(promised)),
 		"Promised value: " + currency.FormatAmount(promisedValue),
 		fmt.Sprintf("Receivables: %d", len(receivables)),
 		"Outstanding: " + currency.FormatAmount(receivableValue),
 	}
+
+	if len(writeOffCandidates) > 0 {
+		lines = append(lines, fmt.Sprintf("Stale receivables: %d (30+ days)", len(writeOffCandidates)))
+	}
+
+	return lines
 }
 
 func buildQuestItems(quests []tuiQuestRow, today string) []render.ListItemData {

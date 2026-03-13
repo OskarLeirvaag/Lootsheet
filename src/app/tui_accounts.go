@@ -3,8 +3,15 @@ package app
 import (
 	"fmt"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
+)
+
+const (
+	accountLedgerMaxEntries  = 50
+	accountLedgerDescWidth   = 20
 )
 
 func summarizeAccounts(accounts []ledger.AccountRecord) []string {
@@ -32,7 +39,7 @@ func summarizeAccounts(accounts []ledger.AccountRecord) []string {
 	}
 }
 
-func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
+func buildAccountItems(accounts []ledger.AccountRecord, ledgers map[string]journal.AccountLedgerReport) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(accounts))
 	for _, record := range accounts {
 		status := "inactive"
@@ -86,20 +93,51 @@ func buildAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
 			},
 		}
 
+		detailLines := []string{
+			"Name: " + record.Name,
+			"Type: " + string(record.Type),
+			"Status: " + status,
+			"Code: " + record.Code + " (immutable)",
+			"Used accounts may be marked inactive. Accounts with postings cannot be deleted.",
+		}
+
+		if report, ok := ledgers[record.Code]; ok && len(report.Entries) > 0 {
+			detailLines = append(detailLines, "", "\u2500\u2500 Ledger \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
+			entries := report.Entries
+			if len(entries) > accountLedgerMaxEntries {
+				entries = entries[len(entries)-accountLedgerMaxEntries:]
+			}
+			for _, e := range entries {
+				amount := formatLedgerAmount(e.DebitAmount, e.CreditAmount)
+				detailLines = append(detailLines,
+					fmt.Sprintf("#%-3d  %-10s  %-20s  %8s  %s",
+						e.EntryNumber, e.EntryDate, truncate(e.Description, accountLedgerDescWidth), amount, currency.FormatAmount(e.RunningBalance)))
+			}
+			detailLines = append(detailLines, "Balance: "+currency.FormatAmount(report.Balance))
+		}
+
 		items = append(items, render.ListItemData{
 			Key:         record.Code,
 			Row:         fmt.Sprintf("%-4s %-9s %-8s %s", record.Code, string(record.Type), status, record.Name),
 			DetailTitle: "Account " + record.Code,
-			DetailLines: []string{
-				"Name: " + record.Name,
-				"Type: " + string(record.Type),
-				"Status: " + status,
-				"Code: " + record.Code + " (immutable)",
-				"Used accounts may be marked inactive. Accounts with postings cannot be deleted.",
-			},
-			Actions: []render.ItemActionData{renameAction, deleteAction, toggleAction},
+			DetailLines: detailLines,
+			Actions:     []render.ItemActionData{renameAction, deleteAction, toggleAction},
 		})
 	}
 
 	return items
+}
+
+func formatLedgerAmount(debit, credit int64) string {
+	if debit > 0 {
+		return "+" + currency.FormatAmount(debit)
+	}
+	return "-" + currency.FormatAmount(credit)
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-1] + "\u2026"
 }
