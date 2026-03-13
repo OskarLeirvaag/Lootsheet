@@ -7,16 +7,14 @@ Repo-specific rules for working in LootSheet.
 For meaningful product or architecture changes, read:
 
 - [README.md](README.md)
-- [DESIGN.md](DESIGN.md)
 - [TODO.md](TODO.md)
-
-Read [PLAN.md](PLAN.md) only when milestone sequencing matters.
 
 ## Invariants
 
 Do not weaken these unless the user explicitly changes direction:
 
 - posted journal entries are immutable
+- corrections happen through reversal, adjustment, or reclassification
 - journal entries must balance
 - account IDs are immutable
 - accounts with postings cannot be deleted
@@ -24,26 +22,33 @@ Do not weaken these unless the user explicitly changes direction:
 - promised quest rewards stay off-ledger until earned
 - unrealized loot appraisals stay off-ledger until explicitly recognized
 
+## Domain Rules
+
+Account types: `asset`, `liability`, `equity`, `income`, `expense`. Custom accounts are a first-class feature.
+
+Quest lifecycle: `offered` -> `accepted` -> `completed` -> `collectible` -> `partially_paid` / `paid` / `defaulted` / `voided`. Earned but unpaid rewards become receivables. Failed collection becomes a write-off, not silent deletion.
+
+Loot lifecycle: create with no value -> appraise -> recognize on-ledger -> sell. Sale records gain or loss against the recognized basis.
+
+Accounting assumptions: no VAT, invoice, or payroll. Small consumables default to expenses. Loot value is uncertain until sale.
+
 ## Repo Shape
 
 Keep this structure:
 
 - `main.go`
-- `src/app`
-- `src/account`
-- `src/journal`
-- `src/quest`
-- `src/loot`
-- `src/report`
-- `src/ledger`
-- `src/config`
-- `src/tools`
-- `src/render`
+- `src/app` — CLI commands, TUI data loaders, command handlers
+- `src/ledger` — SQLite storage, migrations, domain queries
+- `src/config` — configuration loading, embedded schema/seed assets
+- `src/render` — TUI shell, views, compose forms, search modal
+- `src/currency` — GP/SP/CP parsing and formatting
+- `src/texture` — shared text-processing helpers
+- `src/testutil` — test helpers and fixtures
 
 Dependency flow stays one-way:
 
-- `app -> domain packages -> ledger -> config`
-- no cross-domain imports between `account`, `journal`, `quest`, `loot`, and `report`
+- `app -> ledger -> config`
+- `currency` and `texture` are leaf packages with no internal dependencies
 
 ## Engineering Preferences
 
