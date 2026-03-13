@@ -101,7 +101,7 @@ func TestRunHandlesResizeAndRedrawBeforeExit(t *testing.T) {
 	}
 
 	plain := screen.lastFrame
-	for _, token := range []string{"LootSheet TUI", "Section: Dashboard", "q quit", "Ctrl+L refresh"} {
+	for _, token := range []string{"LootSheet TUI", "Section: Dashboard", "q quit", "Ctrl+L"} {
 		if !strings.Contains(plain, token) {
 			t.Fatalf("simulation output missing %q:\n%s", token, plain)
 		}

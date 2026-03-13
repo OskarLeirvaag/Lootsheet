@@ -10,9 +10,10 @@ import (
 
 func TestGetAccountLedgerWithTransactions(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	if _, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -23,7 +24,7 @@ func TestGetAccountLedgerWithTransactions(t *testing.T) {
 		t.Fatalf("post entry 1: %v", err)
 	}
 
-	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	if _, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Quest reward earned",
 		Lines: []ledger.JournalLineInput{
@@ -34,7 +35,7 @@ func TestGetAccountLedgerWithTransactions(t *testing.T) {
 		t.Fatalf("post entry 2: %v", err)
 	}
 
-	report, err := GetAccountLedger(ctx, databasePath, "1000")
+	report, err := GetAccountLedger(ctx, databasePath, campaignID, "1000")
 	if err != nil {
 		t.Fatalf("get account ledger: %v", err)
 	}
@@ -87,9 +88,10 @@ func TestGetAccountLedgerWithTransactions(t *testing.T) {
 
 func TestGetAccountLedgerReversedEntriesExcluded(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	posted, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -101,11 +103,11 @@ func TestGetAccountLedgerReversedEntriesExcluded(t *testing.T) {
 		t.Fatalf("post entry: %v", err)
 	}
 
-	if _, err := ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-09", ""); err != nil {
+	if _, err := ReverseJournalEntry(ctx, databasePath, campaignID, posted.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("reverse entry: %v", err)
 	}
 
-	report, err := GetAccountLedger(ctx, databasePath, "1000")
+	report, err := GetAccountLedger(ctx, databasePath, campaignID, "1000")
 	if err != nil {
 		t.Fatalf("get account ledger: %v", err)
 	}
@@ -129,9 +131,10 @@ func TestGetAccountLedgerReversedEntriesExcluded(t *testing.T) {
 
 func TestGetAccountLedgerIncomeAccountCreditNormal(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	if _, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Quest reward",
 		Lines: []ledger.JournalLineInput{
@@ -142,7 +145,7 @@ func TestGetAccountLedgerIncomeAccountCreditNormal(t *testing.T) {
 		t.Fatalf("post entry: %v", err)
 	}
 
-	report, err := GetAccountLedger(ctx, databasePath, "4000")
+	report, err := GetAccountLedger(ctx, databasePath, campaignID, "4000")
 	if err != nil {
 		t.Fatalf("get account ledger: %v", err)
 	}
@@ -158,9 +161,10 @@ func TestGetAccountLedgerIncomeAccountCreditNormal(t *testing.T) {
 
 func TestGetAccountLedgerEmptyAccount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	report, err := GetAccountLedger(ctx, databasePath, "1000")
+	report, err := GetAccountLedger(ctx, databasePath, campaignID, "1000")
 	if err != nil {
 		t.Fatalf("get account ledger: %v", err)
 	}
@@ -176,8 +180,9 @@ func TestGetAccountLedgerEmptyAccount(t *testing.T) {
 
 func TestGetAccountLedgerNonexistentAccount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := GetAccountLedger(context.Background(), databasePath, "9999")
+	_, err := GetAccountLedger(context.Background(), databasePath, campaignID, "9999")
 	if err == nil {
 		t.Fatal("expected error for nonexistent account")
 	}
@@ -185,9 +190,10 @@ func TestGetAccountLedgerNonexistentAccount(t *testing.T) {
 
 func TestGetAccountLedgerExpenseAccountDebitNormal(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	if _, err := PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Buy arrows",
 		Lines: []ledger.JournalLineInput{
@@ -198,7 +204,7 @@ func TestGetAccountLedgerExpenseAccountDebitNormal(t *testing.T) {
 		t.Fatalf("post entry: %v", err)
 	}
 
-	report, err := GetAccountLedger(ctx, databasePath, "5100")
+	report, err := GetAccountLedger(ctx, databasePath, campaignID, "5100")
 	if err != nil {
 		t.Fatalf("get account ledger: %v", err)
 	}

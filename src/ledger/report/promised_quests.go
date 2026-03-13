@@ -22,7 +22,7 @@ type PromisedQuestRow struct {
 
 // GetPromisedQuests returns quests that are still in offered or accepted
 // status, showing the promise details still tracked in the quest register.
-func GetPromisedQuests(ctx context.Context, databasePath string) ([]PromisedQuestRow, error) {
+func GetPromisedQuests(ctx context.Context, databasePath string, campaignID string) ([]PromisedQuestRow, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]PromisedQuestRow, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT
@@ -34,7 +34,7 @@ func GetPromisedQuests(ctx context.Context, databasePath string) ([]PromisedQues
 				q.partial_advance,
 				q.bonus_conditions
 			FROM quests q
-			WHERE q.status IN ('offered', 'accepted')
+			WHERE q.campaign_id = ? AND q.status IN ('offered', 'accepted')
 			ORDER BY
 			  CASE q.status
 			    WHEN 'accepted' THEN 1
@@ -42,7 +42,7 @@ func GetPromisedQuests(ctx context.Context, databasePath string) ([]PromisedQues
 			  END,
 			  COALESCE(q.accepted_on, q.created_at),
 			  q.title
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query promised quests: %w", err)
 		}

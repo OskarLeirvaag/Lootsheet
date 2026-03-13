@@ -131,7 +131,7 @@ func ListTypes(ctx context.Context, databasePath string) ([]CodexType, error) {
 }
 
 // CreateEntry inserts a new codex entry and rebuilds references.
-func CreateEntry(ctx context.Context, databasePath string, input *CreateInput) (CodexEntry, error) {
+func CreateEntry(ctx context.Context, databasePath string, campaignID string, input *CreateInput) (CodexEntry, error) {
 	if input == nil {
 		return CodexEntry{}, fmt.Errorf("codex entry input is required")
 	}
@@ -156,10 +156,10 @@ func CreateEntry(ctx context.Context, databasePath string, input *CreateInput) (
 		notes := strings.TrimSpace(input.Notes)
 
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO codex_entries (id, type_id, name, title, location, faction, disposition, party_member,
+			`INSERT INTO codex_entries (id, campaign_id, type_id, name, title, location, faction, disposition, party_member,
 			                            class, race, background, description, notes)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, typeID, name,
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, campaignID, typeID, name,
 			strings.TrimSpace(input.Title), strings.TrimSpace(input.Location),
 			strings.TrimSpace(input.Faction), strings.TrimSpace(input.Disposition),
 			partyMember,
@@ -170,7 +170,7 @@ func CreateEntry(ctx context.Context, databasePath string, input *CreateInput) (
 			return CodexEntry{}, fmt.Errorf("insert codex entry: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, id, name, notes); err != nil {
+		if err := rebuildReferences(ctx, db, id, campaignID, name, notes); err != nil {
 			return CodexEntry{}, err
 		}
 
@@ -179,7 +179,7 @@ func CreateEntry(ctx context.Context, databasePath string, input *CreateInput) (
 }
 
 // UpdateEntry edits a codex entry's fields and rebuilds references.
-func UpdateEntry(ctx context.Context, databasePath string, entryID string, input *UpdateInput) (CodexEntry, error) {
+func UpdateEntry(ctx context.Context, databasePath string, campaignID string, entryID string, input *UpdateInput) (CodexEntry, error) {
 	entryID = strings.TrimSpace(entryID)
 	if entryID == "" {
 		return CodexEntry{}, fmt.Errorf("codex entry ID is required")
@@ -230,7 +230,7 @@ func UpdateEntry(ctx context.Context, databasePath string, entryID string, input
 			return CodexEntry{}, fmt.Errorf("update codex entry: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, entryID, name, notes); err != nil {
+		if err := rebuildReferences(ctx, db, entryID, campaignID, name, notes); err != nil {
 			return CodexEntry{}, err
 		}
 
@@ -239,7 +239,7 @@ func UpdateEntry(ctx context.Context, databasePath string, entryID string, input
 }
 
 // DeleteEntry removes a codex entry and its outbound entity_references rows.
-func DeleteEntry(ctx context.Context, databasePath string, entryID string) error {
+func DeleteEntry(ctx context.Context, databasePath string, campaignID string, entryID string) error {
 	entryID = strings.TrimSpace(entryID)
 	if entryID == "" {
 		return fmt.Errorf("codex entry ID is required")
@@ -262,7 +262,7 @@ func DeleteEntry(ctx context.Context, databasePath string, entryID string) error
 }
 
 // ListEntries returns all codex entries joined with their type, ordered by type name then entry name.
-func ListEntries(ctx context.Context, databasePath string) ([]CodexEntry, error) {
+func ListEntries(ctx context.Context, databasePath string, campaignID string) ([]CodexEntry, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexEntry, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
@@ -270,8 +270,9 @@ func ListEntries(ctx context.Context, databasePath string) ([]CodexEntry, error)
 			       e.created_at, e.updated_at
 			FROM codex_entries e
 			JOIN codex_types t ON t.id = e.type_id
+			WHERE e.campaign_id = ?
 			ORDER BY e.party_member DESC, t.name ASC, e.name ASC
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query codex entries: %w", err)
 		}
@@ -303,10 +304,10 @@ func ListEntries(ctx context.Context, databasePath string) ([]CodexEntry, error)
 }
 
 // SearchEntries returns codex entries matching a LIKE query.
-func SearchEntries(ctx context.Context, databasePath string, query string) ([]CodexEntry, error) {
+func SearchEntries(ctx context.Context, databasePath string, campaignID string, query string) ([]CodexEntry, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return ListEntries(ctx, databasePath)
+		return ListEntries(ctx, databasePath, campaignID)
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexEntry, error) {
@@ -317,10 +318,11 @@ func SearchEntries(ctx context.Context, databasePath string, query string) ([]Co
 			       e.created_at, e.updated_at
 			FROM codex_entries e
 			JOIN codex_types t ON t.id = e.type_id
-			WHERE e.name LIKE ? OR e.title LIKE ? OR e.location LIKE ? OR e.faction LIKE ?
-			   OR e.notes LIKE ? OR e.class LIKE ? OR e.race LIKE ? OR e.description LIKE ?
+			WHERE (e.name LIKE ? OR e.title LIKE ? OR e.location LIKE ? OR e.faction LIKE ?
+			   OR e.notes LIKE ? OR e.class LIKE ? OR e.race LIKE ? OR e.description LIKE ?)
+			   AND e.campaign_id = ?
 			ORDER BY e.party_member DESC, t.name ASC, e.name ASC
-		`, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+		`, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("search codex entries: %w", err)
 		}
@@ -352,9 +354,9 @@ func SearchEntries(ctx context.Context, databasePath string, query string) ([]Co
 }
 
 // ListAllReferences returns all entity_references rows for codex source type, grouped by source_id.
-func ListAllReferences(ctx context.Context, databasePath string) (map[string][]refs.EntityReference, error) {
+func ListAllReferences(ctx context.Context, databasePath string, campaignID string) (map[string][]refs.EntityReference, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
-		return refs.ListBySource(ctx, db, "codex")
+		return refs.ListBySource(ctx, db, "codex", campaignID)
 	})
 }
 

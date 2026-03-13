@@ -11,11 +11,11 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
-	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestBuildTUIShellDataForUninitializedDatabase(t *testing.T) {
@@ -46,9 +46,10 @@ func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -60,11 +61,11 @@ func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	if _, err := journal.ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-09", "Correct duplicate"); err != nil {
+	if _, err := journal.ReverseJournalEntry(ctx, databasePath, campaignID, posted.ID, "2026-03-09", "Correct duplicate"); err != nil {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	if _, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	if _, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Goblin Bounty",
 		Patron:             "Mayor Rowan",
 		PromisedBaseReward: 2500,
@@ -74,7 +75,7 @@ func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	completedQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	completedQuest, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Bridge Toll Cleanup",
 		Patron:             "Road Warden",
 		PromisedBaseReward: 1000,
@@ -87,21 +88,21 @@ func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 
 	testutil.CompleteQuest(t, databasePath, completedQuest.ID, "2026-03-09")
 
-	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "", "loot")
+	lootItem, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Silver Chalice", "Goblin den", 2, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
 
-	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, lootItem.ID, 800, "Guild factor", "2026-03-08", "")
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, lootItem.ID, 800, "Guild factor", "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("appraise loot item: %v", err)
 	}
 
-	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", "Recognize chalice"); err != nil {
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, appraisal.ID, "2026-03-09", "Recognize chalice"); err != nil {
 		t.Fatalf("recognize loot appraisal: %v", err)
 	}
 
-	shell, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	shell, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -140,9 +141,10 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	if _, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	if _, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -153,7 +155,7 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	if _, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	if _, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Goblin Bounty",
 		Patron:             "Mayor Rowan",
 		PromisedBaseReward: 2500,
@@ -163,16 +165,16 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "", "loot")
+	lootItem, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Silver Chalice", "Goblin den", 2, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
 
-	if _, err := loot.AppraiseLootItem(ctx, databasePath, lootItem.ID, 800, "Guild factor", "2026-03-08", ""); err != nil {
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, lootItem.ID, 800, "Guild factor", "2026-03-08", ""); err != nil {
 		t.Fatalf("appraise loot item: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -198,7 +200,8 @@ func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
-	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
+	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -236,9 +239,10 @@ func TestBuildTUIShellDataAddsJournalReverseActionAndLineDetail(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -250,7 +254,7 @@ func TestBuildTUIShellDataAddsJournalReverseActionAndLineDetail(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -291,9 +295,10 @@ func TestBuildTUIShellDataOmitsJournalReverseActionForReversedOriginal(t *testin
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -305,12 +310,12 @@ func TestBuildTUIShellDataOmitsJournalReverseActionForReversedOriginal(t *testin
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	reversal, err := journal.ReverseJournalEntry(ctx, databasePath, posted.ID, "2026-03-08", "")
+	reversal, err := journal.ReverseJournalEntry(ctx, databasePath, campaignID, posted.ID, "2026-03-08", "")
 	if err != nil {
 		t.Fatalf("reverse journal entry: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -352,13 +357,14 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandAccountDeactivate,
 		Section: render.SectionSettings,
 		ItemKey: "1000",
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("deactivate account through tui command: %v", err)
 	}
@@ -394,6 +400,7 @@ func TestHandleTUICommandCreatesAccountAndNavigatesToAccounts(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -403,7 +410,7 @@ func TestHandleTUICommandCreatesAccountAndNavigatesToAccounts(t *testing.T) {
 			"name":         "Tavern Reparations",
 			"account_type": "expense",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("create account through tui command: %v", err)
 	}
@@ -425,9 +432,10 @@ func TestHandleTUICommandDeletesAccount(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	if _, err := account.CreateAccount(ctx, databasePath, "9900", "Unused Test Account", ledger.AccountTypeExpense); err != nil {
+	if _, err := account.CreateAccount(ctx, databasePath, campaignID, "9900", "Unused Test Account", ledger.AccountTypeExpense); err != nil {
 		t.Fatalf("create account: %v", err)
 	}
 
@@ -435,7 +443,7 @@ func TestHandleTUICommandDeletesAccount(t *testing.T) {
 		ID:      tuiCommandAccountDelete,
 		Section: render.SectionSettings,
 		ItemKey: "9900",
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("delete account through tui command: %v", err)
 	}
@@ -456,9 +464,10 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+	posted, err := journal.PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
 		Description: "Restock arrows",
 		Lines: []ledger.JournalLineInput{
@@ -474,7 +483,7 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 		ID:      tuiCommandJournalReverse,
 		Section: render.SectionJournal,
 		ItemKey: posted.ID,
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("reverse journal entry through tui command: %v", err)
 	}
@@ -487,7 +496,7 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 		t.Fatalf("status text = %q, want reversal summary", status.Text)
 	}
 
-	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	entries, err := journal.ListBrowseEntries(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list browse entries: %v", err)
 	}
@@ -527,7 +536,8 @@ func TestBuildTUIShellDataIncludesEntryCatalog(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
-	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
+	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -557,6 +567,7 @@ func TestHandleTUICommandCreatesExpenseAndNavigatesToJournal(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -569,7 +580,7 @@ func TestHandleTUICommandCreatesExpenseAndNavigatesToJournal(t *testing.T) {
 			"offset_account_code": "1000",
 			"memo":                "Quiver refill",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("create expense through tui command: %v", err)
 	}
@@ -595,6 +606,7 @@ func TestHandleTUICommandCreatesIncomeAndNavigatesToJournal(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -607,7 +619,7 @@ func TestHandleTUICommandCreatesIncomeAndNavigatesToJournal(t *testing.T) {
 			"offset_account_code": "1000",
 			"memo":                "Mayor payout",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("create income through tui command: %v", err)
 	}
@@ -633,6 +645,7 @@ func TestHandleTUICommandCreatesCustomEntryAndNavigatesToJournal(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -645,7 +658,7 @@ func TestHandleTUICommandCreatesCustomEntryAndNavigatesToJournal(t *testing.T) {
 			{Side: "debit", AccountCode: "1300", Amount: "500"},
 			{Side: "credit", AccountCode: "1000", Amount: "500"},
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("create custom through tui command: %v", err)
 	}
@@ -671,9 +684,10 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	record, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Goblin Bounty",
 		Patron:             "Mayor Rowan",
 		PromisedBaseReward: 2500,
@@ -685,7 +699,7 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 	}
 	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -735,9 +749,10 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	record, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Goblin Bounty",
 		Patron:             "Mayor Rowan",
 		PromisedBaseReward: 2500,
@@ -753,7 +768,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 		ID:      tuiCommandQuestCollectFull,
 		Section: render.SectionQuests,
 		ItemKey: record.ID,
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("collect quest through tui command: %v", err)
 	}
@@ -766,7 +781,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 		t.Fatalf("status text = %q, want collected amount", status.Text)
 	}
 
-	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	entries, err := journal.ListBrowseEntries(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list browse entries: %v", err)
 	}
@@ -813,9 +828,10 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	record, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Bridge Toll Cleanup",
 		Patron:             "Road Warden",
 		PromisedBaseReward: 1000,
@@ -831,7 +847,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 		ID:      tuiCommandQuestWriteOffFull,
 		Section: render.SectionQuests,
 		ItemKey: record.ID,
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("write off quest through tui command: %v", err)
 	}
@@ -844,7 +860,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 		t.Fatalf("status text = %q, want write-off amount", status.Text)
 	}
 
-	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	entries, err := journal.ListBrowseEntries(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list browse entries: %v", err)
 	}
@@ -888,6 +904,7 @@ func TestHandleTUICommandCreatesQuestAndNavigatesToQuests(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -902,7 +919,7 @@ func TestHandleTUICommandCreatesQuestAndNavigatesToQuests(t *testing.T) {
 			"status":      "accepted",
 			"accepted_on": "2026-03-10",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("create quest through tui command: %v", err)
 	}
@@ -924,6 +941,7 @@ func TestHandleTUICommandCreatesLootAndNavigatesToLoot(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -935,7 +953,7 @@ func TestHandleTUICommandCreatesLootAndNavigatesToLoot(t *testing.T) {
 			"holder":   "Bard",
 			"notes":    "Wrap in velvet",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("create loot through tui command: %v", err)
 	}
@@ -961,21 +979,22 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
+	item, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
-	if _, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 600, "Guild factor", "2026-03-08", "Initial pass"); err != nil {
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 600, "Guild factor", "2026-03-08", "Initial pass"); err != nil {
 		t.Fatalf("first appraisal: %v", err)
 	}
-	latest, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
+	latest, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
 	if err != nil {
 		t.Fatalf("second appraisal: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -1044,21 +1063,22 @@ func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
+	item, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
-	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 750, "Master jeweler", "2026-03-09", "Better lighting")
 	if err != nil {
 		t.Fatalf("appraise item: %v", err)
 	}
-	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-10", ""); err != nil {
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, appraisal.ID, "2026-03-10", ""); err != nil {
 		t.Fatalf("recognize item: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -1122,22 +1142,23 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	noAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Unknown Relic", "Ruins", 1, "", "", "loot")
+	noAppraisal, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Unknown Relic", "Ruins", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create no-appraisal item: %v", err)
 	}
 
-	zeroAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Worthless Trinket", "Roadside", 1, "", "", "loot")
+	zeroAppraisal, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Worthless Trinket", "Roadside", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create zero-appraisal item: %v", err)
 	}
-	if _, err := loot.AppraiseLootItem(ctx, databasePath, zeroAppraisal.ID, 0, "", "2026-03-08", "Unknown value"); err != nil {
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, zeroAppraisal.ID, 0, "", "2026-03-08", "Unknown value"); err != nil {
 		t.Fatalf("zero appraisal: %v", err)
 	}
 
-	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
 	}
@@ -1181,16 +1202,17 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
+	item, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
-	if _, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 600, "Guild factor", "2026-03-08", ""); err != nil {
+	if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 600, "Guild factor", "2026-03-08", ""); err != nil {
 		t.Fatalf("first appraisal: %v", err)
 	}
-	latest, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "")
+	latest, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 750, "Master jeweler", "2026-03-09", "")
 	if err != nil {
 		t.Fatalf("second appraisal: %v", err)
 	}
@@ -1199,7 +1221,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 		ID:      tuiCommandLootRecognize,
 		Section: render.SectionLoot,
 		ItemKey: item.ID,
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("recognize loot through tui command: %v", err)
 	}
@@ -1212,7 +1234,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 		t.Fatalf("status text = %q, want recognition summary", status.Text)
 	}
 
-	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	entries, err := journal.ListBrowseEntries(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list browse entries: %v", err)
 	}
@@ -1255,17 +1277,18 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
+	item, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
-	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "")
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 750, "Master jeweler", "2026-03-09", "")
 	if err != nil {
 		t.Fatalf("appraise loot item: %v", err)
 	}
-	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-10", ""); err != nil {
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, appraisal.ID, "2026-03-10", ""); err != nil {
 		t.Fatalf("recognize loot: %v", err)
 	}
 
@@ -1276,7 +1299,7 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 		Fields: map[string]string{
 			"amount": "banana",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err == nil {
 		t.Fatal("expected invalid sale amount error")
 	}
@@ -1302,17 +1325,18 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 	defer func() { tuiNow = originalNow }()
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
+	item, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Gold Necklace", "Merchant", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
-	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, item.ID, 750, "Master jeweler", "2026-03-09", "")
+	appraisal, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, item.ID, 750, "Master jeweler", "2026-03-09", "")
 	if err != nil {
 		t.Fatalf("appraise loot item: %v", err)
 	}
-	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, appraisal.ID, "2026-03-09", ""); err != nil {
+	if _, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, appraisal.ID, "2026-03-09", ""); err != nil {
 		t.Fatalf("recognize loot: %v", err)
 	}
 
@@ -1323,7 +1347,7 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 		Fields: map[string]string{
 			"amount": "8 gp",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("sell loot through tui command: %v", err)
 	}
@@ -1336,7 +1360,7 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 		t.Fatalf("status text = %q, want sale summary", status.Text)
 	}
 
-	entries, err := journal.ListBrowseEntries(ctx, databasePath)
+	entries, err := journal.ListBrowseEntries(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list browse entries: %v", err)
 	}
@@ -1364,9 +1388,10 @@ func TestHandleTUICommandUpdatesQuestAndKeepsSelection(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+	record, err := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 		Title:              "Goblin Bounty",
 		Patron:             "Mayor Rowan",
 		Description:        "Clear the cave",
@@ -1395,7 +1420,7 @@ func TestHandleTUICommandUpdatesQuestAndKeepsSelection(t *testing.T) {
 			"notes":       "Bring witnesses",
 			"accepted_on": "2026-03-08",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("update quest through tui command: %v", err)
 	}
@@ -1409,7 +1434,7 @@ func TestHandleTUICommandUpdatesQuestAndKeepsSelection(t *testing.T) {
 		t.Fatalf("status text = %q, want updated quest summary", result.Status.Text)
 	}
 
-	quests, err := quest.ListQuests(ctx, databasePath)
+	quests, err := quest.ListQuests(ctx, databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list quests: %v", err)
 	}
@@ -1428,9 +1453,10 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := loot.CreateLootItem(ctx, databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
+	item, err := loot.CreateLootItem(ctx, databasePath, campaignID, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
 	if err != nil {
 		t.Fatalf("create loot item: %v", err)
 	}
@@ -1446,7 +1472,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 			"holder":   "Cleric",
 			"notes":    "Split between packs",
 		},
-	}, databasePath, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	}, databasePath, &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
 	if err != nil {
 		t.Fatalf("update loot through tui command: %v", err)
 	}
@@ -1460,7 +1486,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 		t.Fatalf("status text = %q, want updated loot summary", result.Status.Text)
 	}
 
-	items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
+	items, err := loot.ListBrowseItems(ctx, databasePath, campaignID, "loot")
 	if err != nil {
 		t.Fatalf("list loot items: %v", err)
 	}

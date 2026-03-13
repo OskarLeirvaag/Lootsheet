@@ -15,9 +15,9 @@ import (
 )
 
 // ListAccounts returns all accounts ordered by code.
-func ListAccounts(ctx context.Context, databasePath string) ([]ledger.AccountRecord, error) {
+func ListAccounts(ctx context.Context, databasePath string, campaignID string) ([]ledger.AccountRecord, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]ledger.AccountRecord, error) {
-		rows, err := db.QueryContext(ctx, "SELECT id, code, name, type, active FROM accounts ORDER BY code, id")
+		rows, err := db.QueryContext(ctx, "SELECT id, code, name, type, active FROM accounts WHERE campaign_id = ? ORDER BY code, id", campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query accounts: %w", err)
 		}
@@ -52,7 +52,7 @@ func ListAccounts(ctx context.Context, databasePath string) ([]ledger.AccountRec
 
 // CreateAccount inserts a new account with a generated UUID.
 // Code must be unique. The account defaults to active=true.
-func CreateAccount(ctx context.Context, databasePath string, code string, name string, accountType ledger.AccountType) (ledger.AccountRecord, error) {
+func CreateAccount(ctx context.Context, databasePath string, campaignID string, code string, name string, accountType ledger.AccountType) (ledger.AccountRecord, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
 		return ledger.AccountRecord{}, fmt.Errorf("account code is required")
@@ -71,8 +71,8 @@ func CreateAccount(ctx context.Context, databasePath string, code string, name s
 		id := uuid.NewString()
 
 		if _, err := db.ExecContext(ctx,
-			"INSERT INTO accounts (id, code, name, type, active) VALUES (?, ?, ?, ?, 1)",
-			id, code, name, string(accountType),
+			"INSERT INTO accounts (id, campaign_id, code, name, type, active) VALUES (?, ?, ?, ?, ?, 1)",
+			id, campaignID, code, name, string(accountType),
 		); err != nil {
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 				return ledger.AccountRecord{}, fmt.Errorf("account code %q already exists", code)
@@ -92,7 +92,7 @@ func CreateAccount(ctx context.Context, databasePath string, code string, name s
 
 // RenameAccount updates the name of an existing account identified by code.
 // Account IDs are immutable; only the name changes.
-func RenameAccount(ctx context.Context, databasePath string, code string, newName string) error {
+func RenameAccount(ctx context.Context, databasePath string, campaignID string, code string, newName string) error {
 	code = strings.TrimSpace(code)
 	if code == "" {
 		return fmt.Errorf("account code is required")
@@ -105,8 +105,8 @@ func RenameAccount(ctx context.Context, databasePath string, code string, newNam
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
 		result, err := db.ExecContext(ctx,
-			"UPDATE accounts SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE code = ?",
-			newName, code,
+			"UPDATE accounts SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE campaign_id = ? AND code = ?",
+			newName, campaignID, code,
 		)
 		if err != nil {
 			return fmt.Errorf("rename account: %w", err)
@@ -127,16 +127,16 @@ func RenameAccount(ctx context.Context, databasePath string, code string, newNam
 
 // DeactivateAccount marks an account as inactive.
 // Inactive accounts cannot be used in new journal entries.
-func DeactivateAccount(ctx context.Context, databasePath string, code string) error {
-	return setAccountActive(ctx, databasePath, code, false)
+func DeactivateAccount(ctx context.Context, databasePath string, campaignID string, code string) error {
+	return setAccountActive(ctx, databasePath, campaignID, code, false)
 }
 
 // ActivateAccount marks an account as active.
-func ActivateAccount(ctx context.Context, databasePath string, code string) error {
-	return setAccountActive(ctx, databasePath, code, true)
+func ActivateAccount(ctx context.Context, databasePath string, campaignID string, code string) error {
+	return setAccountActive(ctx, databasePath, campaignID, code, true)
 }
 
-func setAccountActive(ctx context.Context, databasePath string, code string, active bool) error {
+func setAccountActive(ctx context.Context, databasePath string, campaignID string, code string, active bool) error {
 	code = strings.TrimSpace(code)
 	if code == "" {
 		return fmt.Errorf("account code is required")
@@ -149,8 +149,8 @@ func setAccountActive(ctx context.Context, databasePath string, code string, act
 		}
 
 		result, err := db.ExecContext(ctx,
-			"UPDATE accounts SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE code = ?",
-			activeVal, code,
+			"UPDATE accounts SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE campaign_id = ? AND code = ?",
+			activeVal, campaignID, code,
 		)
 		if err != nil {
 			return fmt.Errorf("update account active status: %w", err)
@@ -172,7 +172,7 @@ func setAccountActive(ctx context.Context, databasePath string, code string, act
 // DeleteAccount deletes an account identified by code, but only if no
 // journal_lines reference it. Returns ErrAccountHasPostings if the account
 // has any postings, and ErrAccountNotFound if the code does not exist.
-func DeleteAccount(ctx context.Context, databasePath string, code string) error {
+func DeleteAccount(ctx context.Context, databasePath string, campaignID string, code string) error {
 	code = strings.TrimSpace(code)
 	if code == "" {
 		return fmt.Errorf("account code is required")
@@ -182,7 +182,7 @@ func DeleteAccount(ctx context.Context, databasePath string, code string) error 
 		// Look up the account by code.
 		var accountID string
 		if err := db.QueryRowContext(ctx,
-			"SELECT id FROM accounts WHERE code = ?", code,
+			"SELECT id FROM accounts WHERE campaign_id = ? AND code = ?", campaignID, code,
 		).Scan(&accountID); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return fmt.Errorf("account code %q does not exist: %w", code, ledger.ErrAccountNotFound)

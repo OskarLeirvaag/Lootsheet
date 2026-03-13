@@ -13,9 +13,10 @@ import (
 
 func TestBuildSearchHandlerCodexReturnsMatchingItems(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	_, err := codex.CreateEntry(ctx, databasePath, &codex.CreateInput{
+	_, err := codex.CreateEntry(ctx, databasePath, campaignID, &codex.CreateInput{
 		Name:  "Garrick the Bold",
 		Notes: "A fearsome warrior.",
 	})
@@ -23,7 +24,7 @@ func TestBuildSearchHandlerCodexReturnsMatchingItems(t *testing.T) {
 		t.Fatalf("create codex entry: %v", err)
 	}
 
-	_, err = codex.CreateEntry(ctx, databasePath, &codex.CreateInput{
+	_, err = codex.CreateEntry(ctx, databasePath, campaignID, &codex.CreateInput{
 		Name:  "Elra the Wise",
 		Notes: "A quiet scholar.",
 	})
@@ -36,7 +37,7 @@ func TestBuildSearchHandlerCodexReturnsMatchingItems(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	loader := &sqliteDataLoader{databasePath: databasePath, assets: assets}
+	loader := &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets}
 	handler := buildSearchHandler(ctx, loader)
 
 	items, err := handler(render.SectionCodex, "fearsome")
@@ -53,9 +54,10 @@ func TestBuildSearchHandlerCodexReturnsMatchingItems(t *testing.T) {
 
 func TestBuildSearchHandlerNotesReturnsMatchingItems(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	_, err := notes.CreateNote(ctx, databasePath, &notes.CreateNoteInput{
+	_, err := notes.CreateNote(ctx, databasePath, campaignID, &notes.CreateNoteInput{
 		Title: "Session 1",
 		Body:  "The party fought a dragon.",
 	})
@@ -63,7 +65,7 @@ func TestBuildSearchHandlerNotesReturnsMatchingItems(t *testing.T) {
 		t.Fatalf("create note: %v", err)
 	}
 
-	_, err = notes.CreateNote(ctx, databasePath, &notes.CreateNoteInput{
+	_, err = notes.CreateNote(ctx, databasePath, campaignID, &notes.CreateNoteInput{
 		Title: "Shopping List",
 		Body:  "Potions and rope.",
 	})
@@ -76,7 +78,7 @@ func TestBuildSearchHandlerNotesReturnsMatchingItems(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	loader := &sqliteDataLoader{databasePath: databasePath, assets: assets}
+	loader := &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets}
 	handler := buildSearchHandler(ctx, loader)
 
 	items, err := handler(render.SectionNotes, "dragon")
@@ -99,7 +101,8 @@ func TestBuildSearchHandlerReturnsNilForUnsupportedSections(t *testing.T) {
 	}
 
 	databasePath := testutil.InitTestDB(t)
-	loader := &sqliteDataLoader{databasePath: databasePath, assets: assets}
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
+	loader := &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets}
 	handler := buildSearchHandler(ctx, loader)
 
 	items, err := handler(render.SectionJournal, "anything")

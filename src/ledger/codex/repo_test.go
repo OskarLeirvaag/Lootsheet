@@ -9,9 +9,10 @@ import (
 
 func TestDeleteEntryRemovesReferences(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	entry, err := CreateEntry(ctx, databasePath, &CreateInput{
+	entry, err := CreateEntry(ctx, databasePath, campaignID, &CreateInput{
 		Name:  "Garrick",
 		Notes: "Met near @quest/Dragon Slaying and @person/Elra.",
 	})
@@ -27,7 +28,7 @@ func TestDeleteEntryRemovesReferences(t *testing.T) {
 	}
 
 	// Delete the entry.
-	if err := DeleteEntry(ctx, databasePath, entry.ID); err != nil {
+	if err := DeleteEntry(ctx, databasePath, campaignID, entry.ID); err != nil {
 		t.Fatalf("delete codex entry: %v", err)
 	}
 

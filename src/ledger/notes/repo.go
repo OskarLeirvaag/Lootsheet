@@ -13,7 +13,7 @@ import (
 )
 
 // CreateNote inserts a new note into the database and rebuilds references.
-func CreateNote(ctx context.Context, databasePath string, input *CreateNoteInput) (NoteRecord, error) {
+func CreateNote(ctx context.Context, databasePath string, campaignID string, input *CreateNoteInput) (NoteRecord, error) {
 	if input == nil {
 		return NoteRecord{}, fmt.Errorf("note input is required")
 	}
@@ -28,14 +28,14 @@ func CreateNote(ctx context.Context, databasePath string, input *CreateNoteInput
 		body := strings.TrimSpace(input.Body)
 
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO notes (id, title, body)
-			 VALUES (?, ?, ?)`,
-			id, title, body,
+			`INSERT INTO notes (id, campaign_id, title, body)
+			 VALUES (?, ?, ?, ?)`,
+			id, campaignID, title, body,
 		); err != nil {
 			return NoteRecord{}, fmt.Errorf("insert note: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, id, title, body); err != nil {
+		if err := rebuildReferences(ctx, db, id, campaignID, title, body); err != nil {
 			return NoteRecord{}, err
 		}
 
@@ -48,7 +48,7 @@ func CreateNote(ctx context.Context, databasePath string, input *CreateNoteInput
 }
 
 // UpdateNote edits a note's fields and rebuilds references.
-func UpdateNote(ctx context.Context, databasePath string, noteID string, input *UpdateNoteInput) (NoteRecord, error) {
+func UpdateNote(ctx context.Context, databasePath string, campaignID string, noteID string, input *UpdateNoteInput) (NoteRecord, error) {
 	noteID = strings.TrimSpace(noteID)
 	if noteID == "" {
 		return NoteRecord{}, fmt.Errorf("note ID is required")
@@ -83,7 +83,7 @@ func UpdateNote(ctx context.Context, databasePath string, noteID string, input *
 			return NoteRecord{}, fmt.Errorf("update note: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, noteID, title, body); err != nil {
+		if err := rebuildReferences(ctx, db, noteID, campaignID, title, body); err != nil {
 			return NoteRecord{}, err
 		}
 
@@ -92,7 +92,7 @@ func UpdateNote(ctx context.Context, databasePath string, noteID string, input *
 }
 
 // DeleteNote removes a note and its outbound entity_references rows.
-func DeleteNote(ctx context.Context, databasePath string, noteID string) error {
+func DeleteNote(ctx context.Context, databasePath string, campaignID string, noteID string) error {
 	noteID = strings.TrimSpace(noteID)
 	if noteID == "" {
 		return fmt.Errorf("note ID is required")
@@ -115,13 +115,14 @@ func DeleteNote(ctx context.Context, databasePath string, noteID string) error {
 }
 
 // ListNotes returns all notes ordered by updated_at DESC.
-func ListNotes(ctx context.Context, databasePath string) ([]NoteRecord, error) {
+func ListNotes(ctx context.Context, databasePath string, campaignID string) ([]NoteRecord, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]NoteRecord, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT id, title, body, created_at, updated_at
 			FROM notes
+			WHERE campaign_id = ?
 			ORDER BY updated_at DESC
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query notes: %w", err)
 		}
@@ -145,10 +146,10 @@ func ListNotes(ctx context.Context, databasePath string) ([]NoteRecord, error) {
 }
 
 // SearchNotes returns notes matching a LIKE query across title and body.
-func SearchNotes(ctx context.Context, databasePath string, query string) ([]NoteRecord, error) {
+func SearchNotes(ctx context.Context, databasePath string, campaignID string, query string) ([]NoteRecord, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return ListNotes(ctx, databasePath)
+		return ListNotes(ctx, databasePath, campaignID)
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]NoteRecord, error) {
@@ -156,9 +157,10 @@ func SearchNotes(ctx context.Context, databasePath string, query string) ([]Note
 		rows, err := db.QueryContext(ctx, `
 			SELECT id, title, body, created_at, updated_at
 			FROM notes
-			WHERE title LIKE ? OR body LIKE ?
+			WHERE (title LIKE ? OR body LIKE ?)
+			  AND campaign_id = ?
 			ORDER BY updated_at DESC
-		`, pattern, pattern)
+		`, pattern, pattern, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("search notes: %w", err)
 		}
@@ -182,9 +184,9 @@ func SearchNotes(ctx context.Context, databasePath string, query string) ([]Note
 }
 
 // ListAllReferences returns all entity_references rows for note source type, grouped by source_id.
-func ListAllReferences(ctx context.Context, databasePath string) (map[string][]refs.EntityReference, error) {
+func ListAllReferences(ctx context.Context, databasePath string, campaignID string) (map[string][]refs.EntityReference, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
-		return refs.ListBySource(ctx, db, "note")
+		return refs.ListBySource(ctx, db, "note", campaignID)
 	})
 }
 

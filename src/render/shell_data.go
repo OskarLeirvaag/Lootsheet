@@ -3,6 +3,7 @@ package render
 import "github.com/OskarLeirvaag/Lootsheet/src/render/model"
 
 // Type aliases re-export model data types.
+type CampaignOption = model.CampaignOption
 type AccountOption = model.AccountOption
 type EntryCatalog = model.EntryCatalog
 type ItemActionMode = model.ItemActionMode

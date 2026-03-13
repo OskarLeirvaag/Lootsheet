@@ -9,9 +9,10 @@ import (
 
 func TestDeleteNoteRemovesReferences(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	note, err := CreateNote(ctx, databasePath, &CreateNoteInput{
+	note, err := CreateNote(ctx, databasePath, campaignID, &CreateNoteInput{
 		Title: "Session 5",
 		Body:  "Party visited @person/Mayor Elra and discussed @quest/Bridge Toll.",
 	})
@@ -27,7 +28,7 @@ func TestDeleteNoteRemovesReferences(t *testing.T) {
 	}
 
 	// Delete the note.
-	if err := DeleteNote(ctx, databasePath, note.ID); err != nil {
+	if err := DeleteNote(ctx, databasePath, campaignID, note.ID); err != nil {
 		t.Fatalf("delete note: %v", err)
 	}
 

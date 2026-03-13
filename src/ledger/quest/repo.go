@@ -13,7 +13,7 @@ import (
 
 // CreateQuest inserts a new quest into the database.
 // Status must be "offered" or "accepted". If "accepted", AcceptedOn is required.
-func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInput) (QuestRecord, error) {
+func CreateQuest(ctx context.Context, databasePath string, campaignID string, input *CreateQuestInput) (QuestRecord, error) {
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
 		return QuestRecord{}, fmt.Errorf("quest title is required")
@@ -55,16 +55,16 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 		notes := strings.TrimSpace(input.Notes)
 
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO quests (id, title, patron, description, promised_base_reward, partial_advance, bonus_conditions, status, notes, accepted_on)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, title, strings.TrimSpace(input.Patron), strings.TrimSpace(input.Description),
+			`INSERT INTO quests (id, campaign_id, title, patron, description, promised_base_reward, partial_advance, bonus_conditions, status, notes, accepted_on)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, campaignID, title, strings.TrimSpace(input.Patron), strings.TrimSpace(input.Description),
 			input.PromisedBaseReward, input.PartialAdvance, strings.TrimSpace(input.BonusConditions),
 			status, notes, acceptedOnVal,
 		); err != nil {
 			return QuestRecord{}, fmt.Errorf("insert quest: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, id, title, notes); err != nil {
+		if err := rebuildReferences(ctx, db, id, campaignID, title, notes); err != nil {
 			return QuestRecord{}, err
 		}
 
@@ -84,7 +84,7 @@ func CreateQuest(ctx context.Context, databasePath string, input *CreateQuestInp
 }
 
 // UpdateQuest edits operational quest fields without mutating posted journal history.
-func UpdateQuest(ctx context.Context, databasePath string, questID string, input *UpdateQuestInput) (QuestRecord, error) {
+func UpdateQuest(ctx context.Context, databasePath string, campaignID string, questID string, input *UpdateQuestInput) (QuestRecord, error) {
 	questID = strings.TrimSpace(questID)
 	if questID == "" {
 		return QuestRecord{}, fmt.Errorf("quest ID is required")
@@ -153,7 +153,7 @@ func UpdateQuest(ctx context.Context, databasePath string, questID string, input
 			return QuestRecord{}, fmt.Errorf("update quest: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, questID, title, notes); err != nil {
+		if err := rebuildReferences(ctx, db, questID, campaignID, title, notes); err != nil {
 			return QuestRecord{}, err
 		}
 
@@ -162,7 +162,7 @@ func UpdateQuest(ctx context.Context, databasePath string, questID string, input
 }
 
 // ListQuests returns all quests ordered by status priority then created_at.
-func ListQuests(ctx context.Context, databasePath string) ([]QuestRecord, error) {
+func ListQuests(ctx context.Context, databasePath string, campaignID string) ([]QuestRecord, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]QuestRecord, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT id, title, patron, description, promised_base_reward, partial_advance,
@@ -170,6 +170,7 @@ func ListQuests(ctx context.Context, databasePath string) ([]QuestRecord, error)
 			       COALESCE(accepted_on, ''), COALESCE(completed_on, ''), COALESCE(closed_on, ''),
 			       created_at, updated_at
 			FROM quests
+			WHERE campaign_id = ?
 			ORDER BY
 			  CASE status
 			    WHEN 'accepted' THEN 1
@@ -182,7 +183,7 @@ func ListQuests(ctx context.Context, databasePath string) ([]QuestRecord, error)
 			    WHEN 'voided' THEN 8
 			  END,
 			  created_at
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query quests: %w", err)
 		}
@@ -220,7 +221,7 @@ func ListQuests(ctx context.Context, databasePath string) ([]QuestRecord, error)
 }
 
 // CollectQuestPayment creates a journal entry for quest payment collection.
-func CollectQuestPayment(ctx context.Context, databasePath string, input CollectQuestPaymentInput) (ledger.PostedJournalEntry, error) {
+func CollectQuestPayment(ctx context.Context, databasePath string, campaignID string, input CollectQuestPaymentInput) (ledger.PostedJournalEntry, error) {
 	questID := strings.TrimSpace(input.QuestID)
 	if questID == "" {
 		return ledger.PostedJournalEntry{}, fmt.Errorf("quest ID is required")
@@ -287,7 +288,7 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 		}
 		defer tx.Rollback()
 
-		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, journalInput)
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, campaignID, journalInput)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -325,7 +326,7 @@ func CollectQuestPayment(ctx context.Context, databasePath string, input Collect
 }
 
 // WriteOffQuest writes off an outstanding quest receivable as a failed patron loss.
-func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuestInput) (ledger.PostedJournalEntry, error) {
+func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, input WriteOffQuestInput) (ledger.PostedJournalEntry, error) {
 	questID := strings.TrimSpace(input.QuestID)
 	if questID == "" {
 		return ledger.PostedJournalEntry{}, fmt.Errorf("quest ID is required")
@@ -393,7 +394,7 @@ func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuest
 		}
 		defer tx.Rollback()
 
-		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, journalInput)
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, campaignID, journalInput)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}

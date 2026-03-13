@@ -60,7 +60,7 @@ func ParseReferences(text string) []ParsedRef {
 // RebuildReferences deletes old references for a source entity and inserts new
 // ones parsed from the text. Must be called within a transaction or single
 // connection context.
-func RebuildReferences(ctx context.Context, db *sql.DB, sourceType, sourceID, sourceName, text string) error {
+func RebuildReferences(ctx context.Context, db *sql.DB, sourceType, sourceID, campaignID, sourceName, text string) error {
 	if _, err := db.ExecContext(ctx,
 		"DELETE FROM entity_references WHERE source_type = ? AND source_id = ?", sourceType, sourceID,
 	); err != nil {
@@ -71,9 +71,9 @@ func RebuildReferences(ctx context.Context, db *sql.DB, sourceType, sourceID, so
 	for _, ref := range refs {
 		id := uuid.NewString()
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO entity_references (id, source_type, source_id, source_name, target_type, target_name)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
-			id, sourceType, sourceID, sourceName, ref.TargetType, ref.TargetName,
+			`INSERT INTO entity_references (id, campaign_id, source_type, source_id, source_name, target_type, target_name)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, campaignID, sourceType, sourceID, sourceName, ref.TargetType, ref.TargetName,
 		); err != nil {
 			return fmt.Errorf("insert reference: %w", err)
 		}
@@ -83,10 +83,10 @@ func RebuildReferences(ctx context.Context, db *sql.DB, sourceType, sourceID, so
 }
 
 // ListAllByTarget returns all entity references indexed by "target_type:lower(target_name)".
-func ListAllByTarget(ctx context.Context, db *sql.DB) (map[string][]EntityReference, error) {
+func ListAllByTarget(ctx context.Context, db *sql.DB, campaignID string) (map[string][]EntityReference, error) {
 	rows, err := db.QueryContext(ctx,
 		`SELECT id, source_type, source_id, source_name, target_type, target_name, created_at
-		 FROM entity_references ORDER BY created_at`)
+		 FROM entity_references WHERE campaign_id = ? ORDER BY created_at`, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("query entity references: %w", err)
 	}
@@ -110,10 +110,10 @@ func ListAllByTarget(ctx context.Context, db *sql.DB) (map[string][]EntityRefere
 }
 
 // ListBySource returns all entity references for a given source type, indexed by source_id.
-func ListBySource(ctx context.Context, db *sql.DB, sourceType string) (map[string][]EntityReference, error) {
+func ListBySource(ctx context.Context, db *sql.DB, sourceType string, campaignID string) (map[string][]EntityReference, error) {
 	rows, err := db.QueryContext(ctx,
 		`SELECT id, source_type, source_id, source_name, target_type, target_name, created_at
-		 FROM entity_references WHERE source_type = ? ORDER BY created_at`, sourceType)
+		 FROM entity_references WHERE source_type = ? AND campaign_id = ? ORDER BY created_at`, sourceType, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("query entity references: %w", err)
 	}

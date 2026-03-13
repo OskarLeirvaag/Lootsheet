@@ -64,6 +64,12 @@ type EntryCatalog struct {
 	AllAccounts     []AccountOption
 }
 
+// CampaignOption is a campaign choice for the campaign picker.
+type CampaignOption struct {
+	ID   string
+	Name string
+}
+
 // CodexTypeOption is a type choice for the codex picker.
 type CodexTypeOption struct {
 	ID     string
@@ -98,4 +104,6 @@ type ShellData struct {
 	SettingsCodexTypes ListScreenData
 	EntryCatalog       EntryCatalog
 	CodexTypes         []CodexTypeOption
+	CampaignName       string           // active campaign name for header
+	Campaigns          []CampaignOption // for campaign picker modal
 }

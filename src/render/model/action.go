@@ -40,6 +40,7 @@ const (
 	ActionConfirm         Action = "confirm"
 	ActionShowCodex       Action = "show_codex"
 	ActionShowNotes       Action = "show_notes"
+	ActionSwitchCampaign  Action = "switch_campaign"
 	ActionHelp            Action = "help"
 	ActionSearch          Action = "search"
 )

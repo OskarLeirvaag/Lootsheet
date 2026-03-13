@@ -12,7 +12,7 @@ import (
 )
 
 // CreateLootItem inserts a new loot item with status='held'.
-func CreateLootItem(ctx context.Context, databasePath string, name string, source string, quantity int, holder string, notes string, itemType string) (LootItemRecord, error) {
+func CreateLootItem(ctx context.Context, databasePath string, campaignID string, name string, source string, quantity int, holder string, notes string, itemType string) (LootItemRecord, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return LootItemRecord{}, fmt.Errorf("loot item name is required")
@@ -36,15 +36,15 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 		id := uuid.NewString()
 
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO loot_items (id, name, source, status, quantity, holder, notes, item_type)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, name, strings.TrimSpace(source), string(ledger.LootStatusHeld),
+			`INSERT INTO loot_items (id, campaign_id, name, source, status, quantity, holder, notes, item_type)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, campaignID, name, strings.TrimSpace(source), string(ledger.LootStatusHeld),
 			quantity, strings.TrimSpace(holder), notes, itemType,
 		); err != nil {
 			return LootItemRecord{}, fmt.Errorf("insert loot item: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, id, name, notes); err != nil {
+		if err := rebuildReferences(ctx, db, id, campaignID, name, notes); err != nil {
 			return LootItemRecord{}, err
 		}
 
@@ -62,7 +62,7 @@ func CreateLootItem(ctx context.Context, databasePath string, name string, sourc
 }
 
 // UpdateLootItem edits descriptive loot fields. Quantity may only change while held.
-func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string, input *UpdateLootItemInput) (LootItemRecord, error) {
+func UpdateLootItem(ctx context.Context, databasePath string, campaignID string, lootItemID string, input *UpdateLootItemInput) (LootItemRecord, error) {
 	lootItemID = strings.TrimSpace(lootItemID)
 	if lootItemID == "" {
 		return LootItemRecord{}, fmt.Errorf("loot item ID is required")
@@ -105,7 +105,7 @@ func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string,
 			return LootItemRecord{}, fmt.Errorf("update loot item: %w", err)
 		}
 
-		if err := rebuildReferences(ctx, db, lootItemID, name, notes); err != nil {
+		if err := rebuildReferences(ctx, db, lootItemID, campaignID, name, notes); err != nil {
 			return LootItemRecord{}, err
 		}
 
@@ -115,7 +115,7 @@ func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string,
 
 // AppraiseLootItem adds an appraisal to a held loot item.
 // The appraisal stays off-ledger (recognized_entry_id is NULL).
-func AppraiseLootItem(ctx context.Context, databasePath string, lootItemID string, appraisedValue int64, appraiser string, appraisedDate string, notes string) (LootAppraisalRecord, error) {
+func AppraiseLootItem(ctx context.Context, databasePath string, campaignID string, lootItemID string, appraisedValue int64, appraiser string, appraisedDate string, notes string) (LootAppraisalRecord, error) {
 	lootItemID = strings.TrimSpace(lootItemID)
 	if lootItemID == "" {
 		return LootAppraisalRecord{}, fmt.Errorf("loot item ID is required")
@@ -169,7 +169,7 @@ func AppraiseLootItem(ctx context.Context, databasePath string, lootItemID strin
 //	Cr Unrealized Loot Gain (4200)
 //
 // Sets recognized_entry_id on the appraisal and updates the loot item status to 'recognized'.
-func RecognizeLootAppraisal(ctx context.Context, databasePath string, appraisalID string, date string, description string) (ledger.PostedJournalEntry, error) {
+func RecognizeLootAppraisal(ctx context.Context, databasePath string, campaignID string, appraisalID string, date string, description string) (ledger.PostedJournalEntry, error) {
 	appraisalID = strings.TrimSpace(appraisalID)
 	if appraisalID == "" {
 		return ledger.PostedJournalEntry{}, fmt.Errorf("appraisal ID is required")
@@ -219,7 +219,7 @@ func RecognizeLootAppraisal(ctx context.Context, databasePath string, appraisalI
 		}
 		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
-		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, journalInput)
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, campaignID, journalInput)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -256,7 +256,7 @@ func RecognizeLootAppraisal(ctx context.Context, databasePath string, appraisalI
 //	If sale > appraisal: Cr Gain on Sale of Loot (4300) for the difference
 //
 // Updates item status to 'sold'.
-func SellLootItem(ctx context.Context, databasePath string, lootItemID string, saleAmount int64, date string, description string) (ledger.PostedJournalEntry, error) {
+func SellLootItem(ctx context.Context, databasePath string, campaignID string, lootItemID string, saleAmount int64, date string, description string) (ledger.PostedJournalEntry, error) {
 	lootItemID = strings.TrimSpace(lootItemID)
 	if lootItemID == "" {
 		return ledger.PostedJournalEntry{}, fmt.Errorf("loot item ID is required")
@@ -330,7 +330,7 @@ func SellLootItem(ctx context.Context, databasePath string, lootItemID string, s
 		}
 		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
-		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, journalInput)
+		posted, err := ledger.PostJournalWithinTx(ctx, db, tx, campaignID, journalInput)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -372,7 +372,7 @@ func getLootItemStatus(ctx context.Context, db *sql.DB, lootItemID string) (ledg
 }
 
 // TransferItemType changes a loot item's item_type between 'loot' and 'asset'.
-func TransferItemType(ctx context.Context, databasePath string, itemID string, newType string) error {
+func TransferItemType(ctx context.Context, databasePath string, campaignID string, itemID string, newType string) error {
 	itemID = strings.TrimSpace(itemID)
 	if itemID == "" {
 		return fmt.Errorf("item ID is required")

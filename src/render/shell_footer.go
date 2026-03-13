@@ -40,7 +40,7 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	}
 
 	help = joinHelp(help, s.sectionLauncherHelpText())
-	help = joinHelp(help, "/ search", "? terms", "q quit", "Ctrl+L refresh")
+	help = joinHelp(help, "# campaigns", "/ search", "? terms", "q quit", "Ctrl+L refresh")
 
 	return help
 }
@@ -86,7 +86,11 @@ func (s *Shell) currentActionLabels() string {
 func (s *Shell) headerLines() []string {
 	source := s.currentHeaderLines()
 	lines := make([]string, 0, len(source)+2)
-	lines = append(lines, fmt.Sprintf("Section: %s", s.Section.Title()))
+	if s.Data.CampaignName != "" {
+		lines = append(lines, fmt.Sprintf("Campaign: %s  |  Section: %s", s.Data.CampaignName, s.Section.Title()))
+	} else {
+		lines = append(lines, fmt.Sprintf("Section: %s", s.Section.Title()))
+	}
 	lines = append(lines, source...)
 	lines = append(lines, "Sections: "+s.tabsLine())
 
@@ -150,9 +154,22 @@ func (s *Shell) drawHeaderHighlights(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
-	sectionLabel := "Section: "
-	buffer.WriteString(content.X, content.Y, theme.HeaderLabel, sectionLabel)
-	buffer.WriteString(content.X+len([]rune(sectionLabel)), content.Y, s.sectionStyle(theme), s.Section.Title())
+	if s.Data.CampaignName != "" {
+		campaignLabel := "Campaign: "
+		buffer.WriteString(content.X, content.Y, theme.HeaderLabel, campaignLabel)
+		buffer.WriteString(content.X+len([]rune(campaignLabel)), content.Y, theme.HeaderLabel, s.Data.CampaignName)
+		divider := "  |  "
+		dividerX := content.X + len([]rune(campaignLabel)) + len([]rune(s.Data.CampaignName))
+		buffer.WriteString(dividerX, content.Y, theme.Muted, divider)
+		sectionStartX := dividerX + len([]rune(divider))
+		sectionLabel := "Section: "
+		buffer.WriteString(sectionStartX, content.Y, theme.HeaderLabel, sectionLabel)
+		buffer.WriteString(sectionStartX+len([]rune(sectionLabel)), content.Y, s.sectionStyle(theme), s.Section.Title())
+	} else {
+		sectionLabel := "Section: "
+		buffer.WriteString(content.X, content.Y, theme.HeaderLabel, sectionLabel)
+		buffer.WriteString(content.X+len([]rune(sectionLabel)), content.Y, s.sectionStyle(theme), s.Section.Title())
+	}
 
 	if content.H < 2 {
 		return

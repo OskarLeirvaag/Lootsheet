@@ -10,6 +10,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
@@ -55,6 +56,9 @@ const (
 	tuiCommandCodexTypeCreate     = "codex_type.create"
 	tuiCommandCodexTypeRename     = "codex_type.rename"
 	tuiCommandCodexTypeDelete     = "codex_type.delete"
+	tuiCommandCampaignCreate      = "campaign.create"
+	tuiCommandCampaignRename      = "campaign.rename"
+	tuiCommandCampaignSwitch      = "campaign.switch"
 )
 
 var tuiNow = time.Now
@@ -76,10 +80,11 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	}
 
 	databaseName := loader.DatabaseName()
+	campaignName := loader.CampaignName()
 	data := render.ShellData{
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
-				fmt.Sprintf("Read-only snapshot from %s.", databaseName),
+				fmt.Sprintf("Campaign: %s  |  Read-only snapshot from %s.", campaignName, databaseName),
 				"Use arrows, Tab, or 1-7 to move between boxed screens. Use e/i/a for guided entry creation. @ opens settings.",
 			},
 			HoardLines: []string{
@@ -457,6 +462,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	var navigateTo render.Section
 	var selectItemKey string
 	today := tuiToday()
+	campaignID := loader.CampaignID()
 
 	switch command.ID {
 	case tuiCommandAccountCreate:
@@ -464,6 +470,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		result, err := account.CreateAccount(
 			ctx,
 			databasePath,
+			campaignID,
 			strings.TrimSpace(command.Fields["code"]),
 			strings.TrimSpace(command.Fields["name"]),
 			accountType,
@@ -479,7 +486,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		selectItemKey = result.Code
 	case tuiCommandAccountRename:
 		newName := strings.TrimSpace(command.Fields["name"])
-		if err := account.RenameAccount(ctx, databasePath, command.ItemKey, newName); err != nil {
+		if err := account.RenameAccount(ctx, databasePath, campaignID, command.ItemKey, newName); err != nil {
 			return render.CommandResult{}, render.InputError{Message: err.Error()}
 		}
 		message = render.StatusMessage{
@@ -488,7 +495,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		selectItemKey = command.ItemKey
 	case tuiCommandAccountActivate:
-		if err := account.ActivateAccount(ctx, databasePath, command.ItemKey); err != nil {
+		if err := account.ActivateAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -496,7 +503,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Account %s activated.", command.ItemKey),
 		}
 	case tuiCommandAccountDeactivate:
-		if err := account.DeactivateAccount(ctx, databasePath, command.ItemKey); err != nil {
+		if err := account.DeactivateAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -504,7 +511,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Account %s deactivated.", command.ItemKey),
 		}
 	case tuiCommandAccountDelete:
-		if err := account.DeleteAccount(ctx, databasePath, command.ItemKey); err != nil {
+		if err := account.DeleteAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -522,7 +529,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, fmt.Errorf("journal entry %q does not exist", command.ItemKey)
 		}
 
-		result, err := journal.ReverseJournalEntry(ctx, databasePath, command.ItemKey, entry.EntryDate, "")
+		result, err := journal.ReverseJournalEntry(ctx, databasePath, campaignID, command.ItemKey, entry.EntryDate, "")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -534,7 +541,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandCreateExpense:
 		result, err := handleEntryCommand(ctx, command, databasePath, today, "expense",
 			func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error) {
-				return journal.PostExpenseEntry(ctx, databasePath, &journal.ExpenseEntryInput{
+				return journal.PostExpenseEntry(ctx, databasePath, campaignID, &journal.ExpenseEntryInput{
 					Date:               date,
 					Description:        desc,
 					ExpenseAccountCode: acct,
@@ -553,7 +560,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandCreateIncome:
 		result, err := handleEntryCommand(ctx, command, databasePath, today, "income",
 			func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error) {
-				return journal.PostIncomeEntry(ctx, databasePath, &journal.IncomeEntryInput{
+				return journal.PostIncomeEntry(ctx, databasePath, campaignID, &journal.IncomeEntryInput{
 					Date:               date,
 					Description:        desc,
 					IncomeAccountCode:  acct,
@@ -575,7 +582,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, render.InputError{Message: err.Error()}
 		}
 
-		result, err := journal.PostJournalEntry(ctx, databasePath, input)
+		result, err := journal.PostJournalEntry(ctx, databasePath, campaignID, input)
 		if err != nil {
 			return render.CommandResult{}, render.InputError{Message: err.Error()}
 		}
@@ -587,7 +594,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionJournal
 		selectItemKey = result.ID
 	case tuiCommandQuestCreate:
-		result, err := handleQuestCreateOrUpdate(ctx, command, databasePath, true)
+		result, err := handleQuestCreateOrUpdate(ctx, command, databasePath, campaignID, true)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -595,7 +602,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandQuestUpdate:
-		result, err := handleQuestCreateOrUpdate(ctx, command, databasePath, false)
+		result, err := handleQuestCreateOrUpdate(ctx, command, databasePath, campaignID, false)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -616,7 +623,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, fmt.Errorf("quest %q cannot be collected right now", command.ItemKey)
 		}
 
-		result, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
+		result, err := quest.CollectQuestPayment(ctx, databasePath, campaignID, quest.CollectQuestPaymentInput{
 			QuestID:     command.ItemKey,
 			Amount:      questRow.Outstanding,
 			Date:        today,
@@ -644,7 +651,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, fmt.Errorf("quest %q cannot be written off right now", command.ItemKey)
 		}
 
-		result, err := quest.WriteOffQuest(ctx, databasePath, quest.WriteOffQuestInput{
+		result, err := quest.WriteOffQuest(ctx, databasePath, campaignID, quest.WriteOffQuestInput{
 			QuestID:     command.ItemKey,
 			Date:        today,
 			Description: "",
@@ -658,7 +665,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", currency.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
 	case tuiCommandLootCreate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "loot", "loot item", render.SectionLoot, true)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "loot", "loot item", render.SectionLoot, true)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -666,7 +673,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandLootUpdate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "loot", "loot item", render.SectionLoot, false)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "loot", "loot item", render.SectionLoot, false)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -685,7 +692,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if amount < 0 {
 			return render.CommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
 		}
-		if _, err := loot.AppraiseLootItem(ctx, databasePath, command.ItemKey, amount, "", today, ""); err != nil {
+		if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, "", today, ""); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -706,7 +713,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, fmt.Errorf("loot item %q cannot be recognized right now", command.ItemKey)
 		}
 
-		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, item.LatestAppraisal.ID, today, "")
+		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, item.LatestAppraisal.ID, today, "")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -742,7 +749,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, render.InputError{Message: "Sale amount must be positive."}
 		}
 
-		result, err := loot.SellLootItem(ctx, databasePath, command.ItemKey, amount, today, "")
+		result, err := loot.SellLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, today, "")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -752,7 +759,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Sold loot item %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	case tuiCommandLootTransferToAsset:
-		if err := loot.TransferItemType(ctx, databasePath, command.ItemKey, "asset"); err != nil {
+		if err := loot.TransferItemType(ctx, databasePath, campaignID, command.ItemKey, "asset"); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -762,7 +769,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionAssets
 		selectItemKey = command.ItemKey
 	case tuiCommandAssetCreate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "asset", "asset", render.SectionAssets, true)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "asset", "asset", render.SectionAssets, true)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -770,7 +777,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandAssetUpdate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, "asset", "asset", render.SectionAssets, false)
+		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "asset", "asset", render.SectionAssets, false)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -789,7 +796,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		if amount < 0 {
 			return render.CommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
 		}
-		if _, err := loot.AppraiseLootItem(ctx, databasePath, command.ItemKey, amount, "", today, ""); err != nil {
+		if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, "", today, ""); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -810,7 +817,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			return render.CommandResult{}, fmt.Errorf("asset %q cannot be recognized right now", command.ItemKey)
 		}
 
-		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, item.LatestAppraisal.ID, today, "")
+		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, item.LatestAppraisal.ID, today, "")
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -820,7 +827,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Recognized asset %q as entry #%d.", item.Name, result.EntryNumber),
 		}
 	case tuiCommandAssetTransferToLoot:
-		if err := loot.TransferItemType(ctx, databasePath, command.ItemKey, "loot"); err != nil {
+		if err := loot.TransferItemType(ctx, databasePath, campaignID, command.ItemKey, "loot"); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -838,7 +845,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 				Amount:      strings.TrimSpace(cl.Amount),
 			})
 		}
-		if err := loot.SaveAssetTemplate(ctx, databasePath, command.ItemKey, lines); err != nil {
+		if err := loot.SaveAssetTemplate(ctx, databasePath, campaignID, command.ItemKey, lines); err != nil {
 			return render.CommandResult{}, render.InputError{Message: err.Error()}
 		}
 		message = render.StatusMessage{
@@ -848,7 +855,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = render.SectionAssets
 		selectItemKey = command.ItemKey
 	case tuiCommandCodexCreate:
-		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, true)
+		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, campaignID, true)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -856,7 +863,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandCodexUpdate:
-		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, false)
+		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, campaignID, false)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -864,7 +871,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandCodexDelete:
-		if err := codex.DeleteEntry(ctx, databasePath, command.ItemKey); err != nil {
+		if err := codex.DeleteEntry(ctx, databasePath, campaignID, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -872,7 +879,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Deleted codex entry %q.", command.ItemKey),
 		}
 	case tuiCommandNotesCreate:
-		result, err := handleNotesCreateOrUpdate(ctx, command, databasePath, true)
+		result, err := handleNotesCreateOrUpdate(ctx, command, databasePath, campaignID, true)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -880,7 +887,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandNotesUpdate:
-		result, err := handleNotesCreateOrUpdate(ctx, command, databasePath, false)
+		result, err := handleNotesCreateOrUpdate(ctx, command, databasePath, campaignID, false)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -888,7 +895,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandNotesDelete:
-		if err := notes.DeleteNote(ctx, databasePath, command.ItemKey); err != nil {
+		if err := notes.DeleteNote(ctx, databasePath, campaignID, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
 		}
 		message = render.StatusMessage{
@@ -930,6 +937,67 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Deleted codex type %q.", typeID),
 		}
+	case tuiCommandCampaignCreate:
+		name := command.Fields["name"]
+		record, err := campaign.Create(ctx, databasePath, name, loader.(*sqliteDataLoader).assets.Accounts)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		if err := campaign.SetActive(ctx, databasePath, record.ID); err != nil {
+			return render.CommandResult{}, err
+		}
+		loader.SetCampaign(record.ID, record.Name)
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Campaign %q created.", record.Name)},
+		}, nil
+
+	case tuiCommandCampaignRename:
+		name := command.Fields["name"]
+		record, err := campaign.Rename(ctx, databasePath, loader.CampaignID(), name)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		loader.SetCampaign(record.ID, record.Name)
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Campaign renamed to %q.", record.Name)},
+		}, nil
+
+	case tuiCommandCampaignSwitch:
+		campaignSwitchID := command.ItemKey
+		if err := campaign.SetActive(ctx, databasePath, campaignSwitchID); err != nil {
+			return render.CommandResult{}, err
+		}
+		campaigns, err := campaign.List(ctx, databasePath)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		var selectedName string
+		for _, c := range campaigns {
+			if c.ID == campaignSwitchID {
+				selectedName = c.Name
+				break
+			}
+		}
+		loader.SetCampaign(campaignSwitchID, selectedName)
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Switched to campaign %q.", selectedName)},
+		}, nil
+
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
@@ -1202,6 +1270,7 @@ func handleQuestCreateOrUpdate(
 	ctx context.Context,
 	command render.Command,
 	databasePath string,
+	campaignID string,
 	create bool,
 ) (tuiCommandResult, error) {
 	rewardText := strings.TrimSpace(command.Fields["reward"])
@@ -1230,7 +1299,7 @@ func handleQuestCreateOrUpdate(
 
 	var resultTitle, resultID string
 	if create {
-		result, createErr := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
+		result, createErr := quest.CreateQuest(ctx, databasePath, campaignID, &quest.CreateQuestInput{
 			Title:              title,
 			Patron:             patron,
 			Description:        description,
@@ -1247,7 +1316,7 @@ func handleQuestCreateOrUpdate(
 		resultTitle = result.Title
 		resultID = result.ID
 	} else {
-		result, updateErr := quest.UpdateQuest(ctx, databasePath, command.ItemKey, &quest.UpdateQuestInput{
+		result, updateErr := quest.UpdateQuest(ctx, databasePath, campaignID, command.ItemKey, &quest.UpdateQuestInput{
 			Title:              title,
 			Patron:             patron,
 			Description:        description,
@@ -1286,6 +1355,7 @@ func handleItemCreateOrUpdate(
 	ctx context.Context,
 	command render.Command,
 	databasePath string,
+	campaignID string,
 	itemType string,
 	itemLabel string,
 	section render.Section,
@@ -1308,6 +1378,7 @@ func handleItemCreateOrUpdate(
 		result, createErr := loot.CreateLootItem(
 			ctx,
 			databasePath,
+			campaignID,
 			strings.TrimSpace(command.Fields["name"]),
 			strings.TrimSpace(command.Fields["source"]),
 			quantity,
@@ -1321,7 +1392,7 @@ func handleItemCreateOrUpdate(
 		name = result.Name
 		id = result.ID
 	} else {
-		result, updateErr := loot.UpdateLootItem(ctx, databasePath, command.ItemKey, &loot.UpdateLootItemInput{
+		result, updateErr := loot.UpdateLootItem(ctx, databasePath, campaignID, command.ItemKey, &loot.UpdateLootItemInput{
 			Name:     strings.TrimSpace(command.Fields["name"]),
 			Source:   strings.TrimSpace(command.Fields["source"]),
 			Quantity: quantity,
@@ -1367,6 +1438,7 @@ func handleCodexCreateOrUpdate(
 	ctx context.Context,
 	command render.Command,
 	databasePath string,
+	campaignID string,
 	create bool,
 ) (tuiCommandResult, error) {
 	typeID := strings.TrimSpace(command.Fields["_type_id"])
@@ -1383,7 +1455,7 @@ func handleCodexCreateOrUpdate(
 
 	var resultName, resultID string
 	if create {
-		result, err := codex.CreateEntry(ctx, databasePath, &codex.CreateInput{
+		result, err := codex.CreateEntry(ctx, databasePath, campaignID, &codex.CreateInput{
 			TypeID:      typeID,
 			Name:        name,
 			Title:       title,
@@ -1402,7 +1474,7 @@ func handleCodexCreateOrUpdate(
 		resultName = result.Name
 		resultID = result.ID
 	} else {
-		result, err := codex.UpdateEntry(ctx, databasePath, command.ItemKey, &codex.UpdateInput{
+		result, err := codex.UpdateEntry(ctx, databasePath, campaignID, command.ItemKey, &codex.UpdateInput{
 			TypeID:      typeID,
 			Name:        name,
 			Title:       title,
@@ -1443,6 +1515,7 @@ func handleNotesCreateOrUpdate(
 	ctx context.Context,
 	command render.Command,
 	databasePath string,
+	campaignID string,
 	create bool,
 ) (tuiCommandResult, error) {
 	title := strings.TrimSpace(command.Fields["title"])
@@ -1450,7 +1523,7 @@ func handleNotesCreateOrUpdate(
 
 	var resultTitle, resultID string
 	if create {
-		result, err := notes.CreateNote(ctx, databasePath, &notes.CreateNoteInput{
+		result, err := notes.CreateNote(ctx, databasePath, campaignID, &notes.CreateNoteInput{
 			Title: title,
 			Body:  body,
 		})
@@ -1460,7 +1533,7 @@ func handleNotesCreateOrUpdate(
 		resultTitle = result.Title
 		resultID = result.ID
 	} else {
-		result, err := notes.UpdateNote(ctx, databasePath, command.ItemKey, &notes.UpdateNoteInput{
+		result, err := notes.UpdateNote(ctx, databasePath, campaignID, command.ItemKey, &notes.UpdateNoteInput{
 			Title: title,
 			Body:  body,
 		})

@@ -12,8 +12,9 @@ import (
 
 func TestListAccountsReturnsSeededAccounts(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	accounts, err := ListAccounts(context.Background(), databasePath)
+	accounts, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -29,8 +30,9 @@ func TestListAccountsReturnsSeededAccounts(t *testing.T) {
 
 func TestCreateAccountInsertsNewAccount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	account, err := CreateAccount(context.Background(), databasePath, "5600", "Tavern Reparations", ledger.AccountTypeExpense)
+	account, err := CreateAccount(context.Background(), databasePath, campaignID, "5600", "Tavern Reparations", ledger.AccountTypeExpense)
 	if err != nil {
 		t.Fatalf("create account: %v", err)
 	}
@@ -43,7 +45,7 @@ func TestCreateAccountInsertsNewAccount(t *testing.T) {
 		t.Fatal("created account ID is empty")
 	}
 
-	accounts, err := ListAccounts(context.Background(), databasePath)
+	accounts, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -55,8 +57,9 @@ func TestCreateAccountInsertsNewAccount(t *testing.T) {
 
 func TestCreateAccountRejectsDuplicateCode(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateAccount(context.Background(), databasePath, "1000", "Duplicate Cash", ledger.AccountTypeAsset)
+	_, err := CreateAccount(context.Background(), databasePath, campaignID, "1000", "Duplicate Cash", ledger.AccountTypeAsset)
 	if err == nil {
 		t.Fatal("expected create account with duplicate code to fail")
 	}
@@ -68,8 +71,9 @@ func TestCreateAccountRejectsDuplicateCode(t *testing.T) {
 
 func TestCreateAccountRejectsInvalidType(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateAccount(context.Background(), databasePath, "9999", "Bad Type", ledger.AccountType("bogus"))
+	_, err := CreateAccount(context.Background(), databasePath, campaignID, "9999", "Bad Type", ledger.AccountType("bogus"))
 	if err == nil {
 		t.Fatal("expected create account with invalid type to fail")
 	}
@@ -81,13 +85,14 @@ func TestCreateAccountRejectsInvalidType(t *testing.T) {
 
 func TestCreateAccountRejectsEmptyCodeAndName(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateAccount(context.Background(), databasePath, "", "No Code", ledger.AccountTypeAsset)
+	_, err := CreateAccount(context.Background(), databasePath, campaignID, "", "No Code", ledger.AccountTypeAsset)
 	if err == nil {
 		t.Fatal("expected create account with empty code to fail")
 	}
 
-	_, err = CreateAccount(context.Background(), databasePath, "9999", "", ledger.AccountTypeAsset)
+	_, err = CreateAccount(context.Background(), databasePath, campaignID, "9999", "", ledger.AccountTypeAsset)
 	if err == nil {
 		t.Fatal("expected create account with empty name to fail")
 	}
@@ -95,12 +100,13 @@ func TestCreateAccountRejectsEmptyCodeAndName(t *testing.T) {
 
 func TestRenameAccountChangesName(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	if err := RenameAccount(context.Background(), databasePath, "1000", "Gold Hoard"); err != nil {
+	if err := RenameAccount(context.Background(), databasePath, campaignID, "1000", "Gold Hoard"); err != nil {
 		t.Fatalf("rename account: %v", err)
 	}
 
-	accounts, err := ListAccounts(context.Background(), databasePath)
+	accounts, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -119,8 +125,9 @@ func TestRenameAccountChangesName(t *testing.T) {
 
 func TestRenameAccountRejectsNonexistentCode(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	err := RenameAccount(context.Background(), databasePath, "9999", "Ghost Account")
+	err := RenameAccount(context.Background(), databasePath, campaignID, "9999", "Ghost Account")
 	if err == nil {
 		t.Fatal("expected rename of nonexistent account to fail")
 	}
@@ -132,12 +139,13 @@ func TestRenameAccountRejectsNonexistentCode(t *testing.T) {
 
 func TestDeactivateAndActivateAccount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	if err := DeactivateAccount(context.Background(), databasePath, "1000"); err != nil {
+	if err := DeactivateAccount(context.Background(), databasePath, campaignID, "1000"); err != nil {
 		t.Fatalf("deactivate account: %v", err)
 	}
 
-	accounts, err := ListAccounts(context.Background(), databasePath)
+	accounts, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -152,11 +160,11 @@ func TestDeactivateAndActivateAccount(t *testing.T) {
 	}
 
 	// Reactivate
-	if err := ActivateAccount(context.Background(), databasePath, "1000"); err != nil {
+	if err := ActivateAccount(context.Background(), databasePath, campaignID, "1000"); err != nil {
 		t.Fatalf("activate account: %v", err)
 	}
 
-	accounts, err = ListAccounts(context.Background(), databasePath)
+	accounts, err = ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -175,8 +183,9 @@ func TestDeactivateAndActivateAccount(t *testing.T) {
 
 func TestDeactivateAccountRejectsNonexistentCode(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	err := DeactivateAccount(context.Background(), databasePath, "9999")
+	err := DeactivateAccount(context.Background(), databasePath, campaignID, "9999")
 	if err == nil {
 		t.Fatal("expected deactivate of nonexistent account to fail")
 	}
@@ -188,17 +197,18 @@ func TestDeactivateAccountRejectsNonexistentCode(t *testing.T) {
 
 func TestDeleteAccountWithoutPostings(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := CreateAccount(context.Background(), databasePath, "9900", "Disposable Account", ledger.AccountTypeExpense)
+	_, err := CreateAccount(context.Background(), databasePath, campaignID, "9900", "Disposable Account", ledger.AccountTypeExpense)
 	if err != nil {
 		t.Fatalf("create account: %v", err)
 	}
 
-	if err := DeleteAccount(context.Background(), databasePath, "9900"); err != nil {
+	if err := DeleteAccount(context.Background(), databasePath, campaignID, "9900"); err != nil {
 		t.Fatalf("delete account: %v", err)
 	}
 
-	accounts, err := ListAccounts(context.Background(), databasePath)
+	accounts, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -212,8 +222,9 @@ func TestDeleteAccountWithoutPostings(t *testing.T) {
 
 func TestDeleteAccountRejectsNonexistentCode(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	err := DeleteAccount(context.Background(), databasePath, "9999")
+	err := DeleteAccount(context.Background(), databasePath, campaignID, "9999")
 	if err == nil {
 		t.Fatal("expected delete of nonexistent account to fail")
 	}
@@ -229,8 +240,9 @@ func TestDeleteAccountRejectsNonexistentCode(t *testing.T) {
 
 func TestDeleteAccountRejectsEmptyCode(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	err := DeleteAccount(context.Background(), databasePath, "")
+	err := DeleteAccount(context.Background(), databasePath, campaignID, "")
 	if err == nil {
 		t.Fatal("expected delete with empty code to fail")
 	}
@@ -242,8 +254,9 @@ func TestDeleteAccountRejectsEmptyCode(t *testing.T) {
 
 func TestAccountCodeImmutable(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	accountsBefore, err := ListAccounts(context.Background(), databasePath)
+	accountsBefore, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}
@@ -261,11 +274,11 @@ func TestAccountCodeImmutable(t *testing.T) {
 		t.Fatal("account code 1000 not found")
 	}
 
-	if err := RenameAccount(context.Background(), databasePath, "1000", "Gold Hoard"); err != nil {
+	if err := RenameAccount(context.Background(), databasePath, campaignID, "1000", "Gold Hoard"); err != nil {
 		t.Fatalf("rename account: %v", err)
 	}
 
-	accountsAfter, err := ListAccounts(context.Background(), databasePath)
+	accountsAfter, err := ListAccounts(context.Background(), databasePath, campaignID)
 	if err != nil {
 		t.Fatalf("list accounts: %v", err)
 	}

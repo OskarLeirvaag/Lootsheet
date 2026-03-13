@@ -9,6 +9,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
@@ -44,6 +45,10 @@ type TUIDataLoader interface {
 	GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error)
 	SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error)
 	SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error)
+	CampaignID() string
+	CampaignName() string
+	SetCampaign(id, name string)
+	ListCampaigns(ctx context.Context) ([]campaign.Record, error)
 }
 
 // sqliteDataLoader implements TUIDataLoader by delegating each method to the
@@ -52,6 +57,8 @@ type sqliteDataLoader struct {
 	databasePath string
 	backupDir    string
 	assets       config.InitAssets
+	campaignID   string
+	campaignName string
 }
 
 // EnsureReady auto-migrates the database if it is upgradeable. This lets the
@@ -75,52 +82,63 @@ func (s *sqliteDataLoader) DatabaseName() string {
 	return filepath.Base(s.databasePath)
 }
 
+func (s *sqliteDataLoader) CampaignID() string   { return s.campaignID }
+func (s *sqliteDataLoader) CampaignName() string { return s.campaignName }
+func (s *sqliteDataLoader) SetCampaign(id, name string) {
+	s.campaignID = id
+	s.campaignName = name
+}
+
+func (s *sqliteDataLoader) ListCampaigns(ctx context.Context) ([]campaign.Record, error) {
+	return campaign.List(ctx, s.databasePath)
+}
+
 func (s *sqliteDataLoader) GetDatabaseStatus(ctx context.Context) (ledger.DatabaseStatus, error) {
 	return ledger.GetDatabaseStatusWithAssets(ctx, s.databasePath, s.assets)
 }
 
 func (s *sqliteDataLoader) ListAccounts(ctx context.Context) ([]ledger.AccountRecord, error) {
-	return account.ListAccounts(ctx, s.databasePath)
+	return account.ListAccounts(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) GetJournalSummary(ctx context.Context) (journal.Summary, error) {
-	return journal.GetSummary(ctx, s.databasePath)
+	return journal.GetSummary(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) ListBrowseJournalEntries(ctx context.Context) ([]journal.BrowseEntryRecord, error) {
-	return journal.ListBrowseEntries(ctx, s.databasePath)
+	return journal.ListBrowseEntries(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) GetTrialBalance(ctx context.Context) (report.TrialBalanceReport, error) {
-	return report.GetTrialBalance(ctx, s.databasePath)
+	return report.GetTrialBalance(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) GetPromisedQuests(ctx context.Context) ([]report.PromisedQuestRow, error) {
-	return report.GetPromisedQuests(ctx, s.databasePath)
+	return report.GetPromisedQuests(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) GetQuestReceivables(ctx context.Context) ([]report.QuestReceivableRow, error) {
-	return report.GetQuestReceivables(ctx, s.databasePath)
+	return report.GetQuestReceivables(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) ListQuests(ctx context.Context) ([]quest.QuestRecord, error) {
-	return quest.ListQuests(ctx, s.databasePath)
+	return quest.ListQuests(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) GetLootSummary(ctx context.Context, itemType string) ([]report.LootSummaryRow, error) {
-	return report.GetLootSummary(ctx, s.databasePath, itemType)
+	return report.GetLootSummary(ctx, s.databasePath, s.campaignID, itemType)
 }
 
 func (s *sqliteDataLoader) ListBrowseLootItems(ctx context.Context, itemType string) ([]loot.BrowseItemRecord, error) {
-	return loot.ListBrowseItems(ctx, s.databasePath, itemType)
+	return loot.ListBrowseItems(ctx, s.databasePath, s.campaignID, itemType)
 }
 
 func (s *sqliteDataLoader) ListCodexEntries(ctx context.Context) ([]codex.CodexEntry, error) {
-	return codex.ListEntries(ctx, s.databasePath)
+	return codex.ListEntries(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) ListAllCodexReferences(ctx context.Context) (map[string][]refs.EntityReference, error) {
-	return codex.ListAllReferences(ctx, s.databasePath)
+	return codex.ListAllReferences(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) ListCodexTypes(ctx context.Context) ([]codex.CodexType, error) {
@@ -128,36 +146,36 @@ func (s *sqliteDataLoader) ListCodexTypes(ctx context.Context) ([]codex.CodexTyp
 }
 
 func (s *sqliteDataLoader) ListNotes(ctx context.Context) ([]notes.NoteRecord, error) {
-	return notes.ListNotes(ctx, s.databasePath)
+	return notes.ListNotes(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) ListAllNotesReferences(ctx context.Context) (map[string][]refs.EntityReference, error) {
-	return notes.ListAllReferences(ctx, s.databasePath)
+	return notes.ListAllReferences(ctx, s.databasePath, s.campaignID)
 }
 
 func (s *sqliteDataLoader) ListAllEntityReferences(ctx context.Context) (map[string][]refs.EntityReference, error) {
 	return ledger.WithDBResult(ctx, s.databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
-		return refs.ListAllByTarget(ctx, db)
+		return refs.ListAllByTarget(ctx, db, s.campaignID)
 	})
 }
 
 const writeOffMinAgeDays = 30
 
 func (s *sqliteDataLoader) GetWriteOffCandidates(ctx context.Context) ([]report.WriteOffCandidateRow, error) {
-	return report.GetWriteOffCandidates(ctx, s.databasePath, report.WriteOffCandidateFilter{
+	return report.GetWriteOffCandidates(ctx, s.databasePath, s.campaignID, report.WriteOffCandidateFilter{
 		AsOfDate:   time.Now().Format("2006-01-02"),
 		MinAgeDays: writeOffMinAgeDays,
 	})
 }
 
 func (s *sqliteDataLoader) GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error) {
-	return journal.GetAccountLedger(ctx, s.databasePath, accountCode)
+	return journal.GetAccountLedger(ctx, s.databasePath, s.campaignID, accountCode)
 }
 
 func (s *sqliteDataLoader) SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error) {
-	return codex.SearchEntries(ctx, s.databasePath, query)
+	return codex.SearchEntries(ctx, s.databasePath, s.campaignID, query)
 }
 
 func (s *sqliteDataLoader) SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error) {
-	return notes.SearchNotes(ctx, s.databasePath, query)
+	return notes.SearchNotes(ctx, s.databasePath, s.campaignID, query)
 }

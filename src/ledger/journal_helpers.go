@@ -14,11 +14,12 @@ type accountLookupRecord struct {
 }
 
 // NextJournalEntryNumber returns the next available journal entry number.
-func NextJournalEntryNumber(ctx context.Context, db *sql.DB) (int, error) {
+func NextJournalEntryNumber(ctx context.Context, db *sql.DB, campaignID string) (int, error) {
 	var entryNumber int
 
 	if err := db.QueryRowContext(ctx,
-		"SELECT COALESCE(MAX(entry_number), 0) + 1 FROM journal_entries",
+		"SELECT COALESCE(MAX(entry_number), 0) + 1 FROM journal_entries WHERE campaign_id = ?",
+		campaignID,
 	).Scan(&entryNumber); err != nil {
 		return 0, fmt.Errorf("query next journal entry number: %w", err)
 	}
@@ -28,7 +29,7 @@ func NextJournalEntryNumber(ctx context.Context, db *sql.DB) (int, error) {
 
 // ResolveActiveAccountIDsByCode resolves account codes to account IDs,
 // verifying that each account exists and is active.
-func ResolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []JournalLineInput) (map[string]string, error) {
+func ResolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, campaignID string, lines []JournalLineInput) (map[string]string, error) {
 	accountCodes := make([]string, 0, len(lines))
 	seenCodes := make(map[string]struct{}, len(lines))
 
@@ -44,13 +45,14 @@ func ResolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []Jour
 	slices.Sort(accountCodes)
 
 	placeholders := make([]string, len(accountCodes))
-	args := make([]any, len(accountCodes))
+	args := make([]any, 0, len(accountCodes)+1)
+	args = append(args, campaignID)
 	for i, code := range accountCodes {
 		placeholders[i] = "?"
-		args[i] = code
+		args = append(args, code)
 	}
 
-	query := "SELECT code, id, active FROM accounts WHERE code IN (" + strings.Join(placeholders, ", ") + ")" //nolint:gosec // placeholders are "?" literals, not user input
+	query := "SELECT code, id, active FROM accounts WHERE campaign_id = ? AND code IN (" + strings.Join(placeholders, ", ") + ")" //nolint:gosec // placeholders are "?" literals, not user input
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query account codes: %w", err)
@@ -91,4 +93,3 @@ func ResolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []Jour
 
 	return resolved, nil
 }
-

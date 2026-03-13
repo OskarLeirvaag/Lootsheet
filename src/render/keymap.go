@@ -47,6 +47,7 @@ const (
 	ActionShowNotes       = model.ActionShowNotes
 	ActionHelp            = model.ActionHelp
 	ActionSearch          = model.ActionSearch
+	ActionSwitchCampaign  = model.ActionSwitchCampaign
 )
 
 // DefaultKeyMap returns the interactive keyboard controls.

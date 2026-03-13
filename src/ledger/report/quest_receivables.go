@@ -23,7 +23,7 @@ type QuestReceivableRow struct {
 // that have outstanding receivable balances (promised reward minus total collected > 0).
 // Total collected is computed by summing debit amounts against account 1000 (Party Cash)
 // from posted journal entries whose description matches "Quest payment: <title>%".
-func GetQuestReceivables(ctx context.Context, databasePath string) ([]QuestReceivableRow, error) {
+func GetQuestReceivables(ctx context.Context, databasePath string, campaignID string) ([]QuestReceivableRow, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]QuestReceivableRow, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT
@@ -42,10 +42,10 @@ func GetQuestReceivables(ctx context.Context, databasePath string) ([]QuestRecei
 					  AND jl.memo = 'Quest payment: ' || q.title
 				), 0) AS total_paid
 			FROM quests q
-			WHERE q.status IN ('completed', 'collectible', 'partially_paid')
+			WHERE q.campaign_id = ? AND q.status IN ('completed', 'collectible', 'partially_paid')
 			  AND q.promised_base_reward > 0
 			ORDER BY q.status, q.title
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query quest receivables: %w", err)
 		}

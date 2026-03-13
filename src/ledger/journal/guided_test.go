@@ -10,8 +10,9 @@ import (
 
 func TestPostExpenseEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	result, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
+	result, err := PostExpenseEntry(context.Background(), databasePath, campaignID, &ExpenseEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Restock arrows",
 		ExpenseAccountCode: "5100",
@@ -47,12 +48,13 @@ func TestPostExpenseEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 
 func TestPostExpenseEntryAllowsLiabilityFunding(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	testutil.RunSQLiteScriptForTest(t, databasePath, `
-		INSERT INTO accounts (id, code, name, type, active)
-		VALUES ('inn_tab', '2100', 'Innkeeper Tab', 'liability', 1);
+		INSERT INTO accounts (id, campaign_id, code, name, type, active)
+		VALUES ('inn_tab', (SELECT value FROM settings WHERE key = 'active_campaign_id'), '2100', 'Innkeeper Tab', 'liability', 1);
 	`)
 
-	result, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
+	result, err := PostExpenseEntry(context.Background(), databasePath, campaignID, &ExpenseEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Charge inn stay",
 		ExpenseAccountCode: "5300",
@@ -70,8 +72,9 @@ func TestPostExpenseEntryAllowsLiabilityFunding(t *testing.T) {
 
 func TestPostExpenseEntryRejectsWrongAccountTypes(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
+	_, err := PostExpenseEntry(context.Background(), databasePath, campaignID, &ExpenseEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Broken expense",
 		ExpenseAccountCode: "1000",
@@ -89,8 +92,9 @@ func TestPostExpenseEntryRejectsWrongAccountTypes(t *testing.T) {
 
 func TestPostExpenseEntryRejectsNonPositiveAmount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
+	_, err := PostExpenseEntry(context.Background(), databasePath, campaignID, &ExpenseEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Broken expense",
 		ExpenseAccountCode: "5100",
@@ -108,8 +112,9 @@ func TestPostExpenseEntryRejectsNonPositiveAmount(t *testing.T) {
 
 func TestPostIncomeEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	result, err := PostIncomeEntry(context.Background(), databasePath, &IncomeEntryInput{
+	result, err := PostIncomeEntry(context.Background(), databasePath, campaignID, &IncomeEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Quest bounty received",
 		IncomeAccountCode:  "4000",
@@ -145,8 +150,9 @@ func TestPostIncomeEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 
 func TestPostIncomeEntryRejectsWrongAccountTypes(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 
-	_, err := PostIncomeEntry(context.Background(), databasePath, &IncomeEntryInput{
+	_, err := PostIncomeEntry(context.Background(), databasePath, campaignID, &IncomeEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Broken income",
 		IncomeAccountCode:  "5100",
@@ -164,9 +170,10 @@ func TestPostIncomeEntryRejectsWrongAccountTypes(t *testing.T) {
 
 func TestPostIncomeEntryRejectsInactiveAccount(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	testutil.RunSQLiteScriptForTest(t, databasePath, `UPDATE accounts SET active = 0 WHERE code = '1000';`)
 
-	_, err := PostIncomeEntry(context.Background(), databasePath, &IncomeEntryInput{
+	_, err := PostIncomeEntry(context.Background(), databasePath, campaignID, &IncomeEntryInput{
 		Date:               "2026-03-08",
 		Description:        "Broken income",
 		IncomeAccountCode:  "4000",

@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
+	"github.com/OskarLeirvaag/Lootsheet/src/render/model"
 	"github.com/spf13/cobra"
 )
 
@@ -97,6 +99,10 @@ func (a *Application) newTUICommand() *cobra.Command {
 			return err
 		}
 
+		if err := resolveCampaign(ctx, loader, assets); err != nil {
+			return err
+		}
+
 		return render.Run(ctx, &render.Options{
 			ShellLoader: func(ctx context.Context) (render.ShellData, error) {
 				return buildTUIShellData(ctx, loader)
@@ -107,6 +113,54 @@ func (a *Application) newTUICommand() *cobra.Command {
 			SearchHandler: buildSearchHandler(ctx, loader),
 		})
 	})
+}
+
+// resolveCampaign determines which campaign to use for the TUI session.
+// 0 campaigns: prompt for a name, create it.
+// 1 campaign: auto-select.
+// 2+ campaigns: show a picker.
+func resolveCampaign(ctx context.Context, loader *sqliteDataLoader, assets config.InitAssets) error {
+	campaigns, err := campaign.List(ctx, loader.databasePath)
+	if err != nil {
+		return fmt.Errorf("list campaigns: %w", err)
+	}
+
+	switch len(campaigns) {
+	case 0:
+		name, err := render.RunCampaignCreator(ctx, nil)
+		if err != nil {
+			return err
+		}
+		created, err := campaign.Create(ctx, loader.databasePath, name, assets.Accounts)
+		if err != nil {
+			return fmt.Errorf("create campaign: %w", err)
+		}
+		if err := campaign.SetActive(ctx, loader.databasePath, created.ID); err != nil {
+			return fmt.Errorf("set active campaign: %w", err)
+		}
+		loader.SetCampaign(created.ID, created.Name)
+
+	case 1:
+		loader.SetCampaign(campaigns[0].ID, campaigns[0].Name)
+
+	default:
+		options := make([]model.CampaignOption, len(campaigns))
+		for i, c := range campaigns {
+			options[i] = model.CampaignOption{ID: c.ID, Name: c.Name}
+		}
+		selectedID, err := render.RunCampaignPicker(ctx, nil, options)
+		if err != nil {
+			return err
+		}
+		for _, c := range campaigns {
+			if c.ID == selectedID {
+				loader.SetCampaign(c.ID, c.Name)
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 func (a *Application) writeCommandHelp(cmd *cobra.Command) error {

@@ -22,7 +22,7 @@ type LootSummaryRow struct {
 
 // GetLootSummary returns loot items with status 'held' or 'recognized',
 // along with their latest appraisal value (if any), filtered by item type.
-func GetLootSummary(ctx context.Context, databasePath string, itemType string) ([]LootSummaryRow, error) {
+func GetLootSummary(ctx context.Context, databasePath string, campaignID string, itemType string) ([]LootSummaryRow, error) {
 	itemType = strings.TrimSpace(itemType)
 	if itemType == "" {
 		itemType = "loot"
@@ -45,9 +45,9 @@ func GetLootSummary(ctx context.Context, databasePath string, itemType string) (
 					FROM loot_appraisals la2
 					WHERE la2.loot_item_id = li.id
 				)
-			WHERE li.item_type = ? AND li.status IN ('held', 'recognized')
+			WHERE li.item_type = ? AND li.campaign_id = ? AND li.status IN ('held', 'recognized')
 			ORDER BY li.status, li.name
-		`, itemType)
+		`, itemType, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query loot summary: %w", err)
 		}

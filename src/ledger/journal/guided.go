@@ -38,7 +38,7 @@ type guidedAccountRecord struct {
 
 // PostExpenseEntry validates a guided expense input and posts the resulting
 // two-line journal entry.
-func PostExpenseEntry(ctx context.Context, databasePath string, input *ExpenseEntryInput) (ledger.PostedJournalEntry, error) {
+func PostExpenseEntry(ctx context.Context, databasePath string, campaignID string, input *ExpenseEntryInput) (ledger.PostedJournalEntry, error) {
 	if input == nil {
 		return ledger.PostedJournalEntry{}, fmt.Errorf("expense entry input is required")
 	}
@@ -48,7 +48,7 @@ func PostExpenseEntry(ctx context.Context, databasePath string, input *ExpenseEn
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
-		accounts, err := loadGuidedAccountsByCode(ctx, db, input.ExpenseAccountCode, input.FundingAccountCode)
+		accounts, err := loadGuidedAccountsByCode(ctx, db, campaignID, input.ExpenseAccountCode, input.FundingAccountCode)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -63,7 +63,7 @@ func PostExpenseEntry(ctx context.Context, databasePath string, input *ExpenseEn
 			return ledger.PostedJournalEntry{}, fmt.Errorf("account code %q must be an active asset or liability account", input.FundingAccountCode)
 		}
 
-		return PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+		return PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 			EntryDate:   input.Date,
 			Description: input.Description,
 			Lines: []ledger.JournalLineInput{
@@ -76,7 +76,7 @@ func PostExpenseEntry(ctx context.Context, databasePath string, input *ExpenseEn
 
 // PostIncomeEntry validates a guided income input and posts the resulting
 // two-line journal entry.
-func PostIncomeEntry(ctx context.Context, databasePath string, input *IncomeEntryInput) (ledger.PostedJournalEntry, error) {
+func PostIncomeEntry(ctx context.Context, databasePath string, campaignID string, input *IncomeEntryInput) (ledger.PostedJournalEntry, error) {
 	if input == nil {
 		return ledger.PostedJournalEntry{}, fmt.Errorf("income entry input is required")
 	}
@@ -86,7 +86,7 @@ func PostIncomeEntry(ctx context.Context, databasePath string, input *IncomeEntr
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
-		accounts, err := loadGuidedAccountsByCode(ctx, db, input.IncomeAccountCode, input.DepositAccountCode)
+		accounts, err := loadGuidedAccountsByCode(ctx, db, campaignID, input.IncomeAccountCode, input.DepositAccountCode)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -101,7 +101,7 @@ func PostIncomeEntry(ctx context.Context, databasePath string, input *IncomeEntr
 			return ledger.PostedJournalEntry{}, fmt.Errorf("account code %q must be an active asset account", input.DepositAccountCode)
 		}
 
-		return PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
+		return PostJournalEntry(ctx, databasePath, campaignID, ledger.JournalPostInput{
 			EntryDate:   input.Date,
 			Description: input.Description,
 			Lines: []ledger.JournalLineInput{
@@ -135,7 +135,7 @@ func validateGuidedAmount(amount int64) error {
 	return nil
 }
 
-func loadGuidedAccountsByCode(ctx context.Context, db *sql.DB, codes ...string) (map[string]guidedAccountRecord, error) {
+func loadGuidedAccountsByCode(ctx context.Context, db *sql.DB, campaignID string, codes ...string) (map[string]guidedAccountRecord, error) {
 	trimmed := make([]string, 0, len(codes))
 	seen := make(map[string]struct{}, len(codes))
 	for _, code := range codes {
@@ -151,13 +151,14 @@ func loadGuidedAccountsByCode(ctx context.Context, db *sql.DB, codes ...string) 
 	}
 
 	placeholders := make([]string, len(trimmed))
-	args := make([]any, len(trimmed))
+	args := make([]any, 0, 1+len(trimmed))
+	args = append(args, campaignID)
 	for index := range trimmed {
 		placeholders[index] = "?"
-		args[index] = trimmed[index]
+		args = append(args, trimmed[index])
 	}
 
-	query := "SELECT code, name, type, active FROM accounts WHERE code IN (" + strings.Join(placeholders, ", ") + ")" //nolint:gosec // placeholders are fixed "?" literals
+	query := "SELECT code, name, type, active FROM accounts WHERE campaign_id = ? AND code IN (" + strings.Join(placeholders, ", ") + ")" //nolint:gosec // placeholders are fixed "?" literals
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query guided entry accounts: %w", err)

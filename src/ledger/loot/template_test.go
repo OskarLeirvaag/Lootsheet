@@ -10,9 +10,10 @@ import (
 
 func TestSaveAssetTemplate(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Tavern", "Town square", 1, "", "", "asset")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Tavern", "Town square", 1, "", "", "asset")
 	if err != nil {
 		t.Fatalf("create asset: %v", err)
 	}
@@ -22,7 +23,7 @@ func TestSaveAssetTemplate(t *testing.T) {
 		{Side: "credit", AccountCode: "4400"},
 	}
 
-	if err := SaveAssetTemplate(ctx, databasePath, item.ID, lines); err != nil {
+	if err := SaveAssetTemplate(ctx, databasePath, campaignID, item.ID, lines); err != nil {
 		t.Fatalf("save template: %v", err)
 	}
 
@@ -43,9 +44,10 @@ func TestSaveAssetTemplate(t *testing.T) {
 
 func TestSaveAssetTemplateRejectsLootItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "", "loot")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Ruby", "Cave", 1, "", "", "loot")
 	if err != nil {
 		t.Fatalf("create loot: %v", err)
 	}
@@ -55,7 +57,7 @@ func TestSaveAssetTemplateRejectsLootItem(t *testing.T) {
 		{Side: "credit", AccountCode: "4400"},
 	}
 
-	err = SaveAssetTemplate(ctx, databasePath, item.ID, lines)
+	err = SaveAssetTemplate(ctx, databasePath, campaignID, item.ID, lines)
 	if err == nil {
 		t.Fatal("expected error for loot item")
 	}
@@ -66,9 +68,10 @@ func TestSaveAssetTemplateRejectsLootItem(t *testing.T) {
 
 func TestSaveAssetTemplateRejectsInvalidSide(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Mine", "Hills", 1, "", "", "asset")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Mine", "Hills", 1, "", "", "asset")
 	if err != nil {
 		t.Fatalf("create asset: %v", err)
 	}
@@ -77,7 +80,7 @@ func TestSaveAssetTemplateRejectsInvalidSide(t *testing.T) {
 		{Side: "invalid", AccountCode: "1000"},
 	}
 
-	err = SaveAssetTemplate(ctx, databasePath, item.ID, lines)
+	err = SaveAssetTemplate(ctx, databasePath, campaignID, item.ID, lines)
 	if err == nil {
 		t.Fatal("expected error for invalid side")
 	}
@@ -88,9 +91,10 @@ func TestSaveAssetTemplateRejectsInvalidSide(t *testing.T) {
 
 func TestSaveAssetTemplateRejectsEmptyAccountCode(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Mine", "Hills", 1, "", "", "asset")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Mine", "Hills", 1, "", "", "asset")
 	if err != nil {
 		t.Fatalf("create asset: %v", err)
 	}
@@ -99,7 +103,7 @@ func TestSaveAssetTemplateRejectsEmptyAccountCode(t *testing.T) {
 		{Side: "debit", AccountCode: ""},
 	}
 
-	err = SaveAssetTemplate(ctx, databasePath, item.ID, lines)
+	err = SaveAssetTemplate(ctx, databasePath, campaignID, item.ID, lines)
 	if err == nil {
 		t.Fatal("expected error for empty account code")
 	}
@@ -110,9 +114,10 @@ func TestSaveAssetTemplateRejectsEmptyAccountCode(t *testing.T) {
 
 func TestSaveAssetTemplateReplace(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
 	ctx := context.Background()
 
-	item, err := CreateLootItem(ctx, databasePath, "Rental House", "Market district", 1, "", "", "asset")
+	item, err := CreateLootItem(ctx, databasePath, campaignID, "Rental House", "Market district", 1, "", "", "asset")
 	if err != nil {
 		t.Fatalf("create asset: %v", err)
 	}
@@ -121,7 +126,7 @@ func TestSaveAssetTemplateReplace(t *testing.T) {
 		{Side: "debit", AccountCode: "1000"},
 		{Side: "credit", AccountCode: "4400"},
 	}
-	if err := SaveAssetTemplate(ctx, databasePath, item.ID, original); err != nil {
+	if err := SaveAssetTemplate(ctx, databasePath, campaignID, item.ID, original); err != nil {
 		t.Fatalf("save original template: %v", err)
 	}
 
@@ -131,7 +136,7 @@ func TestSaveAssetTemplateReplace(t *testing.T) {
 		{Side: "debit", AccountCode: "5600"},
 		{Side: "credit", AccountCode: "1000"},
 	}
-	if err := SaveAssetTemplate(ctx, databasePath, item.ID, replacement); err != nil {
+	if err := SaveAssetTemplate(ctx, databasePath, campaignID, item.ID, replacement); err != nil {
 		t.Fatalf("save replacement template: %v", err)
 	}
 

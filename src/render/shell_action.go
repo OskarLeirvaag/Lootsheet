@@ -34,7 +34,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
-			ActionShowNotes, ActionSearch:
+			ActionShowNotes, ActionSearch, ActionSwitchCampaign:
 			return handleResult{}
 		case ActionQuit:
 			s.compose = nil
@@ -85,6 +85,10 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	case ActionShowDashboard:
 		s.Section = SectionDashboard
 		return handleResult{Redraw: true}
+	case ActionSwitchCampaign:
+		if s.openCampaignPicker() {
+			return handleResult{Redraw: true}
+		}
 	case ActionShowSettings:
 		s.Section = SectionSettings
 		s.reconcileSelection(s.Section)
@@ -175,6 +179,11 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 			return result
 		}
 	}
+	if s.campaignPicker != nil {
+		if result, handled := s.handleCampaignPickerKeyEvent(event, action); handled {
+			return result
+		}
+	}
 	if s.codexPicker != nil {
 		if result, handled := s.handleCodexPickerKeyEvent(event, action); handled {
 			return result
@@ -225,7 +234,7 @@ func (s *Shell) handleInputAction(action Action) handleResult {
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
-		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose, ActionSearch:
+		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose, ActionSearch, ActionSwitchCampaign:
 		return handleResult{}
 	case ActionQuit:
 		s.input = nil

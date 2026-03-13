@@ -34,7 +34,7 @@ type BrowseEntryRecord struct {
 
 // ListBrowseEntries returns journal entries ordered newest first with line detail
 // and reversal linkage for TUI browsing.
-func ListBrowseEntries(ctx context.Context, databasePath string) ([]BrowseEntryRecord, error) {
+func ListBrowseEntries(ctx context.Context, databasePath string, campaignID string) ([]BrowseEntryRecord, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]BrowseEntryRecord, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT
@@ -50,8 +50,9 @@ func ListBrowseEntries(ctx context.Context, databasePath string) ([]BrowseEntryR
 			FROM journal_entries je
 			LEFT JOIN journal_entries reversed_entry ON reversed_entry.id = je.reverses_entry_id
 			LEFT JOIN journal_entries reversal_entry ON reversal_entry.reverses_entry_id = je.id
+			WHERE je.campaign_id = ?
 			ORDER BY je.entry_number DESC, je.id DESC
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query journal browse entries: %w", err)
 		}
@@ -104,8 +105,9 @@ func ListBrowseEntries(ctx context.Context, databasePath string) ([]BrowseEntryR
 			FROM journal_lines jl
 			JOIN accounts a ON a.id = jl.account_id
 			JOIN journal_entries je ON je.id = jl.journal_entry_id
+			WHERE je.campaign_id = ?
 			ORDER BY je.entry_number DESC, je.id DESC, jl.line_number ASC
-		`)
+		`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("query journal browse lines: %w", err)
 		}
