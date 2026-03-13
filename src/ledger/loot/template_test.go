@@ -26,21 +26,18 @@ func TestSaveAssetTemplate(t *testing.T) {
 		t.Fatalf("save template: %v", err)
 	}
 
-	saved, err := ListAssetTemplateLines(ctx, databasePath, item.ID)
-	if err != nil {
-		t.Fatalf("list template lines: %v", err)
+	lineCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
+		"SELECT COUNT(*) FROM asset_template_lines WHERE loot_item_id = '"+item.ID+"';",
+	))
+	if lineCount != "2" {
+		t.Fatalf("line count = %s, want 2", lineCount)
 	}
-	if len(saved) != 2 {
-		t.Fatalf("line count = %d, want 2", len(saved))
-	}
-	if saved[0].Side != "debit" || saved[0].AccountCode != "1000" {
-		t.Fatalf("line 0 = %s/%s, want debit/1000", saved[0].Side, saved[0].AccountCode)
-	}
-	if saved[1].Side != "credit" || saved[1].AccountCode != "4400" {
-		t.Fatalf("line 1 = %s/%s, want credit/4400", saved[1].Side, saved[1].AccountCode)
-	}
-	if saved[0].SortOrder != 0 || saved[1].SortOrder != 1 {
-		t.Fatalf("sort orders = %d/%d, want 0/1", saved[0].SortOrder, saved[1].SortOrder)
+	lineData := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
+		"SELECT side || '/' || account_code || '/' || sort_order FROM asset_template_lines WHERE loot_item_id = '"+item.ID+"' ORDER BY sort_order;",
+	))
+	expectedLines := "debit/1000/0\ncredit/4400/1"
+	if lineData != expectedLines {
+		t.Fatalf("template lines = %q, want %q", lineData, expectedLines)
 	}
 }
 
@@ -111,74 +108,6 @@ func TestSaveAssetTemplateRejectsEmptyAccountCode(t *testing.T) {
 	}
 }
 
-func TestListAssetTemplateLines(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-	ctx := context.Background()
-
-	item, err := CreateLootItem(ctx, databasePath, "Tavern", "Town", 1, "", "", "asset")
-	if err != nil {
-		t.Fatalf("create asset: %v", err)
-	}
-
-	lines := []AssetTemplateLineRecord{
-		{Side: "debit", AccountCode: "1000"},
-		{Side: "credit", AccountCode: "4400"},
-		{Side: "debit", AccountCode: "5600"},
-		{Side: "credit", AccountCode: "1000"},
-	}
-
-	if err := SaveAssetTemplate(ctx, databasePath, item.ID, lines); err != nil {
-		t.Fatalf("save template: %v", err)
-	}
-
-	saved, err := ListAssetTemplateLines(ctx, databasePath, item.ID)
-	if err != nil {
-		t.Fatalf("list template lines: %v", err)
-	}
-	if len(saved) != 4 {
-		t.Fatalf("line count = %d, want 4", len(saved))
-	}
-	for i, line := range saved {
-		if line.SortOrder != i {
-			t.Fatalf("line %d sort_order = %d, want %d", i, line.SortOrder, i)
-		}
-		if line.LootItemID != item.ID {
-			t.Fatalf("line %d item id = %q, want %q", i, line.LootItemID, item.ID)
-		}
-	}
-}
-
-func TestDeleteAssetTemplate(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-	ctx := context.Background()
-
-	item, err := CreateLootItem(ctx, databasePath, "Tavern", "Town", 1, "", "", "asset")
-	if err != nil {
-		t.Fatalf("create asset: %v", err)
-	}
-
-	lines := []AssetTemplateLineRecord{
-		{Side: "debit", AccountCode: "1000"},
-		{Side: "credit", AccountCode: "4400"},
-	}
-
-	if err := SaveAssetTemplate(ctx, databasePath, item.ID, lines); err != nil {
-		t.Fatalf("save template: %v", err)
-	}
-
-	if err := DeleteAssetTemplate(ctx, databasePath, item.ID); err != nil {
-		t.Fatalf("delete template: %v", err)
-	}
-
-	saved, err := ListAssetTemplateLines(ctx, databasePath, item.ID)
-	if err != nil {
-		t.Fatalf("list template lines: %v", err)
-	}
-	if len(saved) != 0 {
-		t.Fatalf("line count = %d, want 0", len(saved))
-	}
-}
-
 func TestSaveAssetTemplateReplace(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
@@ -206,14 +135,16 @@ func TestSaveAssetTemplateReplace(t *testing.T) {
 		t.Fatalf("save replacement template: %v", err)
 	}
 
-	saved, err := ListAssetTemplateLines(ctx, databasePath, item.ID)
-	if err != nil {
-		t.Fatalf("list template lines: %v", err)
+	lineCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
+		"SELECT COUNT(*) FROM asset_template_lines WHERE loot_item_id = '"+item.ID+"';",
+	))
+	if lineCount != "4" {
+		t.Fatalf("line count = %s, want 4 (replacement)", lineCount)
 	}
-	if len(saved) != 4 {
-		t.Fatalf("line count = %d, want 4 (replacement)", len(saved))
-	}
-	if saved[2].AccountCode != "5600" {
-		t.Fatalf("line 2 account = %q, want 5600", saved[2].AccountCode)
+	line2Account := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
+		"SELECT account_code FROM asset_template_lines WHERE loot_item_id = '"+item.ID+"' AND sort_order = 2;",
+	))
+	if line2Account != "5600" {
+		t.Fatalf("line 2 account = %q, want 5600", line2Account)
 	}
 }

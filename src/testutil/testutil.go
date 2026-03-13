@@ -131,3 +131,23 @@ func LoadMigrationAssetsForTest(t testing.TB) (config.InitAssets, config.InitAss
 
 	return fullAssets, legacyAssets
 }
+
+// AcceptQuest transitions a quest to 'accepted' status via direct SQL.
+// Use this only for test setup — it skips domain validation.
+func AcceptQuest(t testing.TB, databasePath string, questID string, acceptedDate string) {
+	t.Helper()
+
+	RunSQLiteScriptForTest(t, databasePath, fmt.Sprintf(
+		`UPDATE quests SET status = 'accepted', accepted_on = '%s' WHERE id = '%s'`,
+		acceptedDate, questID))
+}
+
+// CompleteQuest transitions a quest to 'completed' status via direct SQL.
+// Use this only for test setup — it skips domain validation.
+func CompleteQuest(t testing.TB, databasePath string, questID string, completedDate string) {
+	t.Helper()
+
+	RunSQLiteScriptForTest(t, databasePath, fmt.Sprintf(
+		`UPDATE quests SET status = 'completed', completed_on = '%s' WHERE id = '%s'`,
+		completedDate, questID))
+}

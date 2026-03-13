@@ -51,38 +51,6 @@ func TestCreateLootItemRejectsEmptyName(t *testing.T) {
 	}
 }
 
-func TestListLootItems(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	_, err := CreateLootItem(context.Background(), databasePath, "Sword", "", 1, "", "", "loot")
-	if err != nil {
-		t.Fatalf("create sword: %v", err)
-	}
-
-	_, err = CreateLootItem(context.Background(), databasePath, "Shield", "", 2, "", "", "loot")
-	if err != nil {
-		t.Fatalf("create shield: %v", err)
-	}
-
-	items, err := ListLootItems(context.Background(), databasePath, "loot")
-	if err != nil {
-		t.Fatalf("list loot items: %v", err)
-	}
-
-	if len(items) != 2 {
-		t.Fatalf("loot item count = %d, want 2", len(items))
-	}
-
-	// Both should be held, sorted by name.
-	if items[0].Name != "Shield" {
-		t.Fatalf("first item = %q, want Shield (alphabetical)", items[0].Name)
-	}
-
-	if items[1].Name != "Sword" {
-		t.Fatalf("second item = %q, want Sword", items[1].Name)
-	}
-}
-
 func TestAppraiseLootItem(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
 
@@ -169,13 +137,11 @@ func TestRecognizeLootAppraisal(t *testing.T) {
 	}
 
 	// Verify item status changed to recognized.
-	items, err := ListLootItems(context.Background(), databasePath, "loot")
-	if err != nil {
-		t.Fatalf("list items: %v", err)
-	}
-
-	if items[0].Status != ledger.LootStatusRecognized {
-		t.Fatalf("item status = %q, want recognized", items[0].Status)
+	itemStatus := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
+		"SELECT status FROM loot_items WHERE id = '"+item.ID+"';",
+	))
+	if itemStatus != "recognized" {
+		t.Fatalf("item status = %q, want recognized", itemStatus)
 	}
 
 	// Verify journal entry was created.
@@ -245,13 +211,11 @@ func TestSellLootItemAtAppraisalValue(t *testing.T) {
 	}
 
 	// Verify item status.
-	items, err := ListLootItems(context.Background(), databasePath, "loot")
-	if err != nil {
-		t.Fatalf("list items: %v", err)
-	}
-
-	if items[0].Status != ledger.LootStatusSold {
-		t.Fatalf("item status = %q, want sold", items[0].Status)
+	itemStatus := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
+		"SELECT status FROM loot_items WHERE id = '"+item.ID+"';",
+	))
+	if itemStatus != "sold" {
+		t.Fatalf("item status = %q, want sold", itemStatus)
 	}
 }
 

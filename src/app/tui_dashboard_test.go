@@ -85,9 +85,7 @@ func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("create collectible quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, completedQuest.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, completedQuest.ID, "2026-03-09")
 
 	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "", "loot")
 	if err != nil {
@@ -685,9 +683,7 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := quest.CompleteQuest(ctx, databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
@@ -751,9 +747,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := quest.CompleteQuest(ctx, databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandQuestCollectFull,
@@ -831,9 +825,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := quest.CompleteQuest(ctx, databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandQuestWriteOffFull,
@@ -1468,7 +1460,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 		t.Fatalf("status text = %q, want updated loot summary", result.Status.Text)
 	}
 
-	items, err := loot.ListLootItems(ctx, databasePath, "loot")
+	items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list loot items: %v", err)
 	}

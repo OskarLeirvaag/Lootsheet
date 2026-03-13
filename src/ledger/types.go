@@ -33,17 +33,6 @@ func (t AccountType) Valid() bool {
 	}
 }
 
-// AccountTypes returns all valid account type values.
-func AccountTypes() []AccountType {
-	return []AccountType{
-		AccountTypeAsset,
-		AccountTypeLiability,
-		AccountTypeEquity,
-		AccountTypeIncome,
-		AccountTypeExpense,
-	}
-}
-
 // JournalEntryStatus represents the lifecycle state of a journal entry.
 type JournalEntryStatus string
 
@@ -74,15 +63,6 @@ func (s JournalEntryStatus) Immutable() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// JournalEntryStatuses returns all valid journal entry status values.
-func JournalEntryStatuses() []JournalEntryStatus {
-	return []JournalEntryStatus{
-		JournalEntryStatusDraft,
-		JournalEntryStatusPosted,
-		JournalEntryStatusReversed,
 	}
 }
 
@@ -125,20 +105,6 @@ func (s QuestStatus) Valid() bool {
 	}
 }
 
-// QuestStatuses returns all valid quest status values.
-func QuestStatuses() []QuestStatus {
-	return []QuestStatus{
-		QuestStatusOffered,
-		QuestStatusAccepted,
-		QuestStatusCompleted,
-		QuestStatusCollectible,
-		QuestStatusPartiallyPaid,
-		QuestStatusPaid,
-		QuestStatusDefaulted,
-		QuestStatusVoided,
-	}
-}
-
 // LootStatus represents the lifecycle state of a loot item.
 type LootStatus string
 
@@ -169,18 +135,6 @@ func (s LootStatus) Valid() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// LootStatuses returns all valid loot status values.
-func LootStatuses() []LootStatus {
-	return []LootStatus{
-		LootStatusHeld,
-		LootStatusRecognized,
-		LootStatusSold,
-		LootStatusAssigned,
-		LootStatusConsumed,
-		LootStatusDiscarded,
 	}
 }
 

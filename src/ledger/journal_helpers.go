@@ -92,20 +92,3 @@ func ResolveActiveAccountIDsByCode(ctx context.Context, db *sql.DB, lines []Jour
 	return resolved, nil
 }
 
-// GetJournalEntryStatus returns the status of a journal entry by ID.
-// Returns sql.ErrNoRows if the entry does not exist.
-func GetJournalEntryStatus(ctx context.Context, db *sql.DB, entryID string) (JournalEntryStatus, error) {
-	var status string
-	if err := db.QueryRowContext(ctx,
-		"SELECT status FROM journal_entries WHERE id = ?", entryID,
-	).Scan(&status); err != nil {
-		return "", fmt.Errorf("query journal entry status: %w", err)
-	}
-
-	s := JournalEntryStatus(status)
-	if !s.Valid() {
-		return "", fmt.Errorf("journal entry %s has invalid status %q", entryID, status)
-	}
-
-	return s, nil
-}

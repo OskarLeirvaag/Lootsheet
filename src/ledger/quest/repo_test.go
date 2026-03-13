@@ -147,108 +147,6 @@ func TestListQuests(t *testing.T) {
 	}
 }
 
-func TestAcceptQuest(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
-		Title:  "Accept Me",
-		Status: "offered",
-	})
-	if err != nil {
-		t.Fatalf("create quest: %v", err)
-	}
-
-	if err := AcceptQuest(context.Background(), databasePath, quest.ID, "2026-03-05"); err != nil {
-		t.Fatalf("accept quest: %v", err)
-	}
-
-	quests, err := ListQuests(context.Background(), databasePath)
-	if err != nil {
-		t.Fatalf("list quests: %v", err)
-	}
-
-	if quests[0].Status != ledger.QuestStatusAccepted {
-		t.Fatalf("quest status = %q, want accepted", quests[0].Status)
-	}
-
-	if quests[0].AcceptedOn != "2026-03-05" {
-		t.Fatalf("quest accepted_on = %q, want 2026-03-05", quests[0].AcceptedOn)
-	}
-}
-
-func TestAcceptQuestRejectsNonOffered(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
-		Title:      "Already Accepted",
-		Status:     "accepted",
-		AcceptedOn: "2026-03-01",
-	})
-	if err != nil {
-		t.Fatalf("create quest: %v", err)
-	}
-
-	err = AcceptQuest(context.Background(), databasePath, quest.ID, "2026-03-05")
-	if err == nil {
-		t.Fatal("expected error accepting an already accepted quest")
-	}
-
-	if !strings.Contains(err.Error(), "cannot be accepted") {
-		t.Fatalf("error = %q, want cannot be accepted", err)
-	}
-}
-
-func TestCompleteQuest(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
-		Title:      "Complete Me",
-		Status:     "accepted",
-		AcceptedOn: "2026-03-01",
-	})
-	if err != nil {
-		t.Fatalf("create quest: %v", err)
-	}
-
-	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
-
-	quests, err := ListQuests(context.Background(), databasePath)
-	if err != nil {
-		t.Fatalf("list quests: %v", err)
-	}
-
-	if quests[0].Status != ledger.QuestStatusCompleted {
-		t.Fatalf("quest status = %q, want completed", quests[0].Status)
-	}
-
-	if quests[0].CompletedOn != "2026-03-10" {
-		t.Fatalf("quest completed_on = %q, want 2026-03-10", quests[0].CompletedOn)
-	}
-}
-
-func TestCompleteQuestRejectsOffered(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
-		Title:  "Still Offered",
-		Status: "offered",
-	})
-	if err != nil {
-		t.Fatalf("create quest: %v", err)
-	}
-
-	err = CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10")
-	if err == nil {
-		t.Fatal("expected error completing an offered quest")
-	}
-
-	if !strings.Contains(err.Error(), "cannot be completed") {
-		t.Fatalf("error = %q, want cannot be completed", err)
-	}
-}
-
 func TestCollectQuestFullPayment(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
 
@@ -262,9 +160,7 @@ func TestCollectQuestFullPayment(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
 	entry, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID: quest.ID,
@@ -317,9 +213,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
 	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID: quest.ID,
@@ -443,9 +337,7 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, createdQuest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, createdQuest.ID, "2026-03-10")
 
 	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID:     createdQuest.ID,
@@ -474,32 +366,6 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 	}
 }
 
-func TestAcceptQuestRejectsNonexistentQuest(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	err := AcceptQuest(context.Background(), databasePath, "nonexistent-id", "2026-03-05")
-	if err == nil {
-		t.Fatal("expected error for nonexistent quest")
-	}
-
-	if !strings.Contains(err.Error(), "does not exist") {
-		t.Fatalf("error = %q, want does not exist", err)
-	}
-}
-
-func TestCompleteQuestRejectsNonexistentQuest(t *testing.T) {
-	databasePath := testutil.InitTestDB(t)
-
-	err := CompleteQuest(context.Background(), databasePath, "nonexistent-id", "2026-03-10")
-	if err == nil {
-		t.Fatal("expected error for nonexistent quest")
-	}
-
-	if !strings.Contains(err.Error(), "does not exist") {
-		t.Fatalf("error = %q, want does not exist", err)
-	}
-}
-
 func TestWriteOffCompletedQuest(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
 
@@ -514,9 +380,7 @@ func TestWriteOffCompletedQuest(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
 	entry, err := WriteOffQuest(context.Background(), databasePath, WriteOffQuestInput{
 		QuestID: quest.ID,
@@ -566,9 +430,7 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
 	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID: quest.ID,
@@ -619,9 +481,7 @@ func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, createdQuest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, createdQuest.ID, "2026-03-10")
 
 	if _, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID:     createdQuest.ID,
@@ -683,9 +543,7 @@ func TestWriteOffQuestFullyPaid(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := CompleteQuest(context.Background(), databasePath, quest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, quest.ID, "2026-03-10")
 
 	_, err = CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID: quest.ID,
@@ -761,9 +619,7 @@ func TestUpdateQuestRejectsRewardChangeAfterCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := CompleteQuest(context.Background(), databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	_, err = UpdateQuest(context.Background(), databasePath, record.ID, &UpdateQuestInput{
 		Title:              "Late Reward Change",
