@@ -35,28 +35,8 @@ Sleep 3s
 # ── Dashboard ──
 Sleep 1.5s
 
-# ── Accounts ── browse chart of accounts.
-Type "2"
-Sleep 800ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Up
-Sleep 150ms
-Up
-Sleep 150ms
-Up
-Sleep 150ms
-
 # ── Journal ── browse posted entries.
-Type "3"
+Type "2"
 Sleep 800ms
 Down
 Sleep 150ms
@@ -72,7 +52,7 @@ Up
 Sleep 150ms
 
 # ── Quests ── browse quest register.
-Type "4"
+Type "3"
 Sleep 800ms
 Down
 Sleep 150ms
@@ -80,7 +60,7 @@ Down
 Sleep 150ms
 
 # ── Loot ── browse loot register.
-Type "5"
+Type "4"
 Sleep 800ms
 # Wyvern Tooth Necklace is selected (held, first in sort).
 # Move to Emerald Idol (recognized, second item).
@@ -96,7 +76,7 @@ Enter
 Sleep 800ms
 
 # ── Assets ── add a new asset.
-Type "6"
+Type "5"
 Sleep 800ms
 Type "a"
 Sleep 500ms
@@ -159,8 +139,40 @@ Sleep 400ms
 Enter
 Sleep 800ms
 
-# ── Journal ── see the new entries.
-Type "3"
+# ── Codex ── browse NPCs and contacts.
+Type "6"
+Sleep 800ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+Up
+Sleep 300ms
+
+# ── Notes ── browse campaign notes.
+Type "7"
+Sleep 800ms
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+
+# ── Search ── find entries across all sections.
+Type "/"
+Sleep 500ms
+Type "moonlit"
+Sleep 800ms
+# Browse results.
+Down
+Sleep 300ms
+Down
+Sleep 300ms
+# Close search.
+Escape
+Sleep 500ms
+
+# ── Journal ── see the new entries at the bottom.
+Type "2"
 Sleep 800ms
 # Scroll to bottom to see sale + custom entries.
 Down
