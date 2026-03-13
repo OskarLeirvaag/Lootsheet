@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestDeleteEntryRemovesReferences(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	entry, err := CreateEntry(ctx, databasePath, &CreateInput{
@@ -20,7 +20,7 @@ func TestDeleteEntryRemovesReferences(t *testing.T) {
 	}
 
 	// Verify references were created.
-	refCount := ledger.RunSQLiteQueryForTest(t, databasePath,
+	refCount := testutil.RunSQLiteQueryForTest(t, databasePath,
 		"SELECT COUNT(*) FROM entity_references WHERE source_type = 'codex' AND source_id = '"+entry.ID+"'")
 	if refCount != "2" {
 		t.Fatalf("expected 2 references after create, got %s", refCount)
@@ -32,7 +32,7 @@ func TestDeleteEntryRemovesReferences(t *testing.T) {
 	}
 
 	// Verify references were cleaned up.
-	refCount = ledger.RunSQLiteQueryForTest(t, databasePath,
+	refCount = testutil.RunSQLiteQueryForTest(t, databasePath,
 		"SELECT COUNT(*) FROM entity_references WHERE source_type = 'codex' AND source_id = '"+entry.ID+"'")
 	if refCount != "0" {
 		t.Fatalf("expected 0 references after delete, got %s", refCount)

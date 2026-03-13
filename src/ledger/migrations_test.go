@@ -1,4 +1,4 @@
-package ledger
+package ledger_test
 
 import (
 	"bytes"
@@ -9,26 +9,28 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestGetDatabaseStatusWithAssetsForeignWhenMetadataMissing(t *testing.T) {
 	tmpDir := t.TempDir()
 	databasePath := filepath.Join(tmpDir, "foreign.db")
 
-	RunSQLiteScriptForTest(t, databasePath, `CREATE TABLE camp_log (id TEXT PRIMARY KEY, note TEXT NOT NULL);`)
+	testutil.RunSQLiteScriptForTest(t, databasePath, `CREATE TABLE camp_log (id TEXT PRIMARY KEY, note TEXT NOT NULL);`)
 
-	assets, err := loadInitAssetsForLedgerTest()
+	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	status, err := GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
+	status, err := ledger.GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
 	if err != nil {
 		t.Fatalf("get database status: %v", err)
 	}
 
-	if status.State != DatabaseStateForeign {
-		t.Fatalf("state = %q, want %q", status.State, DatabaseStateForeign)
+	if status.State != ledger.DatabaseStateForeign {
+		t.Fatalf("state = %q, want %q", status.State, ledger.DatabaseStateForeign)
 	}
 
 	if !strings.Contains(status.Detail, "missing LootSheet migration metadata") {
@@ -37,25 +39,25 @@ func TestGetDatabaseStatusWithAssetsForeignWhenMetadataMissing(t *testing.T) {
 }
 
 func TestGetDatabaseStatusWithAssetsForeignWhenSchemaVersionUnknown(t *testing.T) {
-	databasePath := InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
-	RunSQLiteScriptForTest(t, databasePath, `
+	testutil.RunSQLiteScriptForTest(t, databasePath, `
 		INSERT INTO schema_migrations (version, name) VALUES ('99', '099_future.sql');
 		UPDATE settings SET value = '99' WHERE key = 'schema_version';
 	`)
 
-	assets, err := loadInitAssetsForLedgerTest()
+	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	status, err := GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
+	status, err := ledger.GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
 	if err != nil {
 		t.Fatalf("get database status: %v", err)
 	}
 
-	if status.State != DatabaseStateForeign {
-		t.Fatalf("state = %q, want %q", status.State, DatabaseStateForeign)
+	if status.State != ledger.DatabaseStateForeign {
+		t.Fatalf("state = %q, want %q", status.State, ledger.DatabaseStateForeign)
 	}
 
 	if !strings.Contains(status.Detail, `schema version "99" is not recognized`) {
@@ -71,18 +73,18 @@ func TestGetDatabaseStatusWithAssetsDamagedForNonSQLiteFile(t *testing.T) {
 		t.Fatalf("write damaged db file: %v", err)
 	}
 
-	assets, err := loadInitAssetsForLedgerTest()
+	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	status, err := GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
+	status, err := ledger.GetDatabaseStatusWithAssets(context.Background(), databasePath, assets)
 	if err != nil {
 		t.Fatalf("get database status: %v", err)
 	}
 
-	if status.State != DatabaseStateDamaged {
-		t.Fatalf("state = %q, want %q", status.State, DatabaseStateDamaged)
+	if status.State != ledger.DatabaseStateDamaged {
+		t.Fatalf("state = %q, want %q", status.State, ledger.DatabaseStateDamaged)
 	}
 
 	if !strings.Contains(status.Detail, "valid SQLite database") {
@@ -95,8 +97,8 @@ func TestMigrateSQLiteDatabaseCreatesBackupBeforeApplyingMigrations(t *testing.T
 	databasePath := filepath.Join(tmpDir, "ledger.db")
 	backupDir := filepath.Join(tmpDir, "backups")
 
-	fullAssets, legacyAssets := LoadMigrationAssetsForTest(t)
-	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
+	fullAssets, legacyAssets := testutil.LoadMigrationAssetsForTest(t)
+	if _, err := ledger.EnsureSQLiteInitialized(context.Background(), databasePath, legacyAssets); err != nil {
 		t.Fatalf("initialize legacy db: %v", err)
 	}
 
@@ -105,7 +107,7 @@ func TestMigrateSQLiteDatabaseCreatesBackupBeforeApplyingMigrations(t *testing.T
 		t.Fatalf("read database before migration: %v", err)
 	}
 
-	result, err := MigrateSQLiteDatabase(context.Background(), databasePath, backupDir, fullAssets)
+	result, err := ledger.MigrateSQLiteDatabase(context.Background(), databasePath, backupDir, fullAssets)
 	if err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
@@ -130,8 +132,4 @@ func TestMigrateSQLiteDatabaseCreatesBackupBeforeApplyingMigrations(t *testing.T
 	if !bytes.Equal(backupBytes, beforeBytes) {
 		t.Fatal("backup file contents do not match the pre-migration database")
 	}
-}
-
-func loadInitAssetsForLedgerTest() (config.InitAssets, error) {
-	return config.LoadInitAssets()
 }

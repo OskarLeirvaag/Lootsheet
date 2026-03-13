@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestSaveAssetTemplate(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Tavern", "Town square", 1, "", "", "asset")
@@ -45,7 +45,7 @@ func TestSaveAssetTemplate(t *testing.T) {
 }
 
 func TestSaveAssetTemplateRejectsLootItem(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "", "loot")
@@ -68,7 +68,7 @@ func TestSaveAssetTemplateRejectsLootItem(t *testing.T) {
 }
 
 func TestSaveAssetTemplateRejectsInvalidSide(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Mine", "Hills", 1, "", "", "asset")
@@ -90,7 +90,7 @@ func TestSaveAssetTemplateRejectsInvalidSide(t *testing.T) {
 }
 
 func TestSaveAssetTemplateRejectsEmptyAccountCode(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Mine", "Hills", 1, "", "", "asset")
@@ -112,7 +112,7 @@ func TestSaveAssetTemplateRejectsEmptyAccountCode(t *testing.T) {
 }
 
 func TestListAssetTemplateLines(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Tavern", "Town", 1, "", "", "asset")
@@ -149,7 +149,7 @@ func TestListAssetTemplateLines(t *testing.T) {
 }
 
 func TestDeleteAssetTemplate(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Tavern", "Town", 1, "", "", "asset")
@@ -180,7 +180,7 @@ func TestDeleteAssetTemplate(t *testing.T) {
 }
 
 func TestSaveAssetTemplateReplace(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Rental House", "Market district", 1, "", "", "asset")

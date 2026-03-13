@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	result, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -33,7 +34,7 @@ func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
 		t.Fatalf("result = %+v, want 2 lines and 25/25 totals", result)
 	}
 
-	entryRow := strings.TrimSpace(ledger.RunSQLiteQueryForTest(
+	entryRow := strings.TrimSpace(testutil.RunSQLiteQueryForTest(
 		t,
 		databasePath,
 		"SELECT status || '\t' || entry_date || '\t' || description || '\t' || posted_at FROM journal_entries;",
@@ -51,14 +52,14 @@ func TestPostJournalEntryCreatesPostedEntryAndLines(t *testing.T) {
 		t.Fatalf("posted_at is empty in row %q", entryRow)
 	}
 
-	lineCount := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
+	lineCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
 	if lineCount != "2" {
 		t.Fatalf("journal line count = %q, want 2", lineCount)
 	}
 }
 
 func TestPostJournalEntryRejectsUnbalancedInput(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -76,14 +77,14 @@ func TestPostJournalEntryRejectsUnbalancedInput(t *testing.T) {
 		t.Fatalf("error = %q, want balance error", err)
 	}
 
-	entryCount := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_entries;"))
+	entryCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_entries;"))
 	if entryCount != "0" {
 		t.Fatalf("journal entry count = %q, want 0", entryCount)
 	}
 }
 
 func TestUpdatePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -106,7 +107,7 @@ func TestUpdatePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 
-	descRow := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath,
+	descRow := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
 		fmt.Sprintf("SELECT description FROM journal_entries WHERE id = '%s';", posted.ID),
 	))
 	if descRow != "Restock arrows" {
@@ -115,7 +116,7 @@ func TestUpdatePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
 }
 
 func TestDeletePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -138,14 +139,14 @@ func TestDeletePostedJournalEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 
-	entryCount := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_entries;"))
+	entryCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_entries;"))
 	if entryCount != "1" {
 		t.Fatalf("journal entry count = %q, want 1", entryCount)
 	}
 }
 
 func TestCheckJournalEntryMutableReturnsImmutabilityErrorForPosted(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -166,7 +167,7 @@ func TestCheckJournalEntryMutableReturnsImmutabilityErrorForPosted(t *testing.T)
 }
 
 func TestCheckJournalEntryMutableReturnsImmutabilityErrorForReversed(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -180,7 +181,7 @@ func TestCheckJournalEntryMutableReturnsImmutabilityErrorForReversed(t *testing.
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	ledger.RunSQLiteScriptForTest(t, databasePath,
+	testutil.RunSQLiteScriptForTest(t, databasePath,
 		fmt.Sprintf("UPDATE journal_entries SET status = 'reversed' WHERE id = '%s';", posted.ID),
 	)
 
@@ -191,7 +192,7 @@ func TestCheckJournalEntryMutableReturnsImmutabilityErrorForReversed(t *testing.
 }
 
 func TestUpdateJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -205,7 +206,7 @@ func TestUpdateJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	lineID := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath,
+	lineID := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
 		fmt.Sprintf("SELECT id FROM journal_lines WHERE journal_entry_id = '%s' LIMIT 1;", posted.ID),
 	))
 
@@ -216,7 +217,7 @@ func TestUpdateJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 }
 
 func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -230,7 +231,7 @@ func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatalf("post journal entry: %v", err)
 	}
 
-	lineID := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath,
+	lineID := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
 		fmt.Sprintf("SELECT id FROM journal_lines WHERE journal_entry_id = '%s' LIMIT 1;", posted.ID),
 	))
 
@@ -239,14 +240,14 @@ func TestDeleteJournalLineOnPostedEntryReturnsImmutabilityError(t *testing.T) {
 		t.Fatalf("error = %v, want ErrImmutableEntry", err)
 	}
 
-	lineCount := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
+	lineCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
 	if lineCount != "2" {
 		t.Fatalf("journal line count = %q, want 2", lineCount)
 	}
 }
 
 func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -285,7 +286,7 @@ func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T
 		t.Fatalf("reversal totals = %d/%d, want 25/25", reversal.DebitTotal, reversal.CreditTotal)
 	}
 
-	reversalLines := strings.TrimSpace(ledger.RunSQLiteQueryForTest(
+	reversalLines := strings.TrimSpace(testutil.RunSQLiteQueryForTest(
 		t,
 		databasePath,
 		fmt.Sprintf(
@@ -297,21 +298,21 @@ func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T
 		t.Fatalf("reversal lines = %q, want swapped amounts", reversalLines)
 	}
 
-	reversesEntryID := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath,
+	reversesEntryID := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
 		fmt.Sprintf("SELECT reverses_entry_id FROM journal_entries WHERE id = '%s';", reversal.ID),
 	))
 	if reversesEntryID != posted.ID {
 		t.Fatalf("reverses_entry_id = %q, want %q", reversesEntryID, posted.ID)
 	}
 
-	originalStatus := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath,
+	originalStatus := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
 		fmt.Sprintf("SELECT status FROM journal_entries WHERE id = '%s';", posted.ID),
 	))
 	if originalStatus != "reversed" {
 		t.Fatalf("original status = %q, want reversed", originalStatus)
 	}
 
-	reversedAt := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath,
+	reversedAt := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath,
 		fmt.Sprintf("SELECT COALESCE(reversed_at, '') FROM journal_entries WHERE id = '%s';", posted.ID),
 	))
 	if reversedAt == "" {
@@ -320,7 +321,7 @@ func TestReverseJournalEntryCreatesReversalAndMarksOriginalReversed(t *testing.T
 }
 
 func TestReverseAlreadyReversedEntryFails(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	posted, err := PostJournalEntry(context.Background(), databasePath, ledger.JournalPostInput{
 		EntryDate:   "2026-03-08",
@@ -349,7 +350,7 @@ func TestReverseAlreadyReversedEntryFails(t *testing.T) {
 }
 
 func TestReverseNonexistentEntryFails(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := ReverseJournalEntry(context.Background(), databasePath, "nonexistent-id", "2026-03-09", "")
 	if err == nil {
@@ -362,10 +363,10 @@ func TestReverseNonexistentEntryFails(t *testing.T) {
 }
 
 func TestDeactivatedAccountRejectsJournalPosting(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	// Deactivate account 1000 directly via SQL
-	ledger.RunSQLiteScriptForTest(t, databasePath,
+	testutil.RunSQLiteScriptForTest(t, databasePath,
 		"UPDATE accounts SET active = 0 WHERE code = '1000';",
 	)
 

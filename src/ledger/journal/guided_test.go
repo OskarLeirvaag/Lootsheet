@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestPostExpenseEntryCreatesBalancedTwoLineEntry(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	result, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
 		Date:               "2026-03-08",
@@ -27,7 +27,7 @@ func TestPostExpenseEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 		t.Fatalf("entry number = %d, want 1", result.EntryNumber)
 	}
 
-	lineRows := strings.Split(strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, `
+	lineRows := strings.Split(strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, `
 		SELECT a.code || '|' || debit_amount || '|' || credit_amount || '|' || COALESCE(memo, '')
 		FROM journal_lines jl
 		JOIN accounts a ON a.id = jl.account_id
@@ -46,8 +46,8 @@ func TestPostExpenseEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 }
 
 func TestPostExpenseEntryAllowsLiabilityFunding(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
-	ledger.RunSQLiteScriptForTest(t, databasePath, `
+	databasePath := testutil.InitTestDB(t)
+	testutil.RunSQLiteScriptForTest(t, databasePath, `
 		INSERT INTO accounts (id, code, name, type, active)
 		VALUES ('inn_tab', '2100', 'Innkeeper Tab', 'liability', 1);
 	`)
@@ -69,7 +69,7 @@ func TestPostExpenseEntryAllowsLiabilityFunding(t *testing.T) {
 }
 
 func TestPostExpenseEntryRejectsWrongAccountTypes(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
 		Date:               "2026-03-08",
@@ -88,7 +88,7 @@ func TestPostExpenseEntryRejectsWrongAccountTypes(t *testing.T) {
 }
 
 func TestPostExpenseEntryRejectsNonPositiveAmount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := PostExpenseEntry(context.Background(), databasePath, &ExpenseEntryInput{
 		Date:               "2026-03-08",
@@ -107,7 +107,7 @@ func TestPostExpenseEntryRejectsNonPositiveAmount(t *testing.T) {
 }
 
 func TestPostIncomeEntryCreatesBalancedTwoLineEntry(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	result, err := PostIncomeEntry(context.Background(), databasePath, &IncomeEntryInput{
 		Date:               "2026-03-08",
@@ -125,7 +125,7 @@ func TestPostIncomeEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 		t.Fatalf("entry number = %d, want 1", result.EntryNumber)
 	}
 
-	lineRows := strings.Split(strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, `
+	lineRows := strings.Split(strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, `
 		SELECT a.code || '|' || debit_amount || '|' || credit_amount || '|' || COALESCE(memo, '')
 		FROM journal_lines jl
 		JOIN accounts a ON a.id = jl.account_id
@@ -144,7 +144,7 @@ func TestPostIncomeEntryCreatesBalancedTwoLineEntry(t *testing.T) {
 }
 
 func TestPostIncomeEntryRejectsWrongAccountTypes(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := PostIncomeEntry(context.Background(), databasePath, &IncomeEntryInput{
 		Date:               "2026-03-08",
@@ -163,8 +163,8 @@ func TestPostIncomeEntryRejectsWrongAccountTypes(t *testing.T) {
 }
 
 func TestPostIncomeEntryRejectsInactiveAccount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
-	ledger.RunSQLiteScriptForTest(t, databasePath, `UPDATE accounts SET active = 0 WHERE code = '1000';`)
+	databasePath := testutil.InitTestDB(t)
+	testutil.RunSQLiteScriptForTest(t, databasePath, `UPDATE accounts SET active = 0 WHERE code = '1000';`)
 
 	_, err := PostIncomeEntry(context.Background(), databasePath, &IncomeEntryInput{
 		Date:               "2026-03-08",

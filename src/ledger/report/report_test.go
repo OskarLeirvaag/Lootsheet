@@ -6,12 +6,13 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 )
 
 func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Post an entry: Dr Adventuring Supplies 5000:50, Cr Party Cash 1000:50
@@ -92,7 +93,7 @@ func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
 }
 
 func TestGetTrialBalanceEmptyLedger(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	report, err := GetTrialBalance(ctx, databasePath)
@@ -114,7 +115,7 @@ func TestGetTrialBalanceEmptyLedger(t *testing.T) {
 }
 
 func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Post a single entry touching only two accounts.
@@ -142,7 +143,7 @@ func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
 }
 
 func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Post an entry: Dr 5000:75, Cr 1000:75
@@ -215,7 +216,7 @@ func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
 }
 
 func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Create a liability account for testing.
@@ -274,7 +275,7 @@ func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
 }
 
 func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	createdQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -320,7 +321,7 @@ func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 }
 
 func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	offeredQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -391,7 +392,7 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 }
 
 func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	oldPartialQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -487,8 +488,8 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 }
 
 func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
-	ledger.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")
+	databasePath := testutil.InitTestDB(t)
+	testutil.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")
 	ctx := context.Background()
 
 	trialBalance, err := GetTrialBalance(ctx, databasePath)

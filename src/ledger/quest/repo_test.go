@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestCreateQuestOffered(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Clear the Goblin Cave",
@@ -41,7 +42,7 @@ func TestCreateQuestOffered(t *testing.T) {
 }
 
 func TestCreateQuestAccepted(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Escort the Merchant",
@@ -63,7 +64,7 @@ func TestCreateQuestAccepted(t *testing.T) {
 }
 
 func TestCreateQuestAcceptedRequiresDate(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "No Date Quest",
@@ -79,7 +80,7 @@ func TestCreateQuestAcceptedRequiresDate(t *testing.T) {
 }
 
 func TestCreateQuestRejectsEmptyTitle(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title: "",
@@ -94,7 +95,7 @@ func TestCreateQuestRejectsEmptyTitle(t *testing.T) {
 }
 
 func TestCreateQuestRejectsInvalidStatus(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "Bad Status Quest",
@@ -110,7 +111,7 @@ func TestCreateQuestRejectsInvalidStatus(t *testing.T) {
 }
 
 func TestListQuests(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Quest A",
@@ -147,7 +148,7 @@ func TestListQuests(t *testing.T) {
 }
 
 func TestAcceptQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "Accept Me",
@@ -176,7 +177,7 @@ func TestAcceptQuest(t *testing.T) {
 }
 
 func TestAcceptQuestRejectsNonOffered(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:      "Already Accepted",
@@ -198,7 +199,7 @@ func TestAcceptQuestRejectsNonOffered(t *testing.T) {
 }
 
 func TestCompleteQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:      "Complete Me",
@@ -228,7 +229,7 @@ func TestCompleteQuest(t *testing.T) {
 }
 
 func TestCompleteQuestRejectsOffered(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:  "Still Offered",
@@ -249,7 +250,7 @@ func TestCompleteQuestRejectsOffered(t *testing.T) {
 }
 
 func TestCollectQuestFullPayment(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Paid Quest",
@@ -297,14 +298,14 @@ func TestCollectQuestFullPayment(t *testing.T) {
 	}
 
 	// Verify journal entry exists.
-	lineCount := strings.TrimSpace(ledger.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
+	lineCount := strings.TrimSpace(testutil.RunSQLiteQueryForTest(t, databasePath, "SELECT COUNT(*) FROM journal_lines;"))
 	if lineCount != "2" {
 		t.Fatalf("journal line count = %q, want 2", lineCount)
 	}
 }
 
 func TestCollectQuestPartialPayment(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Partial Quest",
@@ -360,7 +361,7 @@ func TestCollectQuestPartialPayment(t *testing.T) {
 }
 
 func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Not Ready",
@@ -386,7 +387,7 @@ func TestCollectQuestPaymentRejectsOfferedQuest(t *testing.T) {
 }
 
 func TestCollectQuestPaymentRejectsAcceptedQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Still In Progress",
@@ -413,7 +414,7 @@ func TestCollectQuestPaymentRejectsAcceptedQuest(t *testing.T) {
 }
 
 func TestCollectQuestPaymentRejectsNonexistentQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CollectQuestPayment(context.Background(), databasePath, CollectQuestPaymentInput{
 		QuestID: "nonexistent-id",
@@ -430,7 +431,7 @@ func TestCollectQuestPaymentRejectsNonexistentQuest(t *testing.T) {
 }
 
 func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	createdQuest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Custom Description Balance",
@@ -474,7 +475,7 @@ func TestCollectQuestPaymentCountsCustomDescriptionPayments(t *testing.T) {
 }
 
 func TestAcceptQuestRejectsNonexistentQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	err := AcceptQuest(context.Background(), databasePath, "nonexistent-id", "2026-03-05")
 	if err == nil {
@@ -487,7 +488,7 @@ func TestAcceptQuestRejectsNonexistentQuest(t *testing.T) {
 }
 
 func TestCompleteQuestRejectsNonexistentQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	err := CompleteQuest(context.Background(), databasePath, "nonexistent-id", "2026-03-10")
 	if err == nil {
@@ -500,7 +501,7 @@ func TestCompleteQuestRejectsNonexistentQuest(t *testing.T) {
 }
 
 func TestWriteOffCompletedQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Slay the Dragon",
@@ -552,7 +553,7 @@ func TestWriteOffCompletedQuest(t *testing.T) {
 }
 
 func TestWriteOffPartiallyPaidQuest(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Escort the Caravan",
@@ -606,7 +607,7 @@ func TestWriteOffPartiallyPaidQuest(t *testing.T) {
 }
 
 func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	createdQuest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Partial Payment Before Default",
@@ -645,7 +646,7 @@ func TestWriteOffQuestCountsCustomDescriptionPayments(t *testing.T) {
 }
 
 func TestWriteOffQuestNotCompleted(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Offered Only Quest",
@@ -670,7 +671,7 @@ func TestWriteOffQuestNotCompleted(t *testing.T) {
 }
 
 func TestWriteOffQuestFullyPaid(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	quest, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Fully Paid Quest",
@@ -709,7 +710,7 @@ func TestWriteOffQuestFullyPaid(t *testing.T) {
 }
 
 func TestUpdateQuestEditsAcceptedQuestFields(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	record, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Goblin Bounty",
@@ -749,7 +750,7 @@ func TestUpdateQuestEditsAcceptedQuestFields(t *testing.T) {
 }
 
 func TestUpdateQuestRejectsRewardChangeAfterCompletion(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	record, err := CreateQuest(context.Background(), databasePath, &CreateQuestInput{
 		Title:              "Late Reward Change",

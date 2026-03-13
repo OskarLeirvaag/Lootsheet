@@ -24,7 +24,7 @@ vuln:
 	govulncheck ./...
 
 deadcode:
-	deadcode ./...
+	deadcode $$(go list ./... | grep -v /testutil)
 
 manpages:
 	go run ./scripts/generate-manpages.go

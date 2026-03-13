@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestListAccountsReturnsSeededAccounts(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	accounts, err := ListAccounts(context.Background(), databasePath)
 	if err != nil {
@@ -27,7 +28,7 @@ func TestListAccountsReturnsSeededAccounts(t *testing.T) {
 }
 
 func TestCreateAccountInsertsNewAccount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	account, err := CreateAccount(context.Background(), databasePath, "5600", "Tavern Reparations", ledger.AccountTypeExpense)
 	if err != nil {
@@ -53,7 +54,7 @@ func TestCreateAccountInsertsNewAccount(t *testing.T) {
 }
 
 func TestCreateAccountRejectsDuplicateCode(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateAccount(context.Background(), databasePath, "1000", "Duplicate Cash", ledger.AccountTypeAsset)
 	if err == nil {
@@ -66,7 +67,7 @@ func TestCreateAccountRejectsDuplicateCode(t *testing.T) {
 }
 
 func TestCreateAccountRejectsInvalidType(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateAccount(context.Background(), databasePath, "9999", "Bad Type", ledger.AccountType("bogus"))
 	if err == nil {
@@ -79,7 +80,7 @@ func TestCreateAccountRejectsInvalidType(t *testing.T) {
 }
 
 func TestCreateAccountRejectsEmptyCodeAndName(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateAccount(context.Background(), databasePath, "", "No Code", ledger.AccountTypeAsset)
 	if err == nil {
@@ -93,7 +94,7 @@ func TestCreateAccountRejectsEmptyCodeAndName(t *testing.T) {
 }
 
 func TestRenameAccountChangesName(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	if err := RenameAccount(context.Background(), databasePath, "1000", "Gold Hoard"); err != nil {
 		t.Fatalf("rename account: %v", err)
@@ -117,7 +118,7 @@ func TestRenameAccountChangesName(t *testing.T) {
 }
 
 func TestRenameAccountRejectsNonexistentCode(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	err := RenameAccount(context.Background(), databasePath, "9999", "Ghost Account")
 	if err == nil {
@@ -130,7 +131,7 @@ func TestRenameAccountRejectsNonexistentCode(t *testing.T) {
 }
 
 func TestDeactivateAndActivateAccount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	if err := DeactivateAccount(context.Background(), databasePath, "1000"); err != nil {
 		t.Fatalf("deactivate account: %v", err)
@@ -173,7 +174,7 @@ func TestDeactivateAndActivateAccount(t *testing.T) {
 }
 
 func TestDeactivateAccountRejectsNonexistentCode(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	err := DeactivateAccount(context.Background(), databasePath, "9999")
 	if err == nil {
@@ -186,7 +187,7 @@ func TestDeactivateAccountRejectsNonexistentCode(t *testing.T) {
 }
 
 func TestDeleteAccountWithoutPostings(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := CreateAccount(context.Background(), databasePath, "9900", "Disposable Account", ledger.AccountTypeExpense)
 	if err != nil {
@@ -210,7 +211,7 @@ func TestDeleteAccountWithoutPostings(t *testing.T) {
 }
 
 func TestDeleteAccountRejectsNonexistentCode(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	err := DeleteAccount(context.Background(), databasePath, "9999")
 	if err == nil {
@@ -227,7 +228,7 @@ func TestDeleteAccountRejectsNonexistentCode(t *testing.T) {
 }
 
 func TestDeleteAccountRejectsEmptyCode(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	err := DeleteAccount(context.Background(), databasePath, "")
 	if err == nil {
@@ -240,7 +241,7 @@ func TestDeleteAccountRejectsEmptyCode(t *testing.T) {
 }
 
 func TestAccountCodeImmutable(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	accountsBefore, err := ListAccounts(context.Background(), databasePath)
 	if err != nil {
