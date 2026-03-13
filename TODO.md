@@ -22,7 +22,12 @@
 ## Already Done
 
 - [x] Core SQLite storage and migrations.
-- [x] CLI command tree and hierarchical help.
-- [x] TUI dashboard, navigation, detail panes, glossary, and edit/create flows.
-- [x] Accounts, journal, quest, loot, and reporting workflows.
+- [x] CLI for init, database status, and migrations.
+- [x] TUI shell with seven sections: Dashboard, Journal, Quests, Loot, Assets, Codex, Notes.
+- [x] Compose forms for journal entries, quests, loot, assets, codex entries, and notes.
+- [x] Quest and loot lifecycle workflows (earn, collect, write-off, appraise, recognize, sell).
+- [x] Asset register with journal entry templates.
+- [x] Codex and notes with entity cross-references.
+- [x] Full-text search across all sections.
+- [x] Glossary of accounting and game terms.
 - [x] Upgrade detection, migration execution, and backup-before-risky-migration behavior.

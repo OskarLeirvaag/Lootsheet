@@ -55,4 +55,30 @@ VALUES
 	('appraisal_emerald_idol', 'loot_emerald_idol', 800, 'Guild Assayer', 'Stonework matches the marsh shrine style.', '2026-02-18', 'je_emerald_recognition', '2026-02-18 13:45:00'),
 	('appraisal_ruby_crown', 'loot_ruby_crown', 600, 'Guild Assayer', 'Several settings are bent and one ruby is missing.', '2026-02-19', 'je_ruby_recognition', '2026-02-19 09:00:00');
 
+INSERT INTO codex_entries (id, type_id, name, title, location, faction, disposition, description, notes, created_at, updated_at)
+VALUES
+	('codex_mayor_elra', 'npc', 'Mayor Elra', 'Mayor of Thornfield', 'Thornfield', 'Town Council', 'friendly', 'Cautious halfling mayor who has governed Thornfield for twelve years.', 'Offered the watchtower bounty after goblin raids resumed.', '2026-02-25 09:00:00', '2026-02-25 09:00:00'),
+	('codex_guild_factor_nera', 'npc', 'Guild Factor Nera', 'Merchant Guild Factor', 'Frostfall Keep', 'Merchant Guild', 'neutral', 'Sharp-eyed tiefling who brokers guild contracts from the keep.', 'Still owes 5 GP on the Moonlit Escort contract.', '2026-02-01 07:30:00', '2026-02-15 12:45:00'),
+	('codex_archivist_pell', 'npc', 'Archivist Pell', 'Royal Archivist', 'Frostfall Keep', '', 'friendly', 'Elderly human scholar obsessed with pre-Sundering maps.', 'Nervous traveler. Insists on no fire near the scrolls.', '2026-03-01 08:00:00', '2026-03-01 08:00:00'),
+	('codex_ragnar', 'player', 'Ragnar', '', '', '', '', 'Half-orc fighter and party quartermaster.', '', '2026-02-01 07:00:00', '2026-02-01 07:00:00'),
+	('codex_mira', 'player', 'Mira', '', '', '', '', 'Wood elf ranger and scout.', '', '2026-02-01 07:00:00', '2026-02-01 07:00:00');
+
+INSERT INTO entity_references (id, source_type, source_id, source_name, target_type, target_name, created_at)
+VALUES
+	('ref_elra_watchtower', 'codex', 'codex_mayor_elra', 'Mayor Elra', 'quest', 'Clear the Old Watchtower', '2026-02-25 09:00:00'),
+	('ref_nera_moonlit', 'codex', 'codex_guild_factor_nera', 'Guild Factor Nera', 'quest', 'Moonlit Escort', '2026-02-01 07:30:00'),
+	('ref_pell_escort', 'codex', 'codex_archivist_pell', 'Archivist Pell', 'quest', 'Escort the Archivist', '2026-03-01 08:00:00');
+
+INSERT INTO notes (id, title, body, created_at, updated_at)
+VALUES
+	('note_session_1', 'Session 1: The Frostfall Campaign', 'The party pooled 150 GP starting capital and set out from Thornfield. First stop: the Silver Oak Inn, where Ragnar broke the chandelier arm-wrestling a dwarf.', '2026-02-01 20:00:00', '2026-02-01 20:00:00'),
+	('note_moonlit_debrief', 'Moonlit Escort Debrief', 'Moon-silver delivered intact. Ambush at the marsh crossing cost two healing potions. Guild Factor Nera paid 7 GP up front, still owes 5 GP. The emerald idol was found in the bandit camp.', '2026-02-15 20:00:00', '2026-02-15 20:00:00'),
+	('note_watchtower_intel', 'Watchtower Recon Notes', 'Scouts report at least a dozen goblins and one bugbear chief. East wall has a collapsed section that could be used for entry. Mayor Elra warned the bell may be trapped.', '2026-02-28 14:00:00', '2026-02-28 14:00:00');
+
+INSERT INTO entity_references (id, source_type, source_id, source_name, target_type, target_name, created_at)
+VALUES
+	('ref_note_session1_ragnar', 'note', 'note_session_1', 'Session 1: The Frostfall Campaign', 'person', 'Ragnar', '2026-02-01 20:00:00'),
+	('ref_note_moonlit_nera', 'note', 'note_moonlit_debrief', 'Moonlit Escort Debrief', 'quest', 'Moonlit Escort', '2026-02-15 20:00:00'),
+	('ref_note_watchtower_elra', 'note', 'note_watchtower_intel', 'Watchtower Recon Notes', 'quest', 'Clear the Old Watchtower', '2026-02-28 14:00:00');
+
 COMMIT;

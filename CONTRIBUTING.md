@@ -44,7 +44,6 @@ Pull requests should not be submitted unless `make check` passes.
 Read these before making product or architecture changes:
 
 - [README.md](README.md)
-- [DESIGN.md](DESIGN.md)
 - [AGENTS.md](AGENTS.md)
 
 When contributing, preserve the repository structure, dependency flow, and accounting invariants documented there.
