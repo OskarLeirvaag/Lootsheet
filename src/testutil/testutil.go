@@ -132,14 +132,29 @@ func LoadMigrationAssetsForTest(t testing.TB) (config.InitAssets, config.InitAss
 	return fullAssets, legacyAssets
 }
 
+// ExecSQLiteForTest opens a database and executes a parameterized SQL statement.
+func ExecSQLiteForTest(t testing.TB, databasePath string, query string, args ...any) {
+	t.Helper()
+
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(context.Background(), query, args...); err != nil {
+		t.Fatalf("exec test query: %v", err)
+	}
+}
+
 // AcceptQuest transitions a quest to 'accepted' status via direct SQL.
 // Use this only for test setup — it skips domain validation.
 func AcceptQuest(t testing.TB, databasePath string, questID string, acceptedDate string) {
 	t.Helper()
 
-	RunSQLiteScriptForTest(t, databasePath, fmt.Sprintf(
-		`UPDATE quests SET status = 'accepted', accepted_on = '%s' WHERE id = '%s'`,
-		acceptedDate, questID))
+	ExecSQLiteForTest(t, databasePath,
+		`UPDATE quests SET status = 'accepted', accepted_on = ? WHERE id = ?`,
+		acceptedDate, questID)
 }
 
 // CompleteQuest transitions a quest to 'completed' status via direct SQL.
@@ -147,7 +162,7 @@ func AcceptQuest(t testing.TB, databasePath string, questID string, acceptedDate
 func CompleteQuest(t testing.TB, databasePath string, questID string, completedDate string) {
 	t.Helper()
 
-	RunSQLiteScriptForTest(t, databasePath, fmt.Sprintf(
-		`UPDATE quests SET status = 'completed', completed_on = '%s' WHERE id = '%s'`,
-		completedDate, questID))
+	ExecSQLiteForTest(t, databasePath,
+		`UPDATE quests SET status = 'completed', completed_on = ? WHERE id = ?`,
+		completedDate, questID)
 }

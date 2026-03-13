@@ -39,7 +39,7 @@ func summarizeQuests(promised []report.PromisedQuestRow, receivables []report.Qu
 	}
 
 	if len(writeOffCandidates) > 0 {
-		lines = append(lines, fmt.Sprintf("Stale receivables: %d (30+ days)", len(writeOffCandidates)))
+		lines = append(lines, fmt.Sprintf("Stale receivables: %d (%d+ days)", len(writeOffCandidates), writeOffMinAgeDays))
 	}
 
 	return lines

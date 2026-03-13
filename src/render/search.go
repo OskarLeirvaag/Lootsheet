@@ -56,6 +56,8 @@ func (s *Shell) computeSearchResults() {
 		}
 
 		// Try server-side search when a handler is available and there is a query.
+		// On error or nil items, fall back silently to client-side filtering so
+		// search remains usable even if the backend is temporarily unavailable.
 		if s.searchHandler != nil && query != "" {
 			if items, err := s.searchHandler(section, query); err == nil && items != nil {
 				for i := range items {

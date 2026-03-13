@@ -9,6 +9,9 @@ import (
 // buildSearchHandler returns a SearchHandler that delegates to SQL-based search
 // for sections that support it (Codex, Notes) and returns nil for all others,
 // causing the render layer to fall back to client-side filtering.
+//
+// The captured ctx lives for the entire TUI session. Per-query cancellation or
+// timeouts should be added here when the data source moves to a remote server.
 func buildSearchHandler(ctx context.Context, loader TUIDataLoader) render.SearchHandler {
 	return func(section render.Section, query string) ([]render.ListItemData, error) {
 		switch section {
