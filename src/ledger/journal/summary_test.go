@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestGetSummaryEmptyJournal(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	summary, err := GetSummary(context.Background(), databasePath)
 	if err != nil {
@@ -24,7 +25,7 @@ func TestGetSummaryEmptyJournal(t *testing.T) {
 }
 
 func TestGetSummaryTracksPostedAndReversalEntries(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	posted, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{

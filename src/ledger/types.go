@@ -5,18 +5,7 @@ package ledger
 import (
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 )
-
-// HandlerContext provides shared dependencies for CLI handler functions
-// in domain packages. This avoids circular imports between domain packages
-// and the app package.
-type HandlerContext struct {
-	DatabasePath string
-	Stdout       io.Writer
-	Logger       *slog.Logger
-}
 
 // AccountType represents the classification of a ledger account.
 type AccountType string
@@ -41,17 +30,6 @@ func (t AccountType) Valid() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// AccountTypes returns all valid account type values.
-func AccountTypes() []AccountType {
-	return []AccountType{
-		AccountTypeAsset,
-		AccountTypeLiability,
-		AccountTypeEquity,
-		AccountTypeIncome,
-		AccountTypeExpense,
 	}
 }
 
@@ -85,15 +63,6 @@ func (s JournalEntryStatus) Immutable() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// JournalEntryStatuses returns all valid journal entry status values.
-func JournalEntryStatuses() []JournalEntryStatus {
-	return []JournalEntryStatus{
-		JournalEntryStatusDraft,
-		JournalEntryStatusPosted,
-		JournalEntryStatusReversed,
 	}
 }
 
@@ -136,20 +105,6 @@ func (s QuestStatus) Valid() bool {
 	}
 }
 
-// QuestStatuses returns all valid quest status values.
-func QuestStatuses() []QuestStatus {
-	return []QuestStatus{
-		QuestStatusOffered,
-		QuestStatusAccepted,
-		QuestStatusCompleted,
-		QuestStatusCollectible,
-		QuestStatusPartiallyPaid,
-		QuestStatusPaid,
-		QuestStatusDefaulted,
-		QuestStatusVoided,
-	}
-}
-
 // LootStatus represents the lifecycle state of a loot item.
 type LootStatus string
 
@@ -180,18 +135,6 @@ func (s LootStatus) Valid() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// LootStatuses returns all valid loot status values.
-func LootStatuses() []LootStatus {
-	return []LootStatus{
-		LootStatusHeld,
-		LootStatusRecognized,
-		LootStatusSold,
-		LootStatusAssigned,
-		LootStatusConsumed,
-		LootStatusDiscarded,
 	}
 }
 

@@ -2,16 +2,11 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
-	"github.com/OskarLeirvaag/Lootsheet/src/ledger/report"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/spf13/cobra"
 )
@@ -46,14 +41,6 @@ func (a *Application) newRootCommand() *cobra.Command {
 		a.newDatabaseCommand(),
 		a.newInitCommand(),
 		a.newTUICommand(),
-		a.newAccountCommand(),
-		a.newEntryCommand(),
-		a.newJournalCommand(),
-		a.newQuestCommand(),
-		a.newLootCommand(),
-		a.newCodexCommand(),
-		a.newNotesCommand(),
-		a.newReportCommand(),
 	)
 
 	return root
@@ -117,188 +104,9 @@ func (a *Application) newTUICommand() *cobra.Command {
 			CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
 				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, loader)
 			},
+			SearchHandler: buildSearchHandler(ctx, loader),
 		})
 	})
-}
-
-func (a *Application) newAccountCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "account",
-		Short: "Manage chart-of-accounts records",
-		Long:  accountHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newNoArgsLeafCommand("list", "Show the chart of accounts", accountListHelpText, func(ctx context.Context) error {
-			return account.RunList(ctx, a.handlerContext())
-		}),
-		a.newAccountCreateCommand(),
-		a.newAccountRenameCommand(),
-		a.newAccountDeactivateCommand(),
-		a.newAccountActivateCommand(),
-		a.newAccountDeleteCommand(),
-		a.newAccountLedgerCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newJournalCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "journal",
-		Short: "Post and reverse balanced journal entries",
-		Long:  journalHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newJournalPostCommand(),
-		a.newJournalReverseCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newEntryCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "entry",
-		Short: "Create guided expense, income, and custom journal entries",
-		Long:  entryHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newEntryExpenseCommand(),
-		a.newEntryIncomeCommand(),
-		a.newEntryCustomCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newQuestCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "quest",
-		Short: "Track promised, earned, and collected quest rewards",
-		Long:  questHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newQuestCreateCommand(),
-		a.newNoArgsLeafCommand("list", "List quest register entries", questListHelpText, func(ctx context.Context) error {
-			return quest.RunList(ctx, a.handlerContext())
-		}),
-		a.newQuestAcceptCommand(),
-		a.newQuestCompleteCommand(),
-		a.newQuestCollectCommand(),
-		a.newQuestWriteoffCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newLootCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "loot",
-		Short: "Track loot appraisal, recognition, and sale workflows",
-		Long:  lootHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newLootCreateCommand(),
-		a.newNoArgsLeafCommand("list", "List tracked loot items", lootListHelpText, func(ctx context.Context) error {
-			return loot.RunList(ctx, a.handlerContext(), "loot")
-		}),
-		a.newLootAppraiseCommand(),
-		a.newLootRecognizeCommand(),
-		a.newLootSellCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newCodexCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "codex",
-		Short: "Manage codex entries — players, NPCs, and contacts with type-specific forms",
-		Long:  codexHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newCodexCreateCommand(),
-		a.newNoArgsLeafCommand("list", "List codex entries", codexListHelpText, func(ctx context.Context) error {
-			return codex.RunList(ctx, a.handlerContext())
-		}),
-		a.newCodexSearchCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newNotesCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "notes",
-		Short: "Manage campaign and session notes with cross-reference support",
-		Long:  notesHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newNotesCreateCommand(),
-		a.newNoArgsLeafCommand("list", "List all notes", notesListHelpText, func(ctx context.Context) error {
-			return notes.RunList(ctx, a.handlerContext())
-		}),
-		a.newNotesSearchCommand(),
-	)
-
-	return cmd
-}
-
-func (a *Application) newReportCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "report",
-		Short: "Run read-only accounting and register reports",
-		Long:  reportHelpText,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.writeCommandHelp(cmd)
-		},
-	}
-
-	cmd.AddCommand(
-		a.newNoArgsLeafCommand("trial-balance", "Show the trial balance", reportTrialBalanceHelpText, func(ctx context.Context) error {
-			return report.RunTrialBalance(ctx, a.handlerContext())
-		}),
-		a.newNoArgsLeafCommand("quest-receivables", "Show earned but unpaid quest rewards", reportQuestReceivablesHelpText, func(ctx context.Context) error {
-			return report.RunQuestReceivables(ctx, a.handlerContext())
-		}),
-		a.newNoArgsLeafCommand("promised-quests", "Show promised but unearned quests", reportPromisedQuestsHelpText, func(ctx context.Context) error {
-			return report.RunPromisedQuests(ctx, a.handlerContext())
-		}),
-		a.newNoArgsLeafCommand("loot-summary", "Show held and recognized loot", reportLootSummaryHelpText, func(ctx context.Context) error {
-			return report.RunLootSummary(ctx, a.handlerContext())
-		}),
-		a.newReportWriteoffCandidatesCommand(),
-	)
-
-	return cmd
 }
 
 func (a *Application) writeCommandHelp(cmd *cobra.Command) error {
@@ -312,4 +120,38 @@ func (a *Application) writeCommandHelp(cmd *cobra.Command) error {
 
 	_, err := io.WriteString(a.stdout, helpText+"\n")
 	return err
+}
+
+func (a *Application) newNoArgsLeafCommand(use string, short string, helpText string, run func(context.Context) error) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   use,
+		Short: short,
+		Long:  helpText,
+	}
+
+	return a.newLeafCommand(cmd, run)
+}
+
+func (a *Application) newLeafCommand(cmd *cobra.Command, run func(context.Context) error) *cobra.Command {
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if isLeafHelpArg(args) {
+			return a.writeCommandHelp(cmd)
+		}
+
+		if len(args) > 0 {
+			return unexpectedLeafArgsError(cmd, args)
+		}
+
+		return run(cmd.Context())
+	}
+
+	return cmd
+}
+
+func isLeafHelpArg(args []string) bool {
+	return len(args) == 1 && args[0] == "help"
+}
+
+func unexpectedLeafArgsError(cmd *cobra.Command, args []string) error {
+	return fmt.Errorf("unexpected arguments for %s: %s\n\n%s", cmd.CommandPath(), strings.Join(args, " "), cmd.Long)
 }

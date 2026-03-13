@@ -113,63 +113,6 @@ func UpdateLootItem(ctx context.Context, databasePath string, lootItemID string,
 	})
 }
 
-// ListLootItems returns loot items of the given type ordered by status priority then name.
-func ListLootItems(ctx context.Context, databasePath string, itemType string) ([]LootItemRecord, error) {
-	itemType = strings.TrimSpace(itemType)
-	if itemType == "" {
-		itemType = "loot"
-	}
-
-	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]LootItemRecord, error) {
-		rows, err := db.QueryContext(ctx, `
-			SELECT id, name, source, status, item_type, quantity, holder, notes, created_at, updated_at
-			FROM loot_items
-			WHERE item_type = ?
-			ORDER BY
-			  CASE status
-			    WHEN 'held' THEN 1
-			    WHEN 'recognized' THEN 2
-			    WHEN 'assigned' THEN 3
-			    WHEN 'sold' THEN 4
-			    WHEN 'consumed' THEN 5
-			    WHEN 'discarded' THEN 6
-			  END,
-			  name
-		`, itemType)
-		if err != nil {
-			return nil, fmt.Errorf("query loot items: %w", err)
-		}
-		defer rows.Close()
-
-		items := []LootItemRecord{}
-		for rows.Next() {
-			var item LootItemRecord
-			var status string
-
-			if err := rows.Scan(
-				&item.ID, &item.Name, &item.Source, &status, &item.ItemType,
-				&item.Quantity, &item.Holder, &item.Notes,
-				&item.CreatedAt, &item.UpdatedAt,
-			); err != nil {
-				return nil, fmt.Errorf("scan loot item row: %w", err)
-			}
-
-			item.Status = ledger.LootStatus(status)
-			if !item.Status.Valid() {
-				return nil, fmt.Errorf("scan loot item row: invalid loot status %q", status)
-			}
-
-			items = append(items, item)
-		}
-
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("iterate loot item rows: %w", err)
-		}
-
-		return items, nil
-	})
-}
-
 // AppraiseLootItem adds an appraisal to a held loot item.
 // The appraisal stays off-ledger (recognized_entry_id is NULL).
 func AppraiseLootItem(ctx context.Context, databasePath string, lootItemID string, appraisedValue int64, appraiser string, appraisedDate string, notes string) (LootAppraisalRecord, error) {

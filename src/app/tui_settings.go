@@ -9,7 +9,7 @@ import (
 )
 
 func buildSettingsAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
-	return buildAccountItems(accounts)
+	return buildAccountItems(accounts, nil)
 }
 
 func buildSettingsCodexTypeItems(codexTypes []codex.CodexType) []render.ListItemData {

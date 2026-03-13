@@ -9,6 +9,10 @@ import (
 
 const maxSearchResults = 50
 
+// SearchHandler performs server-side search for a given section and query.
+// Return nil items to fall back to client-side filtering.
+type SearchHandler func(section Section, query string) ([]ListItemData, error)
+
 type searchResult struct {
 	Section Section
 	ItemKey string
@@ -47,6 +51,30 @@ func (s *Shell) computeSearchResults() {
 
 	results := make([]searchResult, 0, maxSearchResults)
 	for _, section := range sections {
+		if len(results) >= maxSearchResults {
+			break
+		}
+
+		// Try server-side search when a handler is available and there is a query.
+		// On error or nil items, fall back silently to client-side filtering so
+		// search remains usable even if the backend is temporarily unavailable.
+		if s.searchHandler != nil && query != "" {
+			if items, err := s.searchHandler(section, query); err == nil && items != nil {
+				for i := range items {
+					if len(results) >= maxSearchResults {
+						break
+					}
+					results = append(results, searchResult{
+						Section: section,
+						ItemKey: items[i].Key,
+						Row:     items[i].Row,
+					})
+				}
+				continue
+			}
+		}
+
+		// Fall back to client-side filtering.
 		data := s.listDataForSection(section)
 		if data == nil {
 			continue
@@ -63,9 +91,6 @@ func (s *Shell) computeSearchResults() {
 					Row:     item.Row,
 				})
 			}
-		}
-		if len(results) >= maxSearchResults {
-			break
 		}
 	}
 

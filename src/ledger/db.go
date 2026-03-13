@@ -11,12 +11,6 @@ import (
 	_ "modernc.org/sqlite" // register sqlite driver for database/sql
 )
 
-// OpenDBForTest opens a raw database connection for use in tests outside
-// the ledger package. It does not set any pragmas beyond the defaults.
-func OpenDBForTest(databasePath string) (*sql.DB, error) {
-	return sql.Open("sqlite", databasePath)
-}
-
 // OpenDB opens a database connection with standard pragmas applied.
 func OpenDB(databasePath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", databasePath)

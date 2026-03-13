@@ -62,10 +62,19 @@ type Shell struct {
 	editor          *editorState
 	codexPicker     *codexPickerState
 	search          *searchState
+	searchHandler   SearchHandler
 	rain            *goldrain.GoldRain
 
 	editorSaveInFlight  bool
 	editorQuitAfterSave bool
+}
+
+// SetSearchHandler installs a server-side search callback. Sections for which
+// the handler returns nil fall back to client-side filtering.
+func (s *Shell) SetSearchHandler(h SearchHandler) {
+	if s != nil {
+		s.searchHandler = h
+	}
 }
 
 // NewShell constructs the interactive TUI shell state.

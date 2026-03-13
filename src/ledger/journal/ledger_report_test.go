@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestGetAccountLedgerWithTransactions(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -85,7 +86,7 @@ func TestGetAccountLedgerWithTransactions(t *testing.T) {
 }
 
 func TestGetAccountLedgerReversedEntriesExcluded(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	posted, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -127,7 +128,7 @@ func TestGetAccountLedgerReversedEntriesExcluded(t *testing.T) {
 }
 
 func TestGetAccountLedgerIncomeAccountCreditNormal(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -156,7 +157,7 @@ func TestGetAccountLedgerIncomeAccountCreditNormal(t *testing.T) {
 }
 
 func TestGetAccountLedgerEmptyAccount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	report, err := GetAccountLedger(ctx, databasePath, "1000")
@@ -174,7 +175,7 @@ func TestGetAccountLedgerEmptyAccount(t *testing.T) {
 }
 
 func TestGetAccountLedgerNonexistentAccount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 
 	_, err := GetAccountLedger(context.Background(), databasePath, "9999")
 	if err == nil {
@@ -183,7 +184,7 @@ func TestGetAccountLedgerNonexistentAccount(t *testing.T) {
 }
 
 func TestGetAccountLedgerExpenseAccountDebitNormal(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	if _, err := PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{

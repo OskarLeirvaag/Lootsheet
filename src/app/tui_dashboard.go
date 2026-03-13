@@ -175,7 +175,14 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		data.Dashboard.AccountsLines = summarizeAccounts(accounts)
 		data.Accounts.SummaryLines = summarizeAccounts(accounts)
 		data.Accounts.ListHeaderRow = fmt.Sprintf("%-4s %-9s %-8s %s", "CODE", "TYPE", "STATUS", "NAME")
-		data.Accounts.Items = buildAccountItems(accounts)
+
+		accountLedgers := make(map[string]journal.AccountLedgerReport, len(accounts))
+		for _, acct := range accounts {
+			if report, ledgerErr := loader.GetAccountLedger(ctx, acct.Code); ledgerErr == nil {
+				accountLedgers[acct.Code] = report
+			}
+		}
+		data.Accounts.Items = buildAccountItems(accounts, accountLedgers)
 		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
 
@@ -228,8 +235,9 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 			data.Quests = unavailableSectionData("Quest register unavailable.", receivableErr.Error())
 			panelErrors = append(panelErrors, "quests")
 		} else {
-			data.Dashboard.QuestLines = summarizeQuests(promisedQuests, receivables)
-			data.Quests.SummaryLines = summarizeQuests(promisedQuests, receivables)
+			writeOffCandidates, _ := loader.GetWriteOffCandidates(ctx)
+			data.Dashboard.QuestLines = summarizeQuests(promisedQuests, receivables, writeOffCandidates)
+			data.Quests.SummaryLines = summarizeQuests(promisedQuests, receivables, writeOffCandidates)
 			questSummaryAvailable = true
 		}
 	}
@@ -937,15 +945,6 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		NavigateTo:    navigateTo,
 		SelectItemKey: selectItemKey,
 	}, nil
-}
-
-func buildTUIDashboardData(ctx context.Context, loader TUIDataLoader) (render.DashboardData, error) {
-	data, err := buildTUIShellData(ctx, loader)
-	if err != nil {
-		return render.ErrorDashboardData("Dashboard data unavailable.", err.Error()), nil
-	}
-
-	return data.Dashboard, nil
 }
 
 func unavailableShellData(status *ledger.DatabaseStatus, detail string) render.ShellData {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
@@ -39,6 +40,10 @@ type TUIDataLoader interface {
 	ListNotes(ctx context.Context) ([]notes.NoteRecord, error)
 	ListAllNotesReferences(ctx context.Context) (map[string][]refs.EntityReference, error)
 	ListAllEntityReferences(ctx context.Context) (map[string][]refs.EntityReference, error)
+	GetWriteOffCandidates(ctx context.Context) ([]report.WriteOffCandidateRow, error)
+	GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error)
+	SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error)
+	SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error)
 }
 
 // sqliteDataLoader implements TUIDataLoader by delegating each method to the
@@ -134,4 +139,25 @@ func (s *sqliteDataLoader) ListAllEntityReferences(ctx context.Context) (map[str
 	return ledger.WithDBResult(ctx, s.databasePath, func(db *sql.DB) (map[string][]refs.EntityReference, error) {
 		return refs.ListAllByTarget(ctx, db)
 	})
+}
+
+const writeOffMinAgeDays = 30
+
+func (s *sqliteDataLoader) GetWriteOffCandidates(ctx context.Context) ([]report.WriteOffCandidateRow, error) {
+	return report.GetWriteOffCandidates(ctx, s.databasePath, report.WriteOffCandidateFilter{
+		AsOfDate:   time.Now().Format("2006-01-02"),
+		MinAgeDays: writeOffMinAgeDays,
+	})
+}
+
+func (s *sqliteDataLoader) GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error) {
+	return journal.GetAccountLedger(ctx, s.databasePath, accountCode)
+}
+
+func (s *sqliteDataLoader) SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error) {
+	return codex.SearchEntries(ctx, s.databasePath, query)
+}
+
+func (s *sqliteDataLoader) SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error) {
+	return notes.SearchNotes(ctx, s.databasePath, query)
 }

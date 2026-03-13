@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
 func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
@@ -60,7 +61,7 @@ func TestListBrowseItemsIncludesLatestAppraisalMetadata(t *testing.T) {
 }
 
 func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 1, "", "", "loot")
@@ -105,7 +106,7 @@ func TestListBrowseItemsIncludesRecognizedItemsAndRecognizedEntryLinkage(t *test
 }
 
 func TestListBrowseItemsExcludesSoldItems(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := CreateLootItem(ctx, databasePath, "Ruby", "Cave", 1, "", "", "loot")

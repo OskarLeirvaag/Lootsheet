@@ -907,6 +907,84 @@ func TestSearchEnterNavigates(t *testing.T) {
 	}
 }
 
+func TestSearchUsesServerSideHandlerWhenAvailable(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Codex: ListScreenData{
+			Items: []ListItemData{
+				{Key: "codex-1", Row: "NPC  Garrick", DetailTitle: "Garrick"},
+			},
+		},
+	}
+	shell := NewShell(&data)
+
+	// Install a search handler that returns a different result set than
+	// what's in the pre-loaded shell data — proving the handler was called.
+	shell.SetSearchHandler(func(section Section, query string) ([]ListItemData, error) {
+		if section == SectionCodex && query == "fear" {
+			return []ListItemData{
+				{Key: "codex-99", Row: "NPC  Fearsome Dragon"},
+			}, nil
+		}
+		return nil, nil // fall back to client-side
+	})
+
+	shell.HandleAction(ActionSearch)
+
+	// Cycle filter to Codex (index 5: Journal=1, Quests=2, Loot=3, Assets=4, Codex=5).
+	for range 5 {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	}
+
+	// Type "fear" — should trigger server-side search.
+	for _, r := range "fear" {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), ActionNone)
+	}
+
+	if len(shell.search.Results) != 1 {
+		t.Fatalf("expected 1 server-side result, got %d", len(shell.search.Results))
+	}
+	if shell.search.Results[0].ItemKey != "codex-99" {
+		t.Fatalf("expected codex-99 from handler, got %s", shell.search.Results[0].ItemKey)
+	}
+}
+
+func TestSearchFallsBackToClientSideWhenHandlerReturnsNil(t *testing.T) {
+	data := ShellData{
+		Dashboard: DefaultDashboardData(),
+		Quests: ListScreenData{
+			Items: []ListItemData{
+				{Key: "quest-fallback", Row: "Goblin Bounty", DetailTitle: "Goblin Bounty"},
+			},
+		},
+	}
+	shell := NewShell(&data)
+
+	// Handler returns nil for Quests section — should fall back to client-side.
+	shell.SetSearchHandler(func(section Section, query string) ([]ListItemData, error) {
+		return nil, nil
+	})
+
+	shell.HandleAction(ActionSearch)
+
+	// Cycle filter to Quests (index 2).
+	for range 2 {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	}
+
+	// Type "goblin" — should match via client-side.
+	for _, r := range "goblin" {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), ActionNone)
+	}
+
+	if len(shell.search.Results) != 1 {
+		t.Fatalf("expected 1 client-side result, got %d", len(shell.search.Results))
+	}
+	if shell.search.Results[0].ItemKey != "quest-fallback" {
+		t.Fatalf("expected quest-fallback from client-side, got %s", shell.search.Results[0].ItemKey)
+	}
+}
+
 func TestSearchFooterHelp(t *testing.T) {
 	data := DefaultShellData()
 	shell := NewShell(&data)

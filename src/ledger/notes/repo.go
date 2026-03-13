@@ -91,7 +91,7 @@ func UpdateNote(ctx context.Context, databasePath string, noteID string, input *
 	})
 }
 
-// DeleteNote removes a note from the database. References cascade.
+// DeleteNote removes a note and its outbound entity_references rows.
 func DeleteNote(ctx context.Context, databasePath string, noteID string) error {
 	noteID = strings.TrimSpace(noteID)
 	if noteID == "" {
@@ -110,7 +110,7 @@ func DeleteNote(ctx context.Context, databasePath string, noteID string) error {
 		if affected == 0 {
 			return fmt.Errorf("note %q does not exist", noteID)
 		}
-		return nil
+		return refs.DeleteBySource(ctx, db, "note", noteID)
 	})
 }
 

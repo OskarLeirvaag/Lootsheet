@@ -219,72 +219,6 @@ func ListQuests(ctx context.Context, databasePath string) ([]QuestRecord, error)
 	})
 }
 
-// AcceptQuest transitions a quest from 'offered' to 'accepted'.
-func AcceptQuest(ctx context.Context, databasePath string, questID string, acceptedDate string) error {
-	questID = strings.TrimSpace(questID)
-	if questID == "" {
-		return fmt.Errorf("quest ID is required")
-	}
-
-	acceptedDate = strings.TrimSpace(acceptedDate)
-	if acceptedDate == "" {
-		return fmt.Errorf("accepted date is required")
-	}
-
-	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		currentStatus, err := getQuestStatus(ctx, db, questID)
-		if err != nil {
-			return err
-		}
-
-		if currentStatus != ledger.QuestStatusOffered {
-			return fmt.Errorf("quest %q cannot be accepted: current status is %q, expected %q", questID, currentStatus, ledger.QuestStatusOffered)
-		}
-
-		if _, err := db.ExecContext(ctx,
-			"UPDATE quests SET status = ?, accepted_on = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-			string(ledger.QuestStatusAccepted), acceptedDate, questID,
-		); err != nil {
-			return fmt.Errorf("accept quest: %w", err)
-		}
-
-		return nil
-	})
-}
-
-// CompleteQuest transitions a quest from 'accepted' to 'completed'.
-func CompleteQuest(ctx context.Context, databasePath string, questID string, completedDate string) error {
-	questID = strings.TrimSpace(questID)
-	if questID == "" {
-		return fmt.Errorf("quest ID is required")
-	}
-
-	completedDate = strings.TrimSpace(completedDate)
-	if completedDate == "" {
-		return fmt.Errorf("completed date is required")
-	}
-
-	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		currentStatus, err := getQuestStatus(ctx, db, questID)
-		if err != nil {
-			return err
-		}
-
-		if currentStatus != ledger.QuestStatusAccepted {
-			return fmt.Errorf("quest %q cannot be completed: current status is %q, expected %q", questID, currentStatus, ledger.QuestStatusAccepted)
-		}
-
-		if _, err := db.ExecContext(ctx,
-			"UPDATE quests SET status = ?, completed_on = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-			string(ledger.QuestStatusCompleted), completedDate, questID,
-		); err != nil {
-			return fmt.Errorf("complete quest: %w", err)
-		}
-
-		return nil
-	})
-}
-
 // CollectQuestPayment creates a journal entry for quest payment collection.
 func CollectQuestPayment(ctx context.Context, databasePath string, input CollectQuestPaymentInput) (ledger.PostedJournalEntry, error) {
 	questID := strings.TrimSpace(input.QuestID)
@@ -477,25 +411,6 @@ func WriteOffQuest(ctx context.Context, databasePath string, input WriteOffQuest
 
 		return posted, nil
 	})
-}
-
-func getQuestStatus(ctx context.Context, db *sql.DB, questID string) (ledger.QuestStatus, error) {
-	var status string
-	if err := db.QueryRowContext(ctx,
-		"SELECT status FROM quests WHERE id = ?", questID,
-	).Scan(&status); err != nil {
-		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("quest %q does not exist", questID)
-		}
-		return "", fmt.Errorf("query quest status: %w", err)
-	}
-
-	s := ledger.QuestStatus(status)
-	if !s.Valid() {
-		return "", fmt.Errorf("quest %s has invalid status %q", questID, status)
-	}
-
-	return s, nil
 }
 
 func getQuestByID(ctx context.Context, db *sql.DB, questID string) (QuestRecord, error) {

@@ -19,10 +19,10 @@ func TestGenerateManPagesWritesLeafAndGroupDocs(t *testing.T) {
 	for _, name := range []string{
 		"lootsheet.1",
 		"lootsheet-tui.1",
-		"lootsheet-account.1",
-		"lootsheet-account-create.1",
-		"lootsheet-journal-post.1",
-		"lootsheet-report-writeoff-candidates.1",
+		"lootsheet-db.1",
+		"lootsheet-db-status.1",
+		"lootsheet-db-migrate.1",
+		"lootsheet-init.1",
 	} {
 		path := filepath.Join(outputDir, name)
 		content, err := os.ReadFile(path)

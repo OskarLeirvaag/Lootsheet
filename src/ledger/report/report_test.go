@@ -6,12 +6,13 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 )
 
 func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Post an entry: Dr Adventuring Supplies 5000:50, Cr Party Cash 1000:50
@@ -92,7 +93,7 @@ func TestGetTrialBalanceWithPostedEntries(t *testing.T) {
 }
 
 func TestGetTrialBalanceEmptyLedger(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	report, err := GetTrialBalance(ctx, databasePath)
@@ -114,7 +115,7 @@ func TestGetTrialBalanceEmptyLedger(t *testing.T) {
 }
 
 func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Post a single entry touching only two accounts.
@@ -142,7 +143,7 @@ func TestGetTrialBalanceExcludesAccountsWithNoPostedTransactions(t *testing.T) {
 }
 
 func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Post an entry: Dr 5000:75, Cr 1000:75
@@ -215,7 +216,7 @@ func TestGetTrialBalanceReversedEntriesDoNotDoubleCount(t *testing.T) {
 }
 
 func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	// Create a liability account for testing.
@@ -274,7 +275,7 @@ func TestGetTrialBalanceNormalBalanceDirections(t *testing.T) {
 }
 
 func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	createdQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -288,9 +289,7 @@ func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 		t.Fatalf("create quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, createdQuest.ID, "2026-03-05"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, createdQuest.ID, "2026-03-05")
 
 	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
 		QuestID:     createdQuest.ID,
@@ -320,7 +319,7 @@ func TestGetQuestReceivablesCountsCustomDescriptionCollections(t *testing.T) {
 }
 
 func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	offeredQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -356,9 +355,7 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 		t.Fatalf("create completed quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, completedQuest.ID, "2026-03-04"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, completedQuest.ID, "2026-03-04")
 
 	rows, err := GetPromisedQuests(ctx, databasePath)
 	if err != nil {
@@ -391,7 +388,7 @@ func TestGetPromisedQuestsIncludesOfferedAndAcceptedOnly(t *testing.T) {
 }
 
 func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	oldPartialQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -405,9 +402,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 		t.Fatalf("create old partial quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, oldPartialQuest.ID, "2026-01-02"); err != nil {
-		t.Fatalf("complete old partial quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, oldPartialQuest.ID, "2026-01-02")
 
 	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
 		QuestID:     oldPartialQuest.ID,
@@ -429,9 +424,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 		t.Fatalf("create recent quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, recentQuest.ID, "2026-03-10"); err != nil {
-		t.Fatalf("complete recent quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, recentQuest.ID, "2026-03-10")
 
 	fullyPaidQuest, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
 		Title:              "Settled Balance",
@@ -444,9 +437,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 		t.Fatalf("create fully paid quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, fullyPaidQuest.ID, "2026-01-04"); err != nil {
-		t.Fatalf("complete fully paid quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, fullyPaidQuest.ID, "2026-01-04")
 
 	if _, err := quest.CollectQuestPayment(ctx, databasePath, quest.CollectQuestPaymentInput{
 		QuestID: fullyPaidQuest.ID,
@@ -487,8 +478,8 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 }
 
 func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
-	databasePath := ledger.InitTestDB(t)
-	ledger.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")
+	databasePath := testutil.InitTestDB(t)
+	testutil.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")
 	ctx := context.Background()
 
 	trialBalance, err := GetTrialBalance(ctx, databasePath)

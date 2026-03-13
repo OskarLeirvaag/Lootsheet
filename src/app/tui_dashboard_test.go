@@ -11,24 +11,26 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/quest"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
-func TestBuildTUIDashboardDataForUninitializedDatabase(t *testing.T) {
+func TestBuildTUIShellDataForUninitializedDatabase(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
 	}
 
 	databasePath := t.TempDir() + "/lootsheet.db"
-	data, err := buildTUIDashboardData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	shell, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
-		t.Fatalf("build dashboard data: %v", err)
+		t.Fatalf("build shell data: %v", err)
 	}
 
+	data := shell.Dashboard
 	if !strings.Contains(data.HeaderLines[0], "uninitialized") {
 		t.Fatalf("header = %q, want uninitialized state", data.HeaderLines[0])
 	}
@@ -37,13 +39,13 @@ func TestBuildTUIDashboardDataForUninitializedDatabase(t *testing.T) {
 	}
 }
 
-func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
+func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -83,9 +85,7 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("create collectible quest: %v", err)
 	}
 
-	if err := quest.CompleteQuest(ctx, databasePath, completedQuest.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, completedQuest.ID, "2026-03-09")
 
 	lootItem, err := loot.CreateLootItem(ctx, databasePath, "Silver Chalice", "Goblin den", 2, "", "", "loot")
 	if err != nil {
@@ -101,11 +101,12 @@ func TestBuildTUIDashboardDataUsesReadOnlySummaries(t *testing.T) {
 		t.Fatalf("recognize loot appraisal: %v", err)
 	}
 
-	data, err := buildTUIDashboardData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
+	shell, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
-		t.Fatalf("build dashboard data: %v", err)
+		t.Fatalf("build shell data: %v", err)
 	}
 
+	data := shell.Dashboard
 	if !strings.Contains(strings.Join(data.AccountsLines, "\n"), "Accounts: 16 total") {
 		t.Fatalf("accounts lines = %q", data.AccountsLines)
 	}
@@ -138,7 +139,7 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	if _, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -196,7 +197,7 @@ func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
@@ -234,7 +235,7 @@ func TestBuildTUIShellDataAddsJournalReverseActionAndLineDetail(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -289,7 +290,7 @@ func TestBuildTUIShellDataOmitsJournalReverseActionForReversedOriginal(t *testin
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -350,7 +351,7 @@ func TestHandleTUICommandTogglesAccountState(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -392,7 +393,7 @@ func TestHandleTUICommandCreatesAccountAndNavigatesToAccounts(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -423,7 +424,7 @@ func TestHandleTUICommandDeletesAccount(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	if _, err := account.CreateAccount(ctx, databasePath, "9900", "Unused Test Account", ledger.AccountTypeExpense); err != nil {
@@ -454,7 +455,7 @@ func TestHandleTUICommandReversesJournalEntryOnOriginalDate(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	posted, err := journal.PostJournalEntry(ctx, databasePath, ledger.JournalPostInput{
@@ -525,7 +526,7 @@ func TestBuildTUIShellDataIncludesEntryCatalog(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
 		t.Fatalf("build shell data: %v", err)
@@ -555,7 +556,7 @@ func TestHandleTUICommandCreatesExpenseAndNavigatesToJournal(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -593,7 +594,7 @@ func TestHandleTUICommandCreatesIncomeAndNavigatesToJournal(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -631,7 +632,7 @@ func TestHandleTUICommandCreatesCustomEntryAndNavigatesToJournal(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -669,7 +670,7 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -682,9 +683,7 @@ func TestBuildTUIShellDataAddsQuestActionsAndBalanceDetail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := quest.CompleteQuest(ctx, databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	data, err := buildTUIShellData(ctx, &sqliteDataLoader{databasePath: databasePath, assets: assets})
 	if err != nil {
@@ -735,7 +734,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -748,9 +747,7 @@ func TestHandleTUICommandCollectsQuestOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := quest.CompleteQuest(ctx, databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandQuestCollectFull,
@@ -815,7 +812,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -828,9 +825,7 @@ func TestHandleTUICommandWritesOffQuestOnTodayDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create quest: %v", err)
 	}
-	if err := quest.CompleteQuest(ctx, databasePath, record.ID, "2026-03-09"); err != nil {
-		t.Fatalf("complete quest: %v", err)
-	}
+	testutil.CompleteQuest(t, databasePath, record.ID, "2026-03-09")
 
 	result, err := handleTUICommand(ctx, render.Command{
 		ID:      tuiCommandQuestWriteOffFull,
@@ -892,7 +887,7 @@ func TestHandleTUICommandCreatesQuestAndNavigatesToQuests(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -928,7 +923,7 @@ func TestHandleTUICommandCreatesLootAndNavigatesToLoot(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	result, err := handleTUICommand(ctx, render.Command{
@@ -965,7 +960,7 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
@@ -1048,7 +1043,7 @@ func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "Bard", "Wrapped in velvet", "loot")
@@ -1126,7 +1121,7 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	noAppraisal, err := loot.CreateLootItem(ctx, databasePath, "Unknown Relic", "Ruins", 1, "", "", "loot")
@@ -1185,7 +1180,7 @@ func TestHandleTUICommandRecognizesLootOnTodayDate(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
@@ -1259,7 +1254,7 @@ func TestHandleTUICommandRejectsInvalidLootSaleAmountAsInputError(t *testing.T) 
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
@@ -1306,7 +1301,7 @@ func TestHandleTUICommandSellsLootOnTodayDate(t *testing.T) {
 	tuiNow = func() time.Time { return time.Date(2026, 3, 10, 12, 0, 0, 0, time.Local) }
 	defer func() { tuiNow = originalNow }()
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := loot.CreateLootItem(ctx, databasePath, "Gold Necklace", "Merchant", 1, "", "", "loot")
@@ -1368,7 +1363,7 @@ func TestHandleTUICommandUpdatesQuestAndKeepsSelection(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	record, err := quest.CreateQuest(ctx, databasePath, &quest.CreateQuestInput{
@@ -1432,7 +1427,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	databasePath := ledger.InitTestDB(t)
+	databasePath := testutil.InitTestDB(t)
 	ctx := context.Background()
 
 	item, err := loot.CreateLootItem(ctx, databasePath, "Emerald Idol", "Sunken crypt", 1, "Bard", "Wrap in velvet", "loot")
@@ -1465,7 +1460,7 @@ func TestHandleTUICommandUpdatesHeldLoot(t *testing.T) {
 		t.Fatalf("status text = %q, want updated loot summary", result.Status.Text)
 	}
 
-	items, err := loot.ListLootItems(ctx, databasePath, "loot")
+	items, err := loot.ListBrowseItems(ctx, databasePath, "loot")
 	if err != nil {
 		t.Fatalf("list loot items: %v", err)
 	}

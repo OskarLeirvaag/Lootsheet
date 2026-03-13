@@ -1,4 +1,8 @@
-package ledger
+// Package testutil provides cross-package test helpers for initializing
+// temporary databases, running ad-hoc queries, and loading SQL fixtures.
+// It is intentionally excluded from deadcode analysis because its functions
+// are only reachable from _test.go files.
+package testutil
 
 import (
 	"context"
@@ -11,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
 // InitTestDB creates a temporary SQLite database initialized with the full
@@ -27,7 +32,7 @@ func InitTestDB(t testing.TB) string {
 		t.Fatalf("load init assets: %v", err)
 	}
 
-	if _, err := EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
+	if _, err := ledger.EnsureSQLiteInitialized(context.Background(), databasePath, assets); err != nil {
 		t.Fatalf("initialize sqlite database: %v", err)
 	}
 
@@ -92,6 +97,7 @@ func LoadFixtureForTest(t testing.TB, fixtureName string) string {
 		t.Fatal("resolve testutil caller path")
 	}
 
+	// fixtures/ is at repo root; this file is at src/testutil/testutil.go
 	fixturePath := filepath.Join(filepath.Dir(currentFile), "..", "..", "fixtures", fixtureName)
 	content, err := os.ReadFile(fixturePath)
 	if err != nil {
@@ -124,4 +130,39 @@ func LoadMigrationAssetsForTest(t testing.TB) (config.InitAssets, config.InitAss
 	legacyAssets.SchemaVersion = legacyAssets.Migrations[len(legacyAssets.Migrations)-1].Version
 
 	return fullAssets, legacyAssets
+}
+
+// ExecSQLiteForTest opens a database and executes a parameterized SQL statement.
+func ExecSQLiteForTest(t testing.TB, databasePath string, query string, args ...any) {
+	t.Helper()
+
+	db, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(context.Background(), query, args...); err != nil {
+		t.Fatalf("exec test query: %v", err)
+	}
+}
+
+// AcceptQuest transitions a quest to 'accepted' status via direct SQL.
+// Use this only for test setup — it skips domain validation.
+func AcceptQuest(t testing.TB, databasePath string, questID string, acceptedDate string) {
+	t.Helper()
+
+	ExecSQLiteForTest(t, databasePath,
+		`UPDATE quests SET status = 'accepted', accepted_on = ? WHERE id = ?`,
+		acceptedDate, questID)
+}
+
+// CompleteQuest transitions a quest to 'completed' status via direct SQL.
+// Use this only for test setup — it skips domain validation.
+func CompleteQuest(t testing.TB, databasePath string, questID string, completedDate string) {
+	t.Helper()
+
+	ExecSQLiteForTest(t, databasePath,
+		`UPDATE quests SET status = 'completed', completed_on = ? WHERE id = ?`,
+		completedDate, questID)
 }
