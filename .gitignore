@@ -3,6 +3,7 @@
 /build/
 /dist/
 /lootsheet
+/lootsheet-raspi
 *.exe
 *.exe~
 *.dll
