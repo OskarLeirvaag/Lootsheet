@@ -16,11 +16,15 @@ Usage:
 Commands:
   db         inspect database state and run schema migrations
   init       initialize a fresh LootSheet database
-  tui        open the full-screen TUI shell
+  tui        open the full-screen TUI shell (local database)
+  serve      host the database over the network for remote TUI clients
+  connect    join a remote LootSheet server and open the TUI
 
 Examples:
   lootsheet init
   lootsheet tui
+  lootsheet serve --addr :7547
+  lootsheet connect localhost:7547
   lootsheet db status
   lootsheet db migrate
 
@@ -33,6 +37,8 @@ Help examples:
 -h, --help
 help for lootsheet
 .SH SEE ALSO
+lootsheet-connect(1)
 lootsheet-db(1)
 lootsheet-init(1)
+lootsheet-serve(1)
 lootsheet-tui(1)

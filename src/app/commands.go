@@ -43,6 +43,8 @@ func (a *Application) newRootCommand() *cobra.Command {
 		a.newDatabaseCommand(),
 		a.newInitCommand(),
 		a.newTUICommand(),
+		a.newServeCommand(),
+		a.newConnectCommand(),
 	)
 
 	return root

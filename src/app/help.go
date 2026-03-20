@@ -12,11 +12,15 @@ Usage:
 Commands:
   db         inspect database state and run schema migrations
   init       initialize a fresh LootSheet database
-  tui        open the full-screen TUI shell
+  tui        open the full-screen TUI shell (local database)
+  serve      host the database over the network for remote TUI clients
+  connect    join a remote LootSheet server and open the TUI
 
 Examples:
   lootsheet init
   lootsheet tui
+  lootsheet serve --addr :7547
+  lootsheet connect localhost:7547
   lootsheet db status
   lootsheet db migrate
 
@@ -73,6 +77,65 @@ Usage:
 
 Bootstraps a fresh SQLite database from the embedded schema and seed accounts.
 If the configured database already contains LootSheet metadata, init reports that it is already initialized and does not reseed it.
+`
+
+const serveHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet serve [--addr HOST:PORT] [--no-tls]
+
+Hosts the configured LootSheet database for remote TUI clients. On first
+start, generates a self-signed TLS certificate and a bearer token in the
+data directory. The token is printed to stdout for sharing with party members.
+
+Use --no-tls when running behind a TLS-terminating reverse proxy (e.g. Traefik,
+Caddy, nginx) that handles encryption on behalf of the server.
+
+Flags:
+  --addr     listen address (default :7547)
+  --no-tls   disable built-in TLS (for use behind a reverse proxy)
+
+Examples:
+  lootsheet serve
+  lootsheet serve --addr 0.0.0.0:9000
+  lootsheet serve --no-tls --addr :7547
+`
+
+//nolint:gosec // G101 false positive — help text, not a credential
+const serveCredentialHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet serve token
+
+Prints the server bearer token to stdout. Generates a new token if one does
+not exist yet. Useful for retrieving the token from a headless or detached
+server (e.g. Docker).
+
+Examples:
+  lootsheet serve token
+  docker exec lootsheet /lootsheet serve token
+`
+
+const connectHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet connect [--tls-skip-verify] <addr>
+
+Connects to a remote LootSheet server and opens the full TUI shell. On first
+connection, prompts for the server bearer token. The token is saved in the
+config directory for subsequent sessions.
+
+By default, TLS certificate verification is skipped (for self-signed certs on
+a LAN). When connecting through a domain with a real certificate (e.g. behind
+Traefik), pass --tls-skip-verify=false so the client validates the certificate.
+
+Flags:
+  --tls-skip-verify   skip TLS certificate verification (default true)
+
+Examples:
+  lootsheet connect localhost:7547
+  lootsheet connect 192.168.1.10:7547
+  lootsheet connect --tls-skip-verify=false loot.example.com:443
 `
 
 const tuiHelpText = `LootSheet CLI

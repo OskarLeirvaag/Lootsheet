@@ -1,0 +1,24 @@
+.TH LOOTSHEET-SERVE-TOKEN 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-serve-token \\- Print the server bearer token
+.SH SYNOPSIS
+lootsheet serve token [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet serve token
+
+Prints the server bearer token to stdout. Generates a new token if one does
+not exist yet. Useful for retrieving the token from a headless or detached
+server (e.g. Docker).
+
+Examples:
+  lootsheet serve token
+  docker exec lootsheet /lootsheet serve token
+.SH OPTIONS
+.TP
+-h, --help
+help for token
+.SH SEE ALSO
+lootsheet-serve(1)

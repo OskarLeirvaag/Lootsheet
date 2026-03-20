@@ -49,6 +49,7 @@ type TUIDataLoader interface {
 	CampaignName() string
 	SetCampaign(id, name string)
 	ListCampaigns(ctx context.Context) ([]campaign.Record, error)
+	SeedAccounts() []config.SeedAccount
 }
 
 // sqliteDataLoader implements TUIDataLoader by delegating each method to the
@@ -87,6 +88,10 @@ func (s *sqliteDataLoader) CampaignName() string { return s.campaignName }
 func (s *sqliteDataLoader) SetCampaign(id, name string) {
 	s.campaignID = id
 	s.campaignName = name
+}
+
+func (s *sqliteDataLoader) SeedAccounts() []config.SeedAccount {
+	return s.assets.Accounts
 }
 
 func (s *sqliteDataLoader) ListCampaigns(ctx context.Context) ([]campaign.Record, error) {

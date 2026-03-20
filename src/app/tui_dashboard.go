@@ -950,7 +950,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 	case tuiCommandCampaignCreate:
 		name := command.Fields["name"]
-		record, err := campaign.Create(ctx, databasePath, name, loader.(*sqliteDataLoader).assets.Accounts)
+		record, err := campaign.Create(ctx, databasePath, name, loader.SeedAccounts())
 		if err != nil {
 			return render.CommandResult{}, err
 		}
