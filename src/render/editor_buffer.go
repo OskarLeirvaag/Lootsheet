@@ -253,7 +253,7 @@ func editorPaste(e *editorState) {
 	// Single-element clipboard from inline delete: insert after cursor.
 	if len(e.Clipboard) == 1 {
 		line := []rune(e.Lines[e.CurRow])
-		col := clampInt(e.CurCol+1, 0, len(line)+1)
+		col := clampInt(e.CurCol+1, 0, len(line))
 		text := []rune(e.Clipboard[0])
 		newLine := make([]rune, 0, len(line)+len(text))
 		newLine = append(newLine, line[:col]...)
