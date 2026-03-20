@@ -1,9 +1,10 @@
-.PHONY: build fmt imports test vet lint vuln deadcode manpages check
+.PHONY: build fmt imports test vet lint vuln deadcode manpages proto check
 
 APP := lootsheet
 
 build:
 	go build -o $(APP) .
+	GOOS=linux GOARCH=arm64 go build -o $(APP)-raspi .
 
 fmt:
 	gofmt -l .
@@ -28,5 +29,8 @@ deadcode:
 
 manpages:
 	go run ./scripts/generate-manpages.go
+
+proto:
+	protoc --go_out=. --go_opt=paths=source_relative src/net/proto/lootsheet.proto
 
 check: fmt imports test vet lint vuln

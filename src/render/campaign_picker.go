@@ -21,10 +21,15 @@ type campaignPickerState struct {
 }
 
 func (s *Shell) openCampaignPicker() bool {
-	if s == nil || len(s.Data.Campaigns) == 0 {
+	if s == nil {
 		return false
 	}
-	s.campaignPicker = &campaignPickerState{}
+	picker := &campaignPickerState{}
+	if len(s.Data.Campaigns) == 0 {
+		// No campaigns yet — go straight to create mode.
+		picker.mode = campaignPickerModeCreate
+	}
+	s.campaignPicker = picker
 	return true
 }
 

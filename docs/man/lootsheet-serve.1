@@ -1,0 +1,31 @@
+.TH LOOTSHEET-SERVE 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-serve \\- Host the LootSheet database over the network for remote TUI clients
+.SH SYNOPSIS
+lootsheet serve [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet serve [--addr HOST:PORT]
+
+Hosts the configured LootSheet database over TLS for remote TUI clients.
+On first start, generates a self-signed TLS certificate and a bearer token
+in the data directory. The token is printed to stdout for sharing with
+party members.
+
+Flags:
+  --addr   listen address (default :7547)
+
+Examples:
+  lootsheet serve
+  lootsheet serve --addr 0.0.0.0:9000
+.SH OPTIONS
+.TP
+--addr=string
+listen address (host:port) (default: :7547)
+.TP
+-h, --help
+help for serve
+.SH SEE ALSO
+lootsheet(1)

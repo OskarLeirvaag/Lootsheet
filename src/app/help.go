@@ -12,11 +12,15 @@ Usage:
 Commands:
   db         inspect database state and run schema migrations
   init       initialize a fresh LootSheet database
-  tui        open the full-screen TUI shell
+  tui        open the full-screen TUI shell (local database)
+  serve      host the database over the network for remote TUI clients
+  connect    join a remote LootSheet server and open the TUI
 
 Examples:
   lootsheet init
   lootsheet tui
+  lootsheet serve --addr :7547
+  lootsheet connect localhost:7547
   lootsheet db status
   lootsheet db migrate
 
@@ -73,6 +77,38 @@ Usage:
 
 Bootstraps a fresh SQLite database from the embedded schema and seed accounts.
 If the configured database already contains LootSheet metadata, init reports that it is already initialized and does not reseed it.
+`
+
+const serveHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet serve [--addr HOST:PORT]
+
+Hosts the configured LootSheet database over TLS for remote TUI clients.
+On first start, generates a self-signed TLS certificate and a bearer token
+in the data directory. The token is printed to stdout for sharing with
+party members.
+
+Flags:
+  --addr   listen address (default :7547)
+
+Examples:
+  lootsheet serve
+  lootsheet serve --addr 0.0.0.0:9000
+`
+
+const connectHelpText = `LootSheet CLI
+
+Usage:
+  lootsheet connect <addr>
+
+Connects to a remote LootSheet server and opens the full TUI shell. On first
+connection, prompts for the server bearer token. The token is saved in the
+config directory for subsequent sessions.
+
+Examples:
+  lootsheet connect localhost:7547
+  lootsheet connect 192.168.1.10:7547
 `
 
 const tuiHelpText = `LootSheet CLI

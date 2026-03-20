@@ -1,0 +1,24 @@
+.TH LOOTSHEET-CONNECT 1 "Mar 2026" "LootSheet" "LootSheet Manual"
+.SH NAME
+lootsheet-connect \\- Connect to a remote LootSheet server and open the TUI
+.SH SYNOPSIS
+lootsheet connect <addr> [flags]
+.SH DESCRIPTION
+LootSheet CLI
+
+Usage:
+  lootsheet connect <addr>
+
+Connects to a remote LootSheet server and opens the full TUI shell. On first
+connection, prompts for the server bearer token. The token is saved in the
+config directory for subsequent sessions.
+
+Examples:
+  lootsheet connect localhost:7547
+  lootsheet connect 192.168.1.10:7547
+.SH OPTIONS
+.TP
+-h, --help
+help for connect
+.SH SEE ALSO
+lootsheet(1)

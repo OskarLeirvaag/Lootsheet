@@ -1,0 +1,221 @@
+syntax = "proto3";
+
+package lootsheet;
+
+option go_package = "github.com/OskarLeirvaag/Lootsheet/src/net/proto";
+
+// ---------- Envelope ----------
+
+enum Method {
+  AUTH               = 0;
+  BUILD_SHELL_DATA   = 1;
+  EXECUTE_COMMAND    = 2;
+  SET_CAMPAIGN       = 3;
+  LIST_CAMPAIGNS     = 4;
+  SEARCH_CODEX_ENTRIES = 5;
+  SEARCH_NOTES       = 6;
+}
+
+message Request {
+  Method method = 1;
+  oneof payload {
+    AuthRequest            auth               = 10;
+    BuildShellDataRequest  build_shell_data   = 11;
+    ExecuteCommandRequest  execute_command     = 12;
+    SetCampaignRequest     set_campaign        = 13;
+    ListCampaignsRequest   list_campaigns      = 14;
+    SearchRequest          search_codex        = 15;
+    SearchRequest          search_notes        = 16;
+  }
+}
+
+message Response {
+  bool ok    = 1;
+  string error = 2;
+  oneof payload {
+    AuthResponse            auth               = 10;
+    BuildShellDataResponse  build_shell_data   = 11;
+    ExecuteCommandResponse  execute_command     = 12;
+    SetCampaignResponse     set_campaign        = 13;
+    ListCampaignsResponse   list_campaigns      = 14;
+    SearchResponse          search_codex        = 15;
+    SearchResponse          search_notes        = 16;
+  }
+}
+
+// ---------- Auth ----------
+
+message AuthRequest {
+  string token = 1;
+  uint32 protocol_version = 2;
+}
+
+message AuthResponse {
+  string server_name = 1;
+  uint32 protocol_version = 2;
+}
+
+// ---------- BuildShellData ----------
+
+message BuildShellDataRequest {}
+
+message BuildShellDataResponse {
+  ShellDataProto data = 1;
+}
+
+// ---------- ExecuteCommand ----------
+
+message ExecuteCommandRequest {
+  CommandProto command = 1;
+}
+
+message ExecuteCommandResponse {
+  CommandResultProto result = 1;
+}
+
+// ---------- SetCampaign ----------
+
+message SetCampaignRequest {
+  string campaign_id = 1;
+}
+
+message SetCampaignResponse {}
+
+// ---------- ListCampaigns ----------
+
+message ListCampaignsRequest {}
+
+message ListCampaignsResponse {
+  repeated CampaignOptionProto campaigns = 1;
+}
+
+// ---------- Search ----------
+
+message SearchRequest {
+  string query = 1;
+}
+
+message SearchResponse {
+  repeated ListItemDataProto items = 1;
+}
+
+// ---------- Domain model mirrors ----------
+
+message ShellDataProto {
+  DashboardDataProto  dashboard            = 1;
+  ListScreenDataProto accounts             = 2;
+  ListScreenDataProto journal              = 3;
+  ListScreenDataProto quests               = 4;
+  ListScreenDataProto loot                 = 5;
+  ListScreenDataProto assets               = 6;
+  ListScreenDataProto codex                = 7;
+  ListScreenDataProto notes                = 8;
+  ListScreenDataProto settings_accounts    = 9;
+  ListScreenDataProto settings_codex_types = 10;
+  EntryCatalogProto   entry_catalog        = 11;
+  repeated CodexTypeOptionProto codex_types = 12;
+  string              campaign_name        = 13;
+  repeated CampaignOptionProto campaigns   = 14;
+}
+
+message DashboardDataProto {
+  repeated string header_lines      = 1;
+  repeated string accounts_lines    = 2;
+  repeated string journal_lines     = 3;
+  repeated string hoard_lines       = 4;
+  repeated string quick_entry_lines = 5;
+  repeated string ledger_lines      = 6;
+  repeated string quest_lines       = 7;
+  repeated string loot_lines        = 8;
+  repeated string asset_lines       = 9;
+}
+
+message ListScreenDataProto {
+  repeated string header_lines   = 1;
+  repeated string summary_lines  = 2;
+  string          list_header_row = 3;
+  repeated ListItemDataProto items = 4;
+  repeated string empty_lines    = 5;
+}
+
+message ListItemDataProto {
+  string key          = 1;
+  string row          = 2;
+  string detail_title = 3;
+  repeated string detail_lines = 4;
+  string detail_body  = 5;
+  repeated ItemActionDataProto actions = 6;
+}
+
+message ItemActionDataProto {
+  string trigger        = 1;  // Action as string
+  string id             = 2;
+  string label          = 3;
+  string mode           = 4;  // ItemActionMode as string
+  string confirm_title  = 5;
+  repeated string confirm_lines = 6;
+  string input_title    = 7;
+  string input_prompt   = 8;
+  string input_required = 9;
+  repeated string input_help = 10;
+  string placeholder    = 11;
+  string compose_mode   = 12;
+  string compose_title  = 13;
+  map<string, string> compose_fields = 14;
+  repeated CommandLineProto compose_lines = 15;
+}
+
+message EntryCatalogProto {
+  string default_date                      = 1;
+  repeated AccountOptionProto expense_accounts = 2;
+  repeated AccountOptionProto income_accounts  = 3;
+  repeated AccountOptionProto funding_accounts = 4;
+  repeated AccountOptionProto deposit_accounts = 5;
+  repeated AccountOptionProto all_accounts     = 6;
+}
+
+message AccountOptionProto {
+  string code = 1;
+  string name = 2;
+  string type = 3;
+}
+
+message CampaignOptionProto {
+  string id   = 1;
+  string name = 2;
+}
+
+message CodexTypeOptionProto {
+  string id      = 1;
+  string name    = 2;
+  string form_id = 3;
+}
+
+// ---------- Command model mirrors ----------
+
+message CommandProto {
+  string id       = 1;
+  int32  section  = 2;  // model.Section as int
+  string item_key = 3;
+  map<string, string> fields = 4;
+  repeated CommandLineProto lines = 5;
+}
+
+message CommandLineProto {
+  string side         = 1;
+  string account_code = 2;
+  string amount       = 3;
+  string memo         = 4;
+}
+
+message CommandResultProto {
+  ShellDataProto   data            = 1;
+  StatusMessageProto status        = 2;
+  int32            navigate_to     = 3;  // model.Section as int
+  string           select_item_key = 4;
+}
+
+message StatusMessageProto {
+  string level = 1;  // StatusLevel as string
+  string text  = 2;
+}

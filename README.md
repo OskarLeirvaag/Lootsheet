@@ -61,11 +61,65 @@ Additional capabilities:
 
 LootSheet is used primarily through a full-screen terminal TUI (`lootsheet tui`).
 
-A small CLI surface handles setup and database management:
+A small CLI surface handles setup, database management, and server hosting:
 
 - `lootsheet init` — bootstrap a fresh database
 - `lootsheet db status` — inspect database lifecycle state
 - `lootsheet db migrate` — apply pending schema migrations
+- `lootsheet serve` — host the database for remote players
+- `lootsheet connect <addr>` — connect to a hosted session
+
+## Remote Play
+
+LootSheet supports a server mode so the DM can host the ledger and party members can connect from their own terminals. The server owns the SQLite database and serves the full TUI over an encrypted connection.
+
+### Starting the server
+
+The DM runs:
+
+```
+lootsheet serve
+```
+
+On first start this generates a self-signed TLS certificate and a bearer token, both stored in the data directory. The token is printed to the terminal:
+
+```
+Server token: 9f3a...c7e1
+Listening on :7547
+Database: /home/dm/.local/share/lootsheet/lootsheet.db
+```
+
+Share the token with your party through a trusted channel (Discord DM, Signal, etc.). The token is reused across restarts — it only needs to be shared once.
+
+To listen on a specific address or port:
+
+```
+lootsheet serve --addr 0.0.0.0:9000
+```
+
+### Connecting as a player
+
+Players run:
+
+```
+lootsheet connect <host>:<port>
+```
+
+On first connection, the client prompts for the server token:
+
+```
+Enter server token: 9f3a...c7e1
+Connecting to 192.168.1.10:7547...
+Connected to LootSheet Server
+```
+
+The token is saved automatically so reconnecting does not require it again. After authenticating, the full TUI opens with live data from the server — all sections, actions, and search work identically to local mode.
+
+### Requirements
+
+- The server and all clients must run the **same version** of LootSheet. A version mismatch during connection will print which side needs to be upgraded.
+- Players need network access to the server's address and port. For remote play over the internet, the DM may need to configure port forwarding or use a VPN.
+- There is no user-level access control — anyone with the token has full read/write access to the ledger. Rotate the token by deleting the `token` file in the server data directory and restarting.
 
 ## Intended Use
 
@@ -82,7 +136,6 @@ Use LootSheet if your group wants a shared record of:
 It is not meant to be:
 
 - a web app
-- a multiplayer sync service
 - a full inventory simulator
 - a tax or invoice system
 
