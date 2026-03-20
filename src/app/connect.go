@@ -14,20 +14,24 @@ import (
 )
 
 func (a *Application) newConnectCommand() *cobra.Command {
+	var skipVerify bool
+
 	cmd := &cobra.Command{
 		Use:   "connect <addr>",
 		Short: "Connect to a remote LootSheet server and open the TUI",
 		Long:  connectHelpText,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.runConnect(cmd.Context(), args[0])
+			return a.runConnect(cmd.Context(), args[0], skipVerify)
 		},
 	}
+
+	cmd.Flags().BoolVar(&skipVerify, "tls-skip-verify", true, "skip TLS certificate verification (set to false for real certificates)")
 
 	return cmd
 }
 
-func (a *Application) runConnect(ctx context.Context, addr string) error {
+func (a *Application) runConnect(ctx context.Context, addr string, skipVerify bool) error {
 	configDir := filepath.Dir(a.config.Paths.ConfigFile)
 
 	// Look up saved token for this address.
@@ -56,7 +60,9 @@ func (a *Application) runConnect(ctx context.Context, addr string) error {
 		return err
 	}
 
-	c, authResp, err := client.Dial(ctx, addr, token)
+	c, authResp, err := client.Dial(ctx, addr, token, &client.DialOptions{
+		SkipTLSVerify: skipVerify,
+	})
 	if err != nil {
 		return err
 	}

@@ -38,14 +38,22 @@ type Config struct {
 	Logger    *slog.Logger
 }
 
-// ListenAndServe creates a TLS listener and serves connections until ctx is
-// cancelled. It blocks until all active connections have drained.
+// ListenAndServe creates a listener and serves connections until ctx is
+// cancelled. It blocks until all active connections have drained. If
+// TLSConfig is nil, it listens on plain TCP (for use behind a TLS-terminating
+// reverse proxy).
 func ListenAndServe(ctx context.Context, cfg Config) error {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
 
-	listener, err := tls.Listen("tcp", cfg.Addr, cfg.TLSConfig)
+	var listener net.Listener
+	var err error
+	if cfg.TLSConfig != nil {
+		listener, err = tls.Listen("tcp", cfg.Addr, cfg.TLSConfig)
+	} else {
+		listener, err = (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.Addr)
+	}
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
@@ -83,7 +91,9 @@ func ListenAndServe(ctx context.Context, cfg Config) error {
 		})
 	}
 
+	s.log.InfoContext(ctx, "server shutting down, waiting for connections to drain")
 	s.wg.Wait()
+	s.log.InfoContext(ctx, "server stopped")
 	return acceptErr
 }
 
@@ -145,26 +155,47 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 
 	s.log.InfoContext(ctx, "client authenticated", slog.String("remote", remote))
 
-	// Request-response loop.
-	for {
-		if ctx.Err() != nil {
-			return
-		}
+	// Read messages in a separate goroutine so the main loop can select on
+	// ctx.Done() for clean shutdown.
+	type readResult struct {
+		req *pb.Request
+		err error
+	}
+	reads := make(chan readResult, 1)
 
-		req := new(pb.Request)
-		if err := wire.ReadMessage(conn, req); err != nil {
-			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, net.ErrClosed) {
-				s.log.InfoContext(ctx, "client disconnected", slog.String("remote", remote))
-			} else {
-				s.log.WarnContext(ctx, "read request failed", slog.String("remote", remote), slog.String("error", err.Error()))
+	go func() {
+		for {
+			req := new(pb.Request)
+			err := wire.ReadMessage(conn, req)
+			reads <- readResult{req, err}
+			if err != nil {
+				return
 			}
-			return
 		}
+	}()
 
-		resp := s.handler(ctx, req)
-		if err := wire.WriteMessage(conn, resp); err != nil {
-			s.log.WarnContext(ctx, "write response failed", slog.String("remote", remote), slog.String("error", err.Error()))
+	for {
+		select {
+		case <-ctx.Done():
+			s.log.InfoContext(ctx, "shutting down connection", slog.String("remote", remote))
+			s.writeError(conn, "server shutting down")
 			return
+
+		case rr := <-reads:
+			if rr.err != nil {
+				if errors.Is(rr.err, io.EOF) || errors.Is(rr.err, io.ErrUnexpectedEOF) || errors.Is(rr.err, net.ErrClosed) {
+					s.log.InfoContext(ctx, "client disconnected", slog.String("remote", remote))
+				} else if ctx.Err() == nil {
+					s.log.WarnContext(ctx, "read request failed", slog.String("remote", remote), slog.String("error", rr.err.Error()))
+				}
+				return
+			}
+
+			resp := s.handler(ctx, rr.req)
+			if err := wire.WriteMessage(conn, resp); err != nil {
+				s.log.WarnContext(ctx, "write response failed", slog.String("remote", remote), slog.String("error", err.Error()))
+				return
+			}
 		}
 	}
 }

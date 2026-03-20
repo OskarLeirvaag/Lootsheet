@@ -7,19 +7,23 @@ lootsheet serve [flags]
 LootSheet CLI
 
 Usage:
-  lootsheet serve [--addr HOST:PORT]
+  lootsheet serve [--addr HOST:PORT] [--no-tls]
 
-Hosts the configured LootSheet database over TLS for remote TUI clients.
-On first start, generates a self-signed TLS certificate and a bearer token
-in the data directory. The token is printed to stdout for sharing with
-party members.
+Hosts the configured LootSheet database for remote TUI clients. On first
+start, generates a self-signed TLS certificate and a bearer token in the
+data directory. The token is printed to stdout for sharing with party members.
+
+Use --no-tls when running behind a TLS-terminating reverse proxy (e.g. Traefik,
+Caddy, nginx) that handles encryption on behalf of the server.
 
 Flags:
-  --addr   listen address (default :7547)
+  --addr     listen address (default :7547)
+  --no-tls   disable built-in TLS (for use behind a reverse proxy)
 
 Examples:
   lootsheet serve
   lootsheet serve --addr 0.0.0.0:9000
+  lootsheet serve --no-tls --addr :7547
 .SH OPTIONS
 .TP
 --addr=string
@@ -27,5 +31,9 @@ listen address (host:port) (default: :7547)
 .TP
 -h, --help
 help for serve
+.TP
+--no-tls
+disable built-in TLS (use behind a TLS-terminating reverse proxy)
 .SH SEE ALSO
 lootsheet(1)
+lootsheet-serve-token(1)

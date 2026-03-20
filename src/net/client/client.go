@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 
@@ -16,26 +17,46 @@ import (
 // Client wraps a TLS connection to a LootSheet server and provides typed
 // RPC-style calls. It serialises concurrent Call invocations.
 type Client struct {
-	conn *tls.Conn
+	conn net.Conn
 	mu   sync.Mutex
 }
 
+// DialOptions configures the TLS behaviour of a client connection.
+type DialOptions struct {
+	// SkipTLSVerify disables certificate verification (for self-signed certs).
+	// Default true for backwards compatibility with direct connections.
+	SkipTLSVerify bool
+	// PlainText disables TLS entirely (for connecting to a server behind a
+	// TLS-terminating reverse proxy on a trusted network).
+	PlainText bool
+}
+
 // Dial connects to the server at addr using the given bearer token. It
-// performs the TLS handshake and AUTH exchange, returning the authenticated
-// client and server greeting on success.
-func Dial(ctx context.Context, addr, token string) (*Client, *pb.AuthResponse, error) {
-	tlsCfg := &tls.Config{
-		InsecureSkipVerify: true, //nolint:gosec // self-signed server cert
-		MinVersion:         tls.VersionTLS13,
+// performs the TLS handshake (unless PlainText) and AUTH exchange, returning
+// the authenticated client and server greeting on success.
+func Dial(ctx context.Context, addr, token string, opts *DialOptions) (*Client, *pb.AuthResponse, error) {
+	if opts == nil {
+		opts = &DialOptions{SkipTLSVerify: true}
 	}
 
-	dialer := tls.Dialer{Config: tlsCfg}
-	rawConn, err := dialer.DialContext(ctx, "tcp", addr)
+	var conn net.Conn
+	var err error
+
+	if opts.PlainText {
+		var d net.Dialer
+		conn, err = d.DialContext(ctx, "tcp", addr)
+	} else {
+		tlsCfg := &tls.Config{
+			InsecureSkipVerify: opts.SkipTLSVerify, //nolint:gosec // controlled by caller
+			MinVersion:         tls.VersionTLS13,
+		}
+		dialer := tls.Dialer{Config: tlsCfg}
+		conn, err = dialer.DialContext(ctx, "tcp", addr)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("dial %s: %w", addr, err)
 	}
 
-	conn := rawConn.(*tls.Conn)
 	c := &Client{conn: conn}
 
 	// Send AUTH request with protocol version.

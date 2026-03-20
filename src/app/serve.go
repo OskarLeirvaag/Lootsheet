@@ -17,6 +17,7 @@ import (
 
 func (a *Application) newServeCommand() *cobra.Command {
 	var addr string
+	var noTLS bool
 
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -26,16 +27,31 @@ func (a *Application) newServeCommand() *cobra.Command {
 			if isLeafHelpArg(args) {
 				return a.writeCommandHelp(cmd)
 			}
-			return a.runServe(cmd.Context(), addr)
+			return a.runServe(cmd.Context(), addr, noTLS)
 		},
 	}
 
 	cmd.Flags().StringVar(&addr, "addr", ":7547", "listen address (host:port)")
+	cmd.Flags().BoolVar(&noTLS, "no-tls", false, "disable built-in TLS (use behind a TLS-terminating reverse proxy)")
+
+	cmd.AddCommand(a.newServeTokenCommand())
 
 	return cmd
 }
 
-func (a *Application) runServe(ctx context.Context, addr string) error {
+func (a *Application) newServeTokenCommand() *cobra.Command {
+	return a.newNoArgsLeafCommand("token", "Print the server bearer token", serveCredentialHelpText, func(_ context.Context) error {
+		serverDir := filepath.Join(a.config.Paths.DataDir, "server")
+		token, err := server.LoadOrGenerateToken(serverDir)
+		if err != nil {
+			return fmt.Errorf("token: %w", err)
+		}
+		_, err = fmt.Fprintln(a.stdout, token)
+		return err
+	})
+}
+
+func (a *Application) runServe(ctx context.Context, addr string, noTLS bool) error {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		return err
@@ -67,17 +83,24 @@ func (a *Application) runServe(ctx context.Context, addr string) error {
 		return fmt.Errorf("token: %w", err)
 	}
 
-	tlsCfg, err := server.LoadOrGenerateTLS(serverDir)
-	if err != nil {
-		return fmt.Errorf("tls: %w", err)
+	cfg := server.Config{
+		Addr:    addr,
+		Token:   token,
+		Handler: server.NewHandler(&tuiService{loader: loader, databasePath: a.config.Paths.DatabasePath}),
+		Logger:  slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
 
-	svc := &tuiService{
-		loader:       loader,
-		databasePath: a.config.Paths.DatabasePath,
+	if noTLS {
+		if _, err := fmt.Fprintf(a.stdout, "TLS: disabled (use behind a TLS-terminating reverse proxy)\n"); err != nil {
+			return err
+		}
+	} else {
+		tlsCfg, tlsErr := server.LoadOrGenerateTLS(serverDir)
+		if tlsErr != nil {
+			return fmt.Errorf("tls: %w", tlsErr)
+		}
+		cfg.TLSConfig = tlsCfg
 	}
-
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	if _, err := fmt.Fprintf(a.stdout, "Server token: %s\n", token); err != nil {
 		return err
@@ -92,11 +115,5 @@ func (a *Application) runServe(ctx context.Context, addr string) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	return server.ListenAndServe(ctx, server.Config{
-		Addr:      addr,
-		TLSConfig: tlsCfg,
-		Token:     token,
-		Handler:   server.NewHandler(svc),
-		Logger:    logger,
-	})
+	return server.ListenAndServe(ctx, cfg)
 }
