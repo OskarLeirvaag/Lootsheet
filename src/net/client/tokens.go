@@ -13,6 +13,20 @@ const (
 	filePerm   = 0o600
 )
 
+// ListSavedServers returns the addresses of all servers with saved tokens.
+func ListSavedServers(configDir string) ([]string, error) {
+	tokens, err := loadTokens(configDir)
+	if err != nil {
+		return nil, err
+	}
+
+	addrs := make([]string, 0, len(tokens))
+	for addr := range tokens {
+		addrs = append(addrs, addr)
+	}
+	return addrs, nil
+}
+
 // LookupToken returns the saved token for addr, if any.
 func LookupToken(configDir, addr string) (string, bool, error) {
 	tokens, err := loadTokens(configDir)

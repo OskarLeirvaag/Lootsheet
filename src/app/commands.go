@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
+	"github.com/OskarLeirvaag/Lootsheet/src/net/client"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 	"github.com/OskarLeirvaag/Lootsheet/src/render/model"
 	"github.com/spf13/cobra"
@@ -86,34 +88,50 @@ func (a *Application) newTUICommand() *cobra.Command {
 	}
 
 	return a.newLeafCommand(cmd, func(ctx context.Context) error {
-		assets, err := config.LoadInitAssets()
+		configDir := filepath.Dir(a.config.Paths.ConfigFile)
+		savedServers, _ := client.ListSavedServers(configDir)
+
+		choice, err := render.RunStartupPicker(ctx, nil, savedServers)
 		if err != nil {
 			return err
 		}
 
-		loader := &sqliteDataLoader{
-			databasePath: a.config.Paths.DatabasePath,
-			backupDir:    a.config.Paths.BackupDir,
-			assets:       assets,
+		if choice.Mode == "connect" {
+			return a.runConnect(ctx, choice.Address, false)
 		}
 
-		if err := loader.EnsureReady(ctx); err != nil {
-			return err
-		}
+		return a.runLocalTUI(ctx)
+	})
+}
 
-		if err := resolveCampaign(ctx, loader, assets); err != nil {
-			return err
-		}
+func (a *Application) runLocalTUI(ctx context.Context) error {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		return err
+	}
 
-		return render.Run(ctx, &render.Options{
-			ShellLoader: func(ctx context.Context) (render.ShellData, error) {
-				return buildTUIShellData(ctx, loader)
-			},
-			CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
-				return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, loader)
-			},
-			SearchHandler: buildSearchHandler(ctx, loader),
-		})
+	loader := &sqliteDataLoader{
+		databasePath: a.config.Paths.DatabasePath,
+		backupDir:    a.config.Paths.BackupDir,
+		assets:       assets,
+	}
+
+	if err := loader.EnsureReady(ctx); err != nil {
+		return err
+	}
+
+	if err := resolveCampaign(ctx, loader, assets); err != nil {
+		return err
+	}
+
+	return render.Run(ctx, &render.Options{
+		ShellLoader: func(ctx context.Context) (render.ShellData, error) {
+			return buildTUIShellData(ctx, loader)
+		},
+		CommandHandler: func(ctx context.Context, command render.Command) (render.CommandResult, error) {
+			return handleTUICommand(ctx, command, a.config.Paths.DatabasePath, loader)
+		},
+		SearchHandler: buildSearchHandler(ctx, loader),
 	})
 }
 

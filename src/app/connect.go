@@ -32,13 +32,16 @@ func (a *Application) newConnectCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&skipVerify, "tls-skip-verify", true, "skip TLS certificate verification (set to false for real certificates)")
+	cmd.Flags().BoolVar(&skipVerify, "tls-skip-verify", false, "skip TLS certificate verification (for self-signed certs)")
 	cmd.Flags().StringVar(&download, "download", "", "download the server database to this path and exit")
 
 	return cmd
 }
 
 func (a *Application) runDownload(ctx context.Context, addr string, skipVerify bool, outPath string) error {
+	if !strings.Contains(addr, ":") {
+		addr += ":7547"
+	}
 	configDir := filepath.Dir(a.config.Paths.ConfigFile)
 
 	token, found, err := client.LookupToken(configDir, addr)
@@ -96,6 +99,10 @@ func (a *Application) runDownload(ctx context.Context, addr string, skipVerify b
 }
 
 func (a *Application) runConnect(ctx context.Context, addr string, skipVerify bool) error {
+	if !strings.Contains(addr, ":") {
+		addr += ":7547"
+	}
+
 	configDir := filepath.Dir(a.config.Paths.ConfigFile)
 
 	// Look up saved token for this address.
