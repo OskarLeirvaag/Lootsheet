@@ -14,7 +14,7 @@ func TestDeleteEntryRemovesReferences(t *testing.T) {
 
 	entry, err := CreateEntry(ctx, databasePath, campaignID, &CreateInput{
 		Name:  "Garrick",
-		Notes: "Met near @quest/Dragon Slaying and @person/Elra.",
+		Notes: "Met near @[quest/Dragon Slaying] and @[person/Elra].",
 	})
 	if err != nil {
 		t.Fatalf("create codex entry: %v", err)

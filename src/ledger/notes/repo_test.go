@@ -14,7 +14,7 @@ func TestDeleteNoteRemovesReferences(t *testing.T) {
 
 	note, err := CreateNote(ctx, databasePath, campaignID, &CreateNoteInput{
 		Title: "Session 5",
-		Body:  "Party visited @person/Mayor Elra and discussed @quest/Bridge Toll.",
+		Body:  "Party visited @[person/Mayor Elra] and discussed @[quest/Bridge Toll].",
 	})
 	if err != nil {
 		t.Fatalf("create note: %v", err)

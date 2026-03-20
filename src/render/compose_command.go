@@ -96,7 +96,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 	case composeModeNotes:
 		return []composeField{
 			{ID: "title", Label: "Title", Placeholder: "Session 5"},
-			{ID: "body", Label: "Body", Placeholder: "Met @person/Mayor Elra near @quest/Clear the Watchtower"},
+			{ID: "body", Label: "Body", Placeholder: "Met @[person/Mayor Elra] near @[quest/Clear the Watchtower]"},
 		}
 	case composeModeAssetTemplate:
 		return nil

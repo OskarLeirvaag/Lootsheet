@@ -289,18 +289,20 @@ func (s *Shell) renderEditorSidebar(buffer *Buffer, rect Rect, theme *Theme) {
 // editorRefSpan marks start..end columns of a @ref in a single line.
 type editorRefSpan struct{ start, end int }
 
-// editorRefSpans returns the column ranges of @type/name references in line.
+// editorRefSpans returns the column ranges of @[type/name] references in line.
 func editorRefSpans(line []rune) []editorRefSpan {
 	var spans []editorRefSpan
 	for i := range line {
-		if line[i] == '@' && i+1 < len(line) {
-			end := i + 1
-			for end < len(line) && !isRefTerminatorRune(line[end]) {
+		if line[i] == '@' && i+1 < len(line) && line[i+1] == '[' {
+			end := i + 2
+			for end < len(line) && line[end] != ']' {
 				end++
 			}
-			ref := string(line[i:end])
-			if strings.Contains(ref, "/") && len(ref) > 2 {
-				spans = append(spans, editorRefSpan{i, end})
+			if end < len(line) && line[end] == ']' {
+				ref := string(line[i : end+1])
+				if strings.Contains(ref, "/") {
+					spans = append(spans, editorRefSpan{i, end + 1})
+				}
 			}
 		}
 	}
@@ -316,7 +318,7 @@ func editorColInRefSpan(col int, spans []editorRefSpan) bool {
 	return false
 }
 
-// editorParseReferences finds @type/name patterns in body lines.
+// editorParseReferences finds @[type/name] patterns in body lines.
 func editorParseReferences(e *editorState) []string {
 	if e == nil {
 		return nil
@@ -326,15 +328,17 @@ func editorParseReferences(e *editorState) []string {
 	for _, line := range e.Lines {
 		runes := []rune(line)
 		for i := range runes {
-			if runes[i] == '@' && i+1 < len(runes) {
-				end := i + 1
-				for end < len(runes) && !isRefTerminatorRune(runes[end]) {
+			if runes[i] == '@' && i+1 < len(runes) && runes[i+1] == '[' {
+				end := i + 2
+				for end < len(runes) && runes[end] != ']' {
 					end++
 				}
-				ref := string(runes[i:end])
-				if strings.Contains(ref, "/") && len(ref) > 2 && !seen[ref] {
-					seen[ref] = true
-					refs = append(refs, ref)
+				if end < len(runes) && runes[end] == ']' {
+					ref := string(runes[i : end+1])
+					if strings.Contains(ref, "/") && !seen[ref] {
+						seen[ref] = true
+						refs = append(refs, ref)
+					}
 				}
 			}
 		}

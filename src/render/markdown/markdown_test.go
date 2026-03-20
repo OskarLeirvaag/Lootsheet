@@ -118,11 +118,11 @@ func TestParseInlineSpansCode(t *testing.T) {
 
 func TestParseInlineSpansReference(t *testing.T) {
 	styles := testStyles()
-	spans := parseInlineSpans("see @quest/Clear the Tower", styles.Text)
-	if len(spans) != 3 {
-		t.Fatalf("expected 3 spans, got %d: %v", len(spans), spans)
+	spans := parseInlineSpans("see @[quest/Clear the Tower]", styles.Text)
+	if len(spans) != 2 {
+		t.Fatalf("expected 2 spans, got %d: %v", len(spans), spans)
 	}
-	if spans[1].Text != "@quest/Clear" {
+	if spans[1].Text != "@[quest/Clear the Tower]" {
 		t.Fatalf("reference span = %q", spans[1].Text)
 	}
 }

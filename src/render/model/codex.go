@@ -21,7 +21,7 @@ var codexFormRegistry = map[string]CodexForm{
 			{ID: "class", Label: "Class", Placeholder: "Fighter"},
 			{ID: "race", Label: "Race", Placeholder: "Dwarf"},
 			{ID: "background", Label: "Background", Placeholder: "Noble"},
-			{ID: "notes", Label: "Notes", Placeholder: "@quest/... cross-references"},
+			{ID: "notes", Label: "Notes", Placeholder: "@[quest/...] cross-references"},
 		},
 	},
 	"npc": {
@@ -33,7 +33,7 @@ var codexFormRegistry = map[string]CodexForm{
 			{ID: "faction", Label: "Faction", Placeholder: "Town Council"},
 			{ID: "disposition", Label: "Disposition", Placeholder: "friendly"},
 			{ID: "description", Label: "Description", Placeholder: "Tall woman with silver hair"},
-			{ID: "notes", Label: "Notes", Placeholder: "Met during @quest/..."},
+			{ID: "notes", Label: "Notes", Placeholder: "Met during @[quest/...]"},
 		},
 	},
 	"settlement": {
@@ -44,7 +44,7 @@ var codexFormRegistry = map[string]CodexForm{
 			{ID: "location", Label: "Location", Placeholder: "Northern foothills"},
 			{ID: "faction", Label: "Faction", Placeholder: "Free Cities Alliance"},
 			{ID: "description", Label: "Description", Placeholder: "A bustling trade hub at the river fork"},
-			{ID: "notes", Label: "Notes", Placeholder: "Visited during @quest/..."},
+			{ID: "notes", Label: "Notes", Placeholder: "Visited during @[quest/...]"},
 		},
 	},
 }

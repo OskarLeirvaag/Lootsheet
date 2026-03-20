@@ -31,11 +31,6 @@ func parseMarkdownLines(body string, width int, theme *Theme) []styledLine {
 	return markdown.ParseMarkdownLines(body, width, &ms)
 }
 
-// isRefTerminatorRune delegates to the markdown sub-package.
-func isRefTerminatorRune(r rune) bool {
-	return markdown.IsRefTerminatorRune(r)
-}
-
 // DrawStyledPanel renders a panel with styled line content instead of plain strings.
 func DrawStyledPanel(buffer *Buffer, rect Rect, theme *Theme, title string, metaLines []string, styledLines []styledLine, borderStyle, titleStyle tcell.Style) {
 	if buffer == nil || rect.Empty() {

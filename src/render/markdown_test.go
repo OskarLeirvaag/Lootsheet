@@ -9,7 +9,7 @@ func TestDrawStyledPanelProducesOutput(t *testing.T) {
 	theme := DefaultTheme()
 	buffer := NewBuffer(50, 15, theme.Base)
 
-	body := "# Test Heading\n\nSome **bold** text and @quest/Clear reference."
+	body := "# Test Heading\n\nSome **bold** text and @[quest/Clear] reference."
 	mdLines := parseMarkdownLines(body, 44, &theme)
 
 	rect := Rect{X: 0, Y: 0, W: 50, H: 15}

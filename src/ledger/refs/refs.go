@@ -29,7 +29,7 @@ type EntityReference struct {
 	CreatedAt  string
 }
 
-var refPattern = regexp.MustCompile(`@(quest|loot|asset|person|note)/([^\s@]+(?:\s+[^\s@]+)*)`)
+var refPattern = regexp.MustCompile(`@\[(quest|loot|asset|person|note)/([^\]]+)\]`)
 
 // ParseReferences extracts @type/name pairs from text.
 func ParseReferences(text string) []ParsedRef {

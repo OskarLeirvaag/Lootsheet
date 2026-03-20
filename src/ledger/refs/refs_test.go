@@ -21,89 +21,77 @@ func TestParseReferences(t *testing.T) {
 			want:  nil,
 		},
 		{
-			name:  "quest ref terminated by period",
-			input: "See @quest/Clear the Tower.",
+			name:  "quest ref with spaces",
+			input: "See @[quest/Clear the Tower] for details.",
 			want: []ParsedRef{
 				{TargetType: "quest", TargetName: "Clear the Tower"},
 			},
 		},
 		{
-			name:  "person ref terminated by period",
-			input: "Met @person/Mayor Elra.",
+			name:  "person ref",
+			input: "Met @[person/Mayor Elra] at the gate.",
 			want: []ParsedRef{
 				{TargetType: "person", TargetName: "Mayor Elra"},
 			},
 		},
 		{
 			name:  "note referencing another note",
-			input: "Continued from @note/Session 3.",
+			input: "Continued from @[note/Session 3].",
 			want: []ParsedRef{
 				{TargetType: "note", TargetName: "Session 3"},
 			},
 		},
 		{
-			name:  "loot ref at end of string",
-			input: "Found @loot/Ruby Pendant",
+			name:  "loot ref",
+			input: "Found @[loot/Ruby Pendant]",
 			want: []ParsedRef{
 				{TargetType: "loot", TargetName: "Ruby Pendant"},
 			},
 		},
 		{
-			name:  "asset ref at end of string",
-			input: "Stored @asset/Ship",
+			name:  "asset ref",
+			input: "Stored @[asset/Ship]",
 			want: []ParsedRef{
 				{TargetType: "asset", TargetName: "Ship"},
 			},
 		},
 		{
-			name:  "multiple refs separated by @",
-			input: "@quest/Dragon Slaying @person/Garrick",
+			name:  "multiple refs",
+			input: "@[quest/Dragon Slaying] and @[person/Garrick]",
 			want: []ParsedRef{
 				{TargetType: "quest", TargetName: "Dragon Slaying"},
 				{TargetType: "person", TargetName: "Garrick"},
 			},
 		},
 		{
-			name:  "loot and asset refs separated by @",
-			input: "@loot/Ruby Pendant @asset/Ship",
+			name:  "loot and asset refs",
+			input: "@[loot/Ruby Pendant] @[asset/Ship]",
 			want: []ParsedRef{
 				{TargetType: "loot", TargetName: "Ruby Pendant"},
 				{TargetType: "asset", TargetName: "Ship"},
 			},
 		},
 		{
-			name:  "trailing period stripped",
-			input: "Talked to @person/Garrick.",
-			want: []ParsedRef{
-				{TargetType: "person", TargetName: "Garrick"},
-			},
-		},
-		{
 			name:  "unknown type ignored",
-			input: "See @spell/Fireball for more.",
+			input: "See @[spell/Fireball] for more.",
 			want:  nil,
 		},
 		{
-			name:  "single word ref at end",
-			input: "See @quest/Rescue",
+			name:  "single word ref",
+			input: "See @[quest/Rescue]",
 			want: []ParsedRef{
 				{TargetType: "quest", TargetName: "Rescue"},
 			},
 		},
 		{
-			name:  "ref with trailing exclamation",
-			input: "Found @loot/Gem!",
-			want: []ParsedRef{
-				{TargetType: "loot", TargetName: "Gem"},
-			},
+			name:  "unclosed bracket ignored",
+			input: "See @[quest/Rescue for more.",
+			want:  nil,
 		},
 		{
-			name:  "ref with trailing semicolon",
-			input: "@person/Elra; @person/Garrick.",
-			want: []ParsedRef{
-				{TargetType: "person", TargetName: "Elra"},
-				{TargetType: "person", TargetName: "Garrick"},
-			},
+			name:  "old format without brackets ignored",
+			input: "See @quest/Rescue",
+			want:  nil,
 		},
 	}
 

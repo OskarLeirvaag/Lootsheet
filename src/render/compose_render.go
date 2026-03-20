@@ -283,16 +283,16 @@ func (s *Shell) composePreviewLines() []string {
 		}
 		lines = append(lines,
 			"",
-			"Use @type/name in notes for cross-references:",
-			"@quest/Name, @loot/Name, @asset/Name, @person/Name",
+			"Use @[type/name] in notes for cross-references:",
+			"@[quest/Name], @[loot/Name], @[person/Name]",
 		)
 	case composeModeNotes:
 		lines = append(lines,
 			"Title: "+displayComposeValue(s.compose.Fields["title"], "required"),
 			"Body: "+displayComposeValue(s.compose.Fields["body"], "optional"),
 			"",
-			"Use @type/name in body for cross-references:",
-			"@quest/Name, @loot/Name, @asset/Name, @person/Name, @note/Name",
+			"Use @[type/name] in body for cross-references:",
+			"@[quest/Name], @[loot/Name], @[person/Name], @[note/Name]",
 		)
 	case composeModeAssetTemplate:
 		if balText, _, _ := s.composeBalanceSummary(); balText != "" {
