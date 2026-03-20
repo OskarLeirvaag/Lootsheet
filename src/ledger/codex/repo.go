@@ -311,18 +311,17 @@ func SearchEntries(ctx context.Context, databasePath string, campaignID string, 
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexEntry, error) {
-		pattern := "%" + query + "%"
 		rows, err := db.QueryContext(ctx, `
 			SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
 			       e.party_member, e.class, e.race, e.background, e.description, e.notes,
 			       e.created_at, e.updated_at
 			FROM codex_entries e
 			JOIN codex_types t ON t.id = e.type_id
-			WHERE (e.name LIKE ? OR e.title LIKE ? OR e.location LIKE ? OR e.faction LIKE ?
-			   OR e.notes LIKE ? OR e.class LIKE ? OR e.race LIKE ? OR e.description LIKE ?)
+			JOIN codex_fts f ON f.rowid = e.rowid
+			WHERE codex_fts MATCH ?
 			   AND e.campaign_id = ?
 			ORDER BY e.party_member DESC, t.name ASC, e.name ASC
-		`, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, campaignID)
+		`, query, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("search codex entries: %w", err)
 		}

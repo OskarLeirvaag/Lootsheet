@@ -16,7 +16,7 @@ func testStyles() *MarkdownStyles {
 		Bold:       base.Bold(true),
 		Code:       base,
 		Blockquote: base.Italic(true),
-		Reference:  base.Foreground(tcell.NewRGBColor(140, 190, 160)),
+		Reference:  base.Foreground(tcell.NewRGBColor(180, 160, 220)),
 	}
 }
 

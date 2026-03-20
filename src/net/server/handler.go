@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	pb "github.com/OskarLeirvaag/Lootsheet/src/net/proto"
 	"github.com/OskarLeirvaag/Lootsheet/src/render/model"
@@ -19,6 +21,7 @@ type TUIService interface {
 	ListCampaigns(ctx context.Context) ([]model.CampaignOption, error)
 	SearchCodexEntries(ctx context.Context, query string) ([]model.ListItemData, error)
 	SearchNotes(ctx context.Context, query string) ([]model.ListItemData, error)
+	DatabasePath() string
 }
 
 // NewHandler returns a Handler that dispatches protobuf requests to the given
@@ -43,6 +46,8 @@ func dispatch(ctx context.Context, req *pb.Request, svc TUIService) *pb.Response
 		return handleSearchCodex(ctx, req.GetSearchCodex(), svc)
 	case pb.Method_SEARCH_NOTES:
 		return handleSearchNotes(ctx, req.GetSearchNotes(), svc)
+	case pb.Method_DOWNLOAD_DATABASE:
+		return handleDownloadDatabase(svc)
 	default:
 		return errorResponse(fmt.Sprintf("unknown method: %v", req.Method))
 	}
@@ -159,6 +164,24 @@ func handleSearchNotes(ctx context.Context, req *pb.SearchRequest, svc TUIServic
 		Payload: &pb.Response_SearchNotes{
 			SearchNotes: &pb.SearchResponse{
 				Items: pb.ListItemsToProto(items),
+			},
+		},
+	}
+}
+
+func handleDownloadDatabase(svc TUIService) *pb.Response {
+	dbPath := svc.DatabasePath()
+	data, err := os.ReadFile(dbPath)
+	if err != nil {
+		return errorResponse(fmt.Sprintf("read database: %v", err))
+	}
+
+	return &pb.Response{
+		Ok: true,
+		Payload: &pb.Response_DownloadDatabase{
+			DownloadDatabase: &pb.DownloadDatabaseResponse{
+				Data:     data,
+				Filename: filepath.Base(dbPath),
 			},
 		},
 	}

@@ -40,81 +40,9 @@ func (s *Shell) renderCompose(buffer *Buffer, rect Rect, theme *Theme) {
 	}
 
 	if s.compose.picker != nil {
-		s.renderAccountPicker(buffer, rect, theme)
+		ss := sectionStyleFor(s.Section, theme)
+		renderPicker(s.compose.picker, buffer, rect, theme, &ss)
 	}
-}
-
-func (s *Shell) renderAccountPicker(buffer *Buffer, rect Rect, theme *Theme) {
-	p := s.compose.picker
-	if p == nil || rect.Empty() {
-		return
-	}
-
-	maxVisible := 10
-	viewH := min(maxVisible, max(1, len(p.Filtered)))
-	totalH := viewH + 6 // border(2) + search(1) + gap(1) + viewH + help(1) + gap(1)
-	width := clampInt(rect.W/2, 36, 56)
-
-	modalRect := Rect{
-		X: rect.X + (rect.W-width)/2,
-		Y: rect.Y + (rect.H-totalH)/2,
-		W: width,
-		H: totalH,
-	}
-	modalRect = modalRect.Intersect(rect)
-	if modalRect.Empty() {
-		return
-	}
-
-	accent := s.sectionStyle(theme)
-	DrawPanel(buffer, modalRect, theme, Panel{
-		Title:       "Pick Account",
-		BorderStyle: &accent,
-		TitleStyle:  &accent,
-		Texture:     PanelTextureNone,
-	})
-
-	content := panelContentRect(modalRect, buffer.Bounds())
-	if content.Empty() {
-		return
-	}
-
-	y := content.Y
-	searchText := "/ " + p.Query + "_"
-	buffer.WriteString(content.X, y, theme.Text, clipText(searchText, content.W))
-	y++
-
-	// Adjust scroll to keep selection visible.
-	if p.SelectedIndex < p.Scroll {
-		p.Scroll = p.SelectedIndex
-	}
-	if p.SelectedIndex >= p.Scroll+viewH {
-		p.Scroll = p.SelectedIndex - viewH + 1
-	}
-	maxScroll := max(0, len(p.Filtered)-viewH)
-	p.Scroll = clampInt(p.Scroll, 0, maxScroll)
-
-	if len(p.Filtered) == 0 {
-		buffer.WriteString(content.X, y, theme.Muted, clipText("  No matching accounts.", content.W))
-	} else {
-		for row := 0; row < viewH && p.Scroll+row < len(p.Filtered); row++ {
-			idx := p.Scroll + row
-			opt := p.Filtered[idx]
-			lineRect := Rect{X: content.X, Y: y + row, W: content.W, H: 1}
-			style := theme.Text
-			prefix := "  "
-			if idx == p.SelectedIndex {
-				buffer.FillRect(lineRect, ' ', theme.SelectedRow)
-				style = theme.SelectedRow
-				prefix = "> "
-			}
-			label := fmt.Sprintf("%s%s %s (%s)", prefix, opt.Code, opt.Name, opt.Type)
-			buffer.WriteString(content.X, y+row, style, clipText(label, content.W))
-		}
-	}
-
-	helpY := content.Y + content.H - 1
-	buffer.WriteString(content.X, helpY, theme.Muted, clipText("↑↓ select  Enter pick  Esc cancel", content.W))
 }
 
 func (s *Shell) composeTitle() string {
@@ -239,8 +167,8 @@ func (s *Shell) composeHelpText() string {
 		return "Type to filter  ↑↓ select  Enter pick  Esc cancel"
 	}
 	pickerHint := ""
-	if s.pickerAccountsForCurrentField() != nil {
-		pickerHint = "  Ctrl+A pick account"
+	if _, opts := s.pickerOptionsForCurrentField(); len(opts) > 0 {
+		pickerHint = "  C-a pick"
 	}
 	switch s.compose.Mode {
 	case composeModeCustom, composeModeAssetTemplate:

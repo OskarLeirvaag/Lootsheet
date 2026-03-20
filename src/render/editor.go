@@ -57,8 +57,14 @@ type editorState struct {
 	// Undo.
 	UndoStack []undoEntry
 
+	// Clipboard for yank/paste.
+	Clipboard []string // nil = empty, single-element = inline, multi = line-wise
+
 	// Status line message.
 	StatusText string
+
+	// Reference picker (Ctrl+A in insert mode).
+	refPicker *pickerState
 }
 
 // --- Open editor ---
@@ -100,6 +106,32 @@ func (s *Shell) openEditorFromAction(itemKey string, action *ItemActionData) {
 		Mode:       editorModeNormal,
 		Focus:      editorFocusBody,
 	}
+}
+
+func (s *Shell) openEditorRefPicker() bool {
+	if s.editor == nil {
+		return false
+	}
+	optsCap := len(s.Data.Quests.Items) + len(s.Data.Loot.Items) + len(s.Data.Assets.Items) +
+		len(s.Data.Codex.Items) + len(s.Data.Notes.Items)
+	opts := make([]pickerOption, 0, optsCap)
+	for _, item := range s.Data.Quests.Items {
+		opts = append(opts, pickerOption{Value: "@quest/" + item.DetailTitle, Label: item.DetailTitle, Kind: "quest"})
+	}
+	for _, item := range s.Data.Loot.Items {
+		opts = append(opts, pickerOption{Value: "@loot/" + item.DetailTitle, Label: item.DetailTitle, Kind: "loot"})
+	}
+	for _, item := range s.Data.Assets.Items {
+		opts = append(opts, pickerOption{Value: "@asset/" + item.DetailTitle, Label: item.DetailTitle, Kind: "asset"})
+	}
+	for _, item := range s.Data.Codex.Items {
+		opts = append(opts, pickerOption{Value: "@person/" + item.DetailTitle, Label: item.DetailTitle, Kind: "person"})
+	}
+	for _, item := range s.Data.Notes.Items {
+		opts = append(opts, pickerOption{Value: "@note/" + item.DetailTitle, Label: item.DetailTitle, Kind: "note"})
+	}
+	s.editor.refPicker = newPicker("Insert @reference", opts)
+	return true
 }
 
 // editorNextSessionNum finds the highest "Session N" number in existing notes

@@ -44,17 +44,9 @@ type composeState struct {
 	FieldErrors     map[string]string
 	Lines           []composeLineState
 	GeneralError    string
-	picker          *accountPickerState
+	picker          *pickerState
 	CodexFormID     string
 	CodexTypeID     string
-}
-
-type accountPickerState struct {
-	Options       []AccountOption
-	Query         string
-	Filtered      []AccountOption
-	SelectedIndex int
-	Scroll        int
 }
 
 type composeField struct {

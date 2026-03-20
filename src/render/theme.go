@@ -48,6 +48,7 @@ type Theme struct {
 	EditorCursor      tcell.Style
 	EditorStatusBar   tcell.Style
 	EditorCommandLine tcell.Style
+	EditorReference   tcell.Style
 
 	// Markdown rendering styles.
 	MarkdownHeading    tcell.Style
@@ -84,6 +85,7 @@ func DefaultTheme() Theme {
 	copper := tcell.NewRGBColor(220, 160, 100)
 	scatterCodexTint := tcell.NewRGBColor(100, 75, 50)
 	sageGreen := tcell.NewRGBColor(140, 190, 160)
+	lavender := tcell.NewRGBColor(180, 160, 220)
 	scatterNotesTint := tcell.NewRGBColor(70, 95, 80)
 	silver := tcell.NewRGBColor(180, 185, 195)
 	scatterSettingsTint := tcell.NewRGBColor(90, 92, 98)
@@ -132,13 +134,14 @@ func DefaultTheme() Theme {
 		EditorCursor:      tcell.StyleDefault.Foreground(panelBackground).Background(ink),
 		EditorStatusBar:   tcell.StyleDefault.Foreground(ink).Background(footerBackground).Bold(true),
 		EditorCommandLine: tcell.StyleDefault.Foreground(ink).Background(footerBackground).Bold(true),
+		EditorReference:   tcell.StyleDefault.Foreground(lavender).Background(panelBackground),
 
 		MarkdownHeading:    tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
 		MarkdownBold:       tcell.StyleDefault.Foreground(ink).Background(panelBackground).Bold(true),
 		MarkdownItalic:     tcell.StyleDefault.Foreground(ink).Background(panelBackground).Italic(true),
 		MarkdownCode:       tcell.StyleDefault.Foreground(muted).Background(panelBackground),
 		MarkdownBlockquote: tcell.StyleDefault.Foreground(muted).Background(panelBackground).Italic(true),
-		MarkdownReference:  tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground),
+		MarkdownReference:  tcell.StyleDefault.Foreground(lavender).Background(panelBackground),
 	}
 }
 

@@ -86,43 +86,98 @@ func (s *Shell) renderEditor(buffer *Buffer, rect Rect, theme *Theme) {
 	}
 	y++
 
-	// Body area.
+	// Body area with soft word-wrapping.
 	bodyHeight := max(1, content.Y+content.H-y-1) // reserve 1 for status
 
 	gutterW := 4
-	editorEnsureCursorVisible(e, bodyHeight)
+	textW := max(1, content.W-gutterW)
+	textX := content.X + gutterW
 
-	for row := range bodyHeight {
-		lineIdx := e.ScrollRow + row
-		lineY := y + row
+	// Build visual rows from buffer lines.
+	type vrow struct {
+		lineIdx  int
+		colStart int    // first rune index in the buffer line
+		runes    []rune // slice of runes for this visual row
+		isFirst  bool   // first visual row for this buffer line
+	}
+	var vrows []vrow
+	cursorVRow := 0
 
-		if lineIdx < len(e.Lines) {
-			// Line number.
-			numStr := fmt.Sprintf("%3d ", lineIdx+1)
-			buffer.WriteString(content.X, lineY, theme.EditorLineNumber, numStr)
-
-			// Line content.
-			line := []rune(e.Lines[lineIdx])
-			textX := content.X + gutterW
-			textW := content.W - gutterW
-			for col := 0; col < textW && col < len(line); col++ {
-				style := theme.Text
-				if e.Focus == editorFocusBody && lineIdx == e.CurRow && col == e.CurCol {
-					style = theme.EditorCursor
-				}
-				buffer.Set(textX+col, lineY, line[col], style)
+	for lineIdx := range e.Lines {
+		line := []rune(e.Lines[lineIdx])
+		if len(line) == 0 {
+			vr := vrow{lineIdx: lineIdx, colStart: 0, runes: nil, isFirst: true}
+			if lineIdx == e.CurRow {
+				cursorVRow = len(vrows)
 			}
-
-			// Draw cursor on empty line or past end of text.
-			if e.Focus == editorFocusBody && lineIdx == e.CurRow {
-				cursorCol := clampInt(e.CurCol, 0, len(line))
-				if cursorCol >= len(line) && cursorCol < textW {
-					buffer.Set(textX+cursorCol, lineY, ' ', theme.EditorCursor)
-				}
+			vrows = append(vrows, vr)
+			continue
+		}
+		first := true
+		for off := 0; off < len(line); off += textW {
+			end := min(off+textW, len(line))
+			vr := vrow{lineIdx: lineIdx, colStart: off, runes: line[off:end], isFirst: first}
+			if lineIdx == e.CurRow && e.CurCol >= off && (e.CurCol < end || end == len(line)) {
+				cursorVRow = len(vrows)
 			}
-		} else {
-			// Past EOF: show tilde.
+			vrows = append(vrows, vr)
+			first = false
+		}
+	}
+
+	// Scroll to keep cursor visible.
+	if e.ScrollRow > cursorVRow {
+		e.ScrollRow = cursorVRow
+	}
+	if cursorVRow >= e.ScrollRow+bodyHeight {
+		e.ScrollRow = cursorVRow - bodyHeight + 1
+	}
+	if e.ScrollRow < 0 {
+		e.ScrollRow = 0
+	}
+
+	// Render visible visual rows.
+	for screenRow := range bodyHeight {
+		vrowIdx := e.ScrollRow + screenRow
+		lineY := y + screenRow
+
+		if vrowIdx >= len(vrows) {
 			buffer.WriteString(content.X, lineY, theme.EditorLineNumber, "  ~ ")
+			continue
+		}
+
+		vr := vrows[vrowIdx]
+
+		// Line number (only on first visual row of a buffer line).
+		if vr.isFirst {
+			numStr := fmt.Sprintf("%3d ", vr.lineIdx+1)
+			buffer.WriteString(content.X, lineY, theme.EditorLineNumber, numStr)
+		} else {
+			buffer.WriteString(content.X, lineY, theme.EditorLineNumber, "    ")
+		}
+
+		// Line content with @ref highlighting.
+		fullLine := []rune(e.Lines[vr.lineIdx])
+		refSpans := editorRefSpans(fullLine)
+
+		for i, r := range vr.runes {
+			bufCol := vr.colStart + i
+			style := theme.Text
+			if editorColInRefSpan(bufCol, refSpans) {
+				style = theme.EditorReference
+			}
+			if e.Focus == editorFocusBody && vr.lineIdx == e.CurRow && bufCol == e.CurCol {
+				style = theme.EditorCursor
+			}
+			buffer.Set(textX+i, lineY, r, style)
+		}
+
+		// Draw cursor on empty line or past end of visual row.
+		if e.Focus == editorFocusBody && vr.lineIdx == e.CurRow {
+			visualCol := e.CurCol - vr.colStart
+			if visualCol >= 0 && visualCol >= len(vr.runes) && visualCol < textW {
+				buffer.Set(textX+visualCol, lineY, ' ', theme.EditorCursor)
+			}
 		}
 	}
 
@@ -164,6 +219,12 @@ func (s *Shell) renderEditor(buffer *Buffer, rect Rect, theme *Theme) {
 	// Draw sidebar.
 	if sidebarW > 0 && !sidebarRect.Empty() {
 		s.renderEditorSidebar(buffer, sidebarRect, theme)
+	}
+
+	// Ref picker overlay.
+	if e.refPicker != nil {
+		notesStyle := sectionStyleFor(SectionNotes, theme)
+		renderPicker(e.refPicker, buffer, editorRect, theme, &notesStyle)
 	}
 }
 
@@ -214,6 +275,7 @@ func (s *Shell) renderEditorSidebar(buffer *Buffer, rect Rect, theme *Theme) {
 		"dd del line",
 		"u undo",
 		"Tab title/body",
+		"C-a insert @ref",
 	}
 	for _, line := range helpLines {
 		if y >= content.Y+content.H {
@@ -222,6 +284,36 @@ func (s *Shell) renderEditorSidebar(buffer *Buffer, rect Rect, theme *Theme) {
 		buffer.WriteString(content.X, y, theme.Text, clipText("  "+line, content.W))
 		y++
 	}
+}
+
+// editorRefSpan marks start..end columns of a @ref in a single line.
+type editorRefSpan struct{ start, end int }
+
+// editorRefSpans returns the column ranges of @type/name references in line.
+func editorRefSpans(line []rune) []editorRefSpan {
+	var spans []editorRefSpan
+	for i := range line {
+		if line[i] == '@' && i+1 < len(line) {
+			end := i + 1
+			for end < len(line) && !isRefTerminatorRune(line[end]) {
+				end++
+			}
+			ref := string(line[i:end])
+			if strings.Contains(ref, "/") && len(ref) > 2 {
+				spans = append(spans, editorRefSpan{i, end})
+			}
+		}
+	}
+	return spans
+}
+
+func editorColInRefSpan(col int, spans []editorRefSpan) bool {
+	for _, sp := range spans {
+		if col >= sp.start && col < sp.end {
+			return true
+		}
+	}
+	return false
 }
 
 // editorParseReferences finds @type/name patterns in body lines.

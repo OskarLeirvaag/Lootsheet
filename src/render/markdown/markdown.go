@@ -188,7 +188,7 @@ func parseInlineSpans(text string, baseStyle tcell.Style, opts ...tcell.Style) [
 			ref := string(runes[i:end])
 			if strings.Contains(ref, "/") && len(ref) > 2 {
 				flushCurrent()
-				rs := baseStyle.Foreground(tcell.NewRGBColor(140, 190, 160))
+				rs := baseStyle.Foreground(tcell.NewRGBColor(180, 160, 220))
 				if len(opts) > 0 {
 					rs = opts[0]
 				}

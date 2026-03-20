@@ -13,8 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const downloadFilePerm = 0o600
+
 func (a *Application) newConnectCommand() *cobra.Command {
 	var skipVerify bool
+	var download string
 
 	cmd := &cobra.Command{
 		Use:   "connect <addr>",
@@ -22,13 +25,74 @@ func (a *Application) newConnectCommand() *cobra.Command {
 		Long:  connectHelpText,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if download != "" {
+				return a.runDownload(cmd.Context(), args[0], skipVerify, download)
+			}
 			return a.runConnect(cmd.Context(), args[0], skipVerify)
 		},
 	}
 
 	cmd.Flags().BoolVar(&skipVerify, "tls-skip-verify", true, "skip TLS certificate verification (set to false for real certificates)")
+	cmd.Flags().StringVar(&download, "download", "", "download the server database to this path and exit")
 
 	return cmd
+}
+
+func (a *Application) runDownload(ctx context.Context, addr string, skipVerify bool, outPath string) error {
+	configDir := filepath.Dir(a.config.Paths.ConfigFile)
+
+	token, found, err := client.LookupToken(configDir, addr)
+	if err != nil {
+		return fmt.Errorf("lookup token: %w", err)
+	}
+
+	if !found {
+		if _, err := fmt.Fprint(os.Stderr, "Enter server token: "); err != nil {
+			return err
+		}
+		scanner := bufio.NewScanner(os.Stdin)
+		if !scanner.Scan() {
+			return fmt.Errorf("no token provided")
+		}
+		token = strings.TrimSpace(scanner.Text())
+		if token == "" {
+			return fmt.Errorf("empty token")
+		}
+	}
+
+	c, _, err := client.Dial(ctx, addr, token, &client.DialOptions{SkipTLSVerify: skipVerify})
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+
+	if !found {
+		_ = client.SaveToken(configDir, addr, token)
+	}
+
+	if _, err := fmt.Fprintf(os.Stderr, "Downloading database from %s...\n", addr); err != nil {
+		return err
+	}
+
+	data, filename, err := client.DownloadDatabase(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	// If outPath is a directory, use the server's filename inside it.
+	if info, statErr := os.Stat(outPath); statErr == nil && info.IsDir() {
+		outPath = filepath.Join(outPath, filename)
+	}
+
+	if err := os.WriteFile(outPath, data, downloadFilePerm); err != nil {
+		return fmt.Errorf("write database: %w", err)
+	}
+
+	if _, err := fmt.Fprintf(a.stdout, "Downloaded %s (%d bytes)\n", outPath, len(data)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (a *Application) runConnect(ctx context.Context, addr string, skipVerify bool) error {

@@ -14,6 +14,7 @@ enum Method {
   LIST_CAMPAIGNS     = 4;
   SEARCH_CODEX_ENTRIES = 5;
   SEARCH_NOTES       = 6;
+  DOWNLOAD_DATABASE  = 7;
 }
 
 message Request {
@@ -26,6 +27,7 @@ message Request {
     ListCampaignsRequest   list_campaigns      = 14;
     SearchRequest          search_codex        = 15;
     SearchRequest          search_notes        = 16;
+    DownloadDatabaseRequest download_database   = 17;
   }
 }
 
@@ -40,6 +42,7 @@ message Response {
     ListCampaignsResponse   list_campaigns      = 14;
     SearchResponse          search_codex        = 15;
     SearchResponse          search_notes        = 16;
+    DownloadDatabaseResponse download_database  = 17;
   }
 }
 
@@ -97,6 +100,15 @@ message SearchRequest {
 
 message SearchResponse {
   repeated ListItemDataProto items = 1;
+}
+
+// ---------- DownloadDatabase ----------
+
+message DownloadDatabaseRequest {}
+
+message DownloadDatabaseResponse {
+  bytes data     = 1;
+  string filename = 2;
 }
 
 // ---------- Domain model mirrors ----------

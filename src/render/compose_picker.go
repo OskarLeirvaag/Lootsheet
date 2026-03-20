@@ -1,131 +1,101 @@
 package render
 
-import (
-	"strings"
+import "github.com/gdamore/tcell/v2"
 
-	"github.com/gdamore/tcell/v2"
-)
+const pickerTitleAccount = "Pick Account"
 
-func (s *Shell) pickerAccountsForCurrentField() []AccountOption {
+func (s *Shell) pickerOptionsForCurrentField() (string, []pickerOption) {
 	if s.compose == nil {
-		return nil
+		return "", nil
 	}
 	fieldID := s.composeCurrentFieldID()
 	switch s.compose.Mode {
 	case composeModeExpense:
 		switch fieldID {
 		case fieldAccountCode:
-			return s.Data.EntryCatalog.ExpenseAccounts
+			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.ExpenseAccounts)
 		case "offset_account_code":
-			return s.Data.EntryCatalog.FundingAccounts
+			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.FundingAccounts)
 		}
 	case composeModeIncome:
 		switch fieldID {
 		case fieldAccountCode:
-			return s.Data.EntryCatalog.IncomeAccounts
+			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.IncomeAccounts)
 		case "offset_account_code":
-			return s.Data.EntryCatalog.DepositAccounts
+			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.DepositAccounts)
 		}
 	case composeModeCustom, composeModeAssetTemplate:
 		if fieldID == fieldAccountCode {
-			return s.Data.EntryCatalog.AllAccounts
+			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.AllAccounts)
 		}
 	case composeModeAccount:
 		if fieldID == "code" || fieldID == "name" {
-			return s.Data.EntryCatalog.AllAccounts
+			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.AllAccounts)
 		}
-	case composeModeQuest, composeModeLoot, composeModeAsset, composeModeCodex, composeModeCodexType, composeModeNotes:
+	case composeModeQuest:
+		if fieldID == "patron" {
+			return "Pick Patron", s.codexPersonPickerOptions()
+		}
+	case composeModeLoot, composeModeAsset:
+		switch fieldID {
+		case "holder":
+			return "Pick Holder", s.codexPersonPickerOptions()
+		case "source":
+			return "Pick Source", s.sourcePickerOptions()
+		}
+	case composeModeCodex, composeModeCodexType, composeModeNotes:
 	}
-	return nil
+	return "", nil
 }
 
-func (s *Shell) openAccountPicker() bool {
-	options := s.pickerAccountsForCurrentField()
+func (s *Shell) openComposePicker() bool {
+	title, options := s.pickerOptionsForCurrentField()
 	if len(options) == 0 {
 		return false
 	}
-	s.compose.picker = &accountPickerState{
-		Options:  options,
-		Filtered: options,
-	}
+	s.compose.picker = newPicker(title, options)
 	return true
 }
 
-func (s *Shell) pickerRefilter() {
-	p := s.compose.picker
-	if p == nil {
-		return
-	}
-	if p.Query == "" {
-		p.Filtered = p.Options
-	} else {
-		query := strings.ToLower(p.Query)
-		filtered := make([]AccountOption, 0, len(p.Options))
-		for _, opt := range p.Options {
-			if strings.Contains(strings.ToLower(opt.Code), query) ||
-				strings.Contains(strings.ToLower(opt.Name), query) ||
-				strings.Contains(strings.ToLower(opt.Type), query) {
-				filtered = append(filtered, opt)
-			}
-		}
-		p.Filtered = filtered
-	}
-	if p.SelectedIndex >= len(p.Filtered) {
-		p.SelectedIndex = max(0, len(p.Filtered)-1)
-	}
-	p.Scroll = 0
-}
-
-func (s *Shell) pickerApplySelection(code string) {
-	s.composeEditCurrentField(func(_ string) string { return code })
-}
-
-func (s *Shell) handlePickerKeyEvent(event *tcell.EventKey) (handleResult, bool) {
+func (s *Shell) handleComposePickerKey(event *tcell.EventKey) (handleResult, bool) {
 	p := s.compose.picker
 	if p == nil {
 		return handleResult{}, false
 	}
 
-	switch event.Key() {
-	case tcell.KeyEsc:
-		s.compose.picker = nil
-		return handleResult{Redraw: true}, true
-	case tcell.KeyEnter:
-		if len(p.Filtered) > 0 && p.SelectedIndex < len(p.Filtered) {
-			s.pickerApplySelection(p.Filtered[p.SelectedIndex].Code)
+	closed, value := handlePickerKey(p, event)
+	if closed {
+		if value != "" {
+			s.composeEditCurrentField(func(_ string) string { return value })
 		}
 		s.compose.picker = nil
-		return handleResult{Redraw: true}, true
-	case tcell.KeyUp:
-		if p.SelectedIndex > 0 {
-			p.SelectedIndex--
-		}
-		return handleResult{Redraw: true}, true
-	case tcell.KeyDown:
-		if p.SelectedIndex < len(p.Filtered)-1 {
-			p.SelectedIndex++
-		}
-		return handleResult{Redraw: true}, true
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		if len(p.Query) > 0 {
-			p.Query = trimLastRune(p.Query)
-			s.pickerRefilter()
-		}
-		return handleResult{Redraw: true}, true
-	case tcell.KeyCtrlU:
-		p.Query = ""
-		s.pickerRefilter()
-		return handleResult{Redraw: true}, true
-	case tcell.KeyRune:
-		r := event.Rune()
-		if r == 'q' && p.Query == "" {
-			s.compose.picker = nil
-			return handleResult{Redraw: true}, true
-		}
-		p.Query += string(r)
-		s.pickerRefilter()
-		return handleResult{Redraw: true}, true
-	default:
-		return handleResult{}, true
 	}
+	return handleResult{Redraw: true}, true
+}
+
+func accountsToPickerOptions(accounts []AccountOption) []pickerOption {
+	opts := make([]pickerOption, len(accounts))
+	for i, a := range accounts {
+		opts[i] = pickerOption{Value: a.Code, Label: a.Code + " " + a.Name, Kind: a.Type}
+	}
+	return opts
+}
+
+func (s *Shell) codexPersonPickerOptions() []pickerOption {
+	opts := make([]pickerOption, 0, len(s.Data.Codex.Items))
+	for _, item := range s.Data.Codex.Items {
+		opts = append(opts, pickerOption{Value: item.DetailTitle, Label: item.DetailTitle, Kind: "person"})
+	}
+	return opts
+}
+
+func (s *Shell) sourcePickerOptions() []pickerOption {
+	opts := make([]pickerOption, 0, len(s.Data.Quests.Items)+len(s.Data.Codex.Items))
+	for _, item := range s.Data.Quests.Items {
+		opts = append(opts, pickerOption{Value: item.DetailTitle, Label: item.DetailTitle, Kind: "quest"})
+	}
+	for _, item := range s.Data.Codex.Items {
+		opts = append(opts, pickerOption{Value: item.DetailTitle, Label: item.DetailTitle, Kind: "person"})
+	}
+	return opts
 }

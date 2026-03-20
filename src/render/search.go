@@ -250,12 +250,18 @@ func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) {
 	// Input line.
 	if row < content.Y+content.H {
 		input := fmt.Sprintf("Search: %s_", s.search.Query)
-		buffer.WriteString(content.X, row, theme.Text, clipText(input, content.W))
+		inputStyle := theme.Text
+		if strings.Contains(s.search.Query, "*") {
+			inputStyle = theme.SectionAccounts // blue — prefix mode
+		}
+		buffer.WriteString(content.X, row, inputStyle, clipText(input, content.W))
 		row++
 	}
 
-	// Blank separator.
+	// Hint line.
 	if row < content.Y+content.H {
+		hint := "append * for prefix match (e.g. drag*)"
+		buffer.WriteString(content.X, row, theme.Muted, clipText(hint, content.W))
 		row++
 	}
 

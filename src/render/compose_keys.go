@@ -12,7 +12,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 	}
 
 	if s.compose.picker != nil {
-		return s.handlePickerKeyEvent(event)
+		return s.handleComposePickerKey(event)
 	}
 
 	switch event.Key() {
@@ -35,7 +35,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 		s.composeClearCurrent()
 		return handleResult{Redraw: true}, true
 	case tcell.KeyCtrlA:
-		if s.openAccountPicker() {
+		if s.openComposePicker() {
 			return handleResult{Redraw: true}, true
 		}
 		return handleResult{}, true
