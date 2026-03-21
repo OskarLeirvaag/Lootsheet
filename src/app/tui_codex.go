@@ -38,6 +38,9 @@ func buildCodexItems(entries []codex.CodexEntry, entryRefs map[string][]refs.Ent
 		if strings.TrimSpace(e.Title) != "" {
 			detailLines = append(detailLines, "Title: "+e.Title)
 		}
+		if strings.TrimSpace(e.PlayerName) != "" {
+			detailLines = append(detailLines, "Player: "+e.PlayerName)
+		}
 		if strings.TrimSpace(e.Class) != "" {
 			detailLines = append(detailLines, "Class: "+e.Class)
 		}
@@ -77,6 +80,7 @@ func buildCodexItems(entries []codex.CodexEntry, entryRefs map[string][]refs.Ent
 			"_form_id":    codexFormIDForType(e.TypeID),
 			"_type_id":    e.TypeID,
 			"name":        e.Name,
+			"player_name": e.PlayerName,
 			"title":       e.Title,
 			"location":    e.Location,
 			"faction":     e.Faction,

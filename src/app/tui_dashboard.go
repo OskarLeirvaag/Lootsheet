@@ -1458,6 +1458,7 @@ func handleCodexCreateOrUpdate(
 	location := strings.TrimSpace(command.Fields["location"])
 	faction := strings.TrimSpace(command.Fields["faction"])
 	disposition := strings.TrimSpace(command.Fields["disposition"])
+	playerName := strings.TrimSpace(command.Fields["player_name"])
 	class := strings.TrimSpace(command.Fields["class"])
 	race := strings.TrimSpace(command.Fields["race"])
 	background := strings.TrimSpace(command.Fields["background"])
@@ -1473,6 +1474,7 @@ func handleCodexCreateOrUpdate(
 			Location:    location,
 			Faction:     faction,
 			Disposition: disposition,
+			PlayerName:  playerName,
 			Class:       class,
 			Race:        race,
 			Background:  background,
@@ -1492,6 +1494,7 @@ func handleCodexCreateOrUpdate(
 			Location:    location,
 			Faction:     faction,
 			Disposition: disposition,
+			PlayerName:  playerName,
 			Class:       class,
 			Race:        race,
 			Background:  background,
