@@ -145,10 +145,21 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 	if len(p.Filtered) == 0 {
 		buffer.WriteString(content.X, y, theme.Muted, clipText("  No matches.", content.W))
 	} else {
+		prevKind := ""
 		for row := 0; row < viewH && p.Scroll+row < len(p.Filtered); row++ {
 			idx := p.Scroll + row
 			opt := p.Filtered[idx]
 			lineRect := Rect{X: content.X, Y: y + row, W: content.W, H: 1}
+
+			// Show category header when kind changes.
+			if opt.Kind != prevKind && p.Query == "" {
+				prevKind = opt.Kind
+				buffer.WriteString(content.X, y+row, theme.Muted, clipText("  "+strings.ToUpper(opt.Kind), content.W))
+				viewH++ // header takes a row but doesn't count as an item row
+				continue
+			}
+			prevKind = opt.Kind
+
 			style := theme.Text
 			prefix := "  "
 			if idx == p.SelectedIndex {
@@ -156,8 +167,13 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 				style = theme.SelectedRow
 				prefix = "> "
 			}
-			label := fmt.Sprintf("%s%s (%s)", prefix, opt.Label, opt.Kind)
-			buffer.WriteString(content.X, y+row, style, clipText(label, content.W))
+			tag := fmt.Sprintf("[%s] ", opt.Kind)
+			buffer.WriteString(content.X, y+row, theme.Muted, clipText(prefix+tag, content.W))
+			labelX := content.X + len([]rune(prefix+tag))
+			labelW := content.W - len([]rune(prefix+tag))
+			if labelW > 0 {
+				buffer.WriteString(labelX, y+row, style, clipText(opt.Label, labelW))
+			}
 		}
 	}
 
