@@ -30,8 +30,10 @@ func handleUploadCampaign(ctx context.Context, req *pb.UploadCampaignRequest, sv
 		))
 	}
 
-	// Write upload data to temp file.
-	tmpFile, err := os.CreateTemp("", "lootsheet-upload-*.db")
+	// Write upload data to temp file next to the server DB (the system temp
+	// dir may not exist in container environments).
+	dbPath := svc.DatabasePath()
+	tmpFile, err := os.CreateTemp(filepath.Dir(dbPath), "lootsheet-upload-*.db")
 	if err != nil {
 		return errorResponse(fmt.Sprintf("create temp file: %v", err))
 	}
@@ -47,7 +49,6 @@ func handleUploadCampaign(ctx context.Context, req *pb.UploadCampaignRequest, sv
 	}
 
 	// Create backup before overwrite.
-	dbPath := svc.DatabasePath()
 	if req.Mode == pb.UploadMode_UPLOAD_OVERWRITE {
 		backupDir := filepath.Join(filepath.Dir(dbPath), "backups")
 		if _, err := ledger.CreateDatabaseBackup(dbPath, backupDir); err != nil {
