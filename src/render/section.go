@@ -24,6 +24,7 @@ const (
 const (
 	settingsTabAccounts   = model.SettingsTabAccounts
 	settingsTabCodexTypes = model.SettingsTabCodexTypes
+	settingsTabCampaigns  = model.SettingsTabCampaigns
 )
 
 var (
@@ -88,7 +89,7 @@ func sectionStyleFor(s Section, theme *Theme) SectionStyle {
 			ScatterGlyphs: scatterNotes,
 			ScatterStyle:  &theme.ScatterNotes,
 		}
-	case SectionSettings, settingsTabAccounts, settingsTabCodexTypes:
+	case SectionSettings, settingsTabAccounts, settingsTabCodexTypes, settingsTabCampaigns:
 		return SectionStyle{
 			Accent:        theme.SectionSettings,
 			ScatterGlyphs: scatterSettings,

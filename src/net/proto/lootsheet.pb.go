@@ -7,12 +7,11 @@
 package proto
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -1288,6 +1287,7 @@ type ShellDataProto struct {
 	SettingsAccounts   *ListScreenDataProto    `protobuf:"bytes,9,opt,name=settings_accounts,json=settingsAccounts,proto3" json:"settings_accounts,omitempty"`
 	SettingsCodexTypes *ListScreenDataProto    `protobuf:"bytes,10,opt,name=settings_codex_types,json=settingsCodexTypes,proto3" json:"settings_codex_types,omitempty"`
 	EntryCatalog       *EntryCatalogProto      `protobuf:"bytes,11,opt,name=entry_catalog,json=entryCatalog,proto3" json:"entry_catalog,omitempty"`
+	SettingsCampaigns  *ListScreenDataProto    `protobuf:"bytes,15,opt,name=settings_campaigns,json=settingsCampaigns,proto3" json:"settings_campaigns,omitempty"`
 	CodexTypes         []*CodexTypeOptionProto `protobuf:"bytes,12,rep,name=codex_types,json=codexTypes,proto3" json:"codex_types,omitempty"`
 	CampaignName       string                  `protobuf:"bytes,13,opt,name=campaign_name,json=campaignName,proto3" json:"campaign_name,omitempty"`
 	Campaigns          []*CampaignOptionProto  `protobuf:"bytes,14,rep,name=campaigns,proto3" json:"campaigns,omitempty"`
@@ -1398,6 +1398,13 @@ func (x *ShellDataProto) GetSettingsCodexTypes() *ListScreenDataProto {
 func (x *ShellDataProto) GetEntryCatalog() *EntryCatalogProto {
 	if x != nil {
 		return x.EntryCatalog
+	}
+	return nil
+}
+
+func (x *ShellDataProto) GetSettingsCampaigns() *ListScreenDataProto {
+	if x != nil {
+		return x.SettingsCampaigns
 	}
 	return nil
 }
@@ -2437,7 +2444,7 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x16UploadCampaignResponse\x12\x1f\n" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\x12#\n" +
-	"\rcampaign_name\x18\x02 \x01(\tR\fcampaignName\"\xda\x06\n" +
+	"\rcampaign_name\x18\x02 \x01(\tR\fcampaignName\"\xa9\a\n" +
 	"\x0eShellDataProto\x12;\n" +
 	"\tdashboard\x18\x01 \x01(\v2\x1d.lootsheet.DashboardDataProtoR\tdashboard\x12:\n" +
 	"\baccounts\x18\x02 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\baccounts\x128\n" +
@@ -2450,7 +2457,8 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x11settings_accounts\x18\t \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x10settingsAccounts\x12P\n" +
 	"\x14settings_codex_types\x18\n" +
 	" \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x12settingsCodexTypes\x12A\n" +
-	"\rentry_catalog\x18\v \x01(\v2\x1c.lootsheet.EntryCatalogProtoR\fentryCatalog\x12@\n" +
+	"\rentry_catalog\x18\v \x01(\v2\x1c.lootsheet.EntryCatalogProtoR\fentryCatalog\x12M\n" +
+	"\x12settings_campaigns\x18\x0f \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x11settingsCampaigns\x12@\n" +
 	"\vcodex_types\x18\f \x03(\v2\x1f.lootsheet.CodexTypeOptionProtoR\n" +
 	"codexTypes\x12#\n" +
 	"\rcampaign_name\x18\r \x01(\tR\fcampaignName\x12<\n" +
@@ -2651,26 +2659,27 @@ var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	22, // 33: lootsheet.ShellDataProto.settings_accounts:type_name -> lootsheet.ListScreenDataProto
 	22, // 34: lootsheet.ShellDataProto.settings_codex_types:type_name -> lootsheet.ListScreenDataProto
 	25, // 35: lootsheet.ShellDataProto.entry_catalog:type_name -> lootsheet.EntryCatalogProto
-	28, // 36: lootsheet.ShellDataProto.codex_types:type_name -> lootsheet.CodexTypeOptionProto
-	27, // 37: lootsheet.ShellDataProto.campaigns:type_name -> lootsheet.CampaignOptionProto
-	23, // 38: lootsheet.ListScreenDataProto.items:type_name -> lootsheet.ListItemDataProto
-	24, // 39: lootsheet.ListItemDataProto.actions:type_name -> lootsheet.ItemActionDataProto
-	33, // 40: lootsheet.ItemActionDataProto.compose_fields:type_name -> lootsheet.ItemActionDataProto.ComposeFieldsEntry
-	30, // 41: lootsheet.ItemActionDataProto.compose_lines:type_name -> lootsheet.CommandLineProto
-	26, // 42: lootsheet.EntryCatalogProto.expense_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 43: lootsheet.EntryCatalogProto.income_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 44: lootsheet.EntryCatalogProto.funding_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 45: lootsheet.EntryCatalogProto.deposit_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 46: lootsheet.EntryCatalogProto.all_accounts:type_name -> lootsheet.AccountOptionProto
-	34, // 47: lootsheet.CommandProto.fields:type_name -> lootsheet.CommandProto.FieldsEntry
-	30, // 48: lootsheet.CommandProto.lines:type_name -> lootsheet.CommandLineProto
-	20, // 49: lootsheet.CommandResultProto.data:type_name -> lootsheet.ShellDataProto
-	32, // 50: lootsheet.CommandResultProto.status:type_name -> lootsheet.StatusMessageProto
-	51, // [51:51] is the sub-list for method output_type
-	51, // [51:51] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	22, // 36: lootsheet.ShellDataProto.settings_campaigns:type_name -> lootsheet.ListScreenDataProto
+	28, // 37: lootsheet.ShellDataProto.codex_types:type_name -> lootsheet.CodexTypeOptionProto
+	27, // 38: lootsheet.ShellDataProto.campaigns:type_name -> lootsheet.CampaignOptionProto
+	23, // 39: lootsheet.ListScreenDataProto.items:type_name -> lootsheet.ListItemDataProto
+	24, // 40: lootsheet.ListItemDataProto.actions:type_name -> lootsheet.ItemActionDataProto
+	33, // 41: lootsheet.ItemActionDataProto.compose_fields:type_name -> lootsheet.ItemActionDataProto.ComposeFieldsEntry
+	30, // 42: lootsheet.ItemActionDataProto.compose_lines:type_name -> lootsheet.CommandLineProto
+	26, // 43: lootsheet.EntryCatalogProto.expense_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 44: lootsheet.EntryCatalogProto.income_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 45: lootsheet.EntryCatalogProto.funding_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 46: lootsheet.EntryCatalogProto.deposit_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 47: lootsheet.EntryCatalogProto.all_accounts:type_name -> lootsheet.AccountOptionProto
+	34, // 48: lootsheet.CommandProto.fields:type_name -> lootsheet.CommandProto.FieldsEntry
+	30, // 49: lootsheet.CommandProto.lines:type_name -> lootsheet.CommandLineProto
+	20, // 50: lootsheet.CommandResultProto.data:type_name -> lootsheet.ShellDataProto
+	32, // 51: lootsheet.CommandResultProto.status:type_name -> lootsheet.StatusMessageProto
+	52, // [52:52] is the sub-list for method output_type
+	52, // [52:52] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_src_net_proto_lootsheet_proto_init() }

@@ -59,6 +59,7 @@ const (
 	tuiCommandCampaignCreate      = "campaign.create"
 	tuiCommandCampaignRename      = "campaign.rename"
 	tuiCommandCampaignSwitch      = "campaign.switch"
+	tuiCommandCampaignDelete      = "campaign.delete"
 )
 
 var tuiNow = time.Now
@@ -83,9 +84,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	campaignName := loader.CampaignName()
 
 	var campaignOptions []render.CampaignOption
-	if campaigns, listErr := loader.ListCampaigns(ctx); listErr == nil {
-		campaignOptions = make([]render.CampaignOption, len(campaigns))
-		for i, c := range campaigns {
+	campaignRecords, campaignListErr := loader.ListCampaigns(ctx)
+	if campaignListErr == nil {
+		campaignOptions = make([]render.CampaignOption, len(campaignRecords))
+		for i, c := range campaignRecords {
 			campaignOptions[i] = render.CampaignOption{ID: c.ID, Name: c.Name}
 		}
 	}
@@ -361,7 +363,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 	}
 
-	// Build Settings tabs from accounts + codex types.
+	// Build Settings tabs from accounts, codex types, and campaigns.
 	{
 		data.SettingsAccounts = render.ListScreenData{
 			HeaderLines: []string{
@@ -388,6 +390,22 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 				"No codex types to display.",
 				"Create a codex type with `a`.",
 			},
+		}
+		if campaignListErr == nil {
+			activeCampaignID := loader.CampaignID()
+			data.SettingsCampaigns = render.ListScreenData{
+				HeaderLines: []string{
+					fmt.Sprintf("Campaigns from %s.", databaseName),
+					"Manage campaigns. `a` adds, `u` renames, `d` deletes. Enter switches.",
+				},
+				SummaryLines:  summarizeSettingsCampaigns(campaignRecords, activeCampaignID),
+				ListHeaderRow: fmt.Sprintf("%-40s %s", "NAME", "STATUS"),
+				Items:         buildSettingsCampaignItems(campaignRecords, activeCampaignID),
+				EmptyLines: []string{
+					"No campaigns to display.",
+					"Create a campaign with `a`.",
+				},
+			}
 		}
 	}
 
@@ -968,12 +986,21 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}, nil
 
 	case tuiCommandCampaignRename:
-		name := command.Fields["name"]
-		record, err := campaign.Rename(ctx, databasePath, loader.CampaignID(), name)
+		name := command.Fields["amount"]
+		if name == "" {
+			name = command.Fields["name"]
+		}
+		campaignID := command.ItemKey
+		if campaignID == "" {
+			campaignID = loader.CampaignID()
+		}
+		record, err := campaign.Rename(ctx, databasePath, campaignID, name)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
-		loader.SetCampaign(record.ID, record.Name)
+		if record.ID == loader.CampaignID() {
+			loader.SetCampaign(record.ID, record.Name)
+		}
 		data, loadErr := buildTUIShellData(ctx, loader)
 		if loadErr != nil {
 			return render.CommandResult{}, loadErr
@@ -1007,6 +1034,23 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		return render.CommandResult{
 			Data:   data,
 			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Switched to campaign %q.", selectedName)},
+		}, nil
+
+	case tuiCommandCampaignDelete:
+		deleteID := command.ItemKey
+		if deleteID == loader.CampaignID() {
+			return render.CommandResult{}, fmt.Errorf("cannot delete the active campaign")
+		}
+		if err := campaign.Delete(ctx, databasePath, deleteID); err != nil {
+			return render.CommandResult{}, err
+		}
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: "Campaign deleted."},
 		}, nil
 
 	default:

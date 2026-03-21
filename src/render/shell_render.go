@@ -67,9 +67,6 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	if s.codexPicker != nil {
 		s.renderCodexPickerModal(buffer, body, theme)
 	}
-	if s.campaignPicker != nil {
-		s.renderCampaignPickerModal(buffer, body, theme)
-	}
 	if s.search != nil {
 		s.renderSearchModal(buffer, body, theme)
 	}

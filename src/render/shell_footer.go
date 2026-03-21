@@ -40,7 +40,7 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	}
 
 	help = joinHelp(help, s.sectionLauncherHelpText())
-	help = joinHelp(help, "# campaigns", "/ search", "? terms", "q quit", "Ctrl+L refresh")
+	help = joinHelp(help, "/ search", "? terms", "q quit", "Ctrl+L refresh")
 
 	return help
 }
@@ -52,10 +52,14 @@ func (s *Shell) sectionLauncherHelpText() string {
 	case SectionAccounts:
 		return "a add"
 	case SectionSettings:
-		if s.activeSettingsSection() == settingsTabCodexTypes {
+		switch s.activeSettingsSection() {
+		case settingsTabCodexTypes:
 			return "a add codex type"
+		case settingsTabCampaigns:
+			return "a add campaign"
+		default:
+			return "a add account"
 		}
-		return "a add account"
 	case SectionJournal:
 		return "e/i entry"
 	case SectionQuests, SectionLoot, SectionAssets, SectionCodex, SectionNotes:
@@ -266,11 +270,19 @@ func (s *Shell) glossaryLines() []string {
 			"References: parsed @mentions linking to quests, loot, assets, people, or other notes.",
 		}
 	case SectionSettings:
-		if s.activeSettingsSection() == settingsTabCodexTypes {
+		switch s.activeSettingsSection() {
+		case settingsTabCodexTypes:
 			return []string{
 				"Codex type: a category for codex entries (e.g. NPC, Player, Settlement).",
 				"Form template: the set of fields shown when creating a codex entry of this type.",
 				"Types with existing entries cannot be deleted.",
+			}
+		case settingsTabCampaigns:
+			return []string{
+				"Campaign: an isolated set of ledger, quests, loot, codex, and notes.",
+				"Active campaign: the one currently displayed and edited.",
+				"Enter on a campaign switches to it.",
+				"The active campaign cannot be deleted.",
 			}
 		}
 		return []string{

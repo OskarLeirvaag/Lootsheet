@@ -19,10 +19,11 @@ const (
 const (
 	SettingsTabAccounts Section = 100 + iota
 	SettingsTabCodexTypes
+	SettingsTabCampaigns
 )
 
 // SettingsTabs lists the virtual settings sections.
-var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes}
+var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
 
 // SearchableSections lists sections that appear in the search modal.
 var SearchableSections = []Section{
@@ -62,6 +63,8 @@ func (s Section) Title() string {
 		return "Settings"
 	case SettingsTabCodexTypes:
 		return "Codex Types"
+	case SettingsTabCampaigns:
+		return "Campaigns"
 	default:
 		return "Dashboard"
 	}

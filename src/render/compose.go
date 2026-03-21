@@ -23,6 +23,7 @@ const (
 	composeModeAssetTemplate composeMode = "asset_template"
 	composeModeCodex         composeMode = "codex"
 	composeModeCodexType     composeMode = "codex_type"
+	composeModeCampaign      composeMode = "campaign"
 	composeModeNotes         composeMode = "notes"
 )
 
@@ -109,6 +110,18 @@ func newCustomCompose(previous Section) *composeState {
 			{Side: sideDebit},
 			{Side: sideCredit},
 		},
+	}
+}
+
+func newCampaignCompose(previous Section) *composeState {
+	return &composeState{
+		Mode:            composeModeCampaign,
+		PreviousSection: previous,
+		CommandID:       "campaign.create",
+		Fields: map[string]string{
+			"name": "",
+		},
+		FieldErrors: make(map[string]string),
 	}
 }
 
@@ -318,6 +331,8 @@ func (s *Shell) openCompose(mode composeMode) bool {
 		s.compose = newAccountCompose(s.Section)
 	case composeModeCodexType:
 		s.compose = newCodexTypeCompose(s.Section)
+	case composeModeCampaign:
+		s.compose = newCampaignCompose(s.Section)
 	case composeModeQuest:
 		s.compose = newQuestCompose(s.Section, &s.Data.EntryCatalog)
 	case composeModeLoot:
@@ -404,10 +419,14 @@ func (s *Shell) openComposeForAction(action Action) bool {
 		case SectionAccounts:
 			return s.openCompose(composeModeAccount)
 		case SectionSettings:
-			if s.activeSettingsSection() == settingsTabCodexTypes {
+			switch s.activeSettingsSection() {
+			case settingsTabCodexTypes:
 				return s.openCompose(composeModeCodexType)
+			case settingsTabCampaigns:
+				return s.openCompose(composeModeCampaign)
+			default:
+				return s.openCompose(composeModeAccount)
 			}
-			return s.openCompose(composeModeAccount)
 		case SectionQuests:
 			return s.openCompose(composeModeQuest)
 		case SectionLoot:
