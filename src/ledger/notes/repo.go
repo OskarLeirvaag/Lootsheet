@@ -100,7 +100,7 @@ func DeleteNote(ctx context.Context, databasePath string, campaignID string, not
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		result, err := db.ExecContext(ctx, "DELETE FROM notes WHERE id = ?", noteID)
+		result, err := db.ExecContext(ctx, "DELETE FROM notes WHERE id = ? AND campaign_id = ?", noteID, campaignID)
 		if err != nil {
 			return fmt.Errorf("delete note: %w", err)
 		}

@@ -8,16 +8,24 @@ import (
 	"strings"
 )
 
+// querier is satisfied by both *sql.DB and *sql.Tx, allowing callers to
+// choose whether a query runs inside or outside a transaction.
+type querier interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 type accountLookupRecord struct {
 	ID     string
 	Active bool
 }
 
 // NextJournalEntryNumber returns the next available journal entry number.
-func NextJournalEntryNumber(ctx context.Context, db *sql.DB, campaignID string) (int, error) {
+// Pass a *sql.Tx to ensure the read is part of the same transaction that
+// will insert the new entry, preventing numbering races.
+func NextJournalEntryNumber(ctx context.Context, q querier, campaignID string) (int, error) {
 	var entryNumber int
 
-	if err := db.QueryRowContext(ctx,
+	if err := q.QueryRowContext(ctx,
 		"SELECT COALESCE(MAX(entry_number), 0) + 1 FROM journal_entries WHERE campaign_id = ?",
 		campaignID,
 	).Scan(&entryNumber); err != nil {

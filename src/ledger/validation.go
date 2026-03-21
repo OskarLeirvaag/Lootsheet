@@ -9,9 +9,10 @@ import (
 
 // JournalPostInput holds the raw, unvalidated fields for posting a journal entry.
 type JournalPostInput struct {
-	EntryDate   string
-	Description string
-	Lines       []JournalLineInput
+	EntryDate     string
+	Description   string
+	SourceQuestID string
+	Lines         []JournalLineInput
 }
 
 // JournalLineInput represents a single line in a journal entry before validation.

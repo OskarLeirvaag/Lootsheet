@@ -7,10 +7,10 @@ build:
 	GOOS=linux GOARCH=arm64 go build -o $(APP)-raspi .
 
 fmt:
-	gofmt -l .
+	@gofmt -l $$(find . -name '*.go' ! -name '*.pb.go' ! -path './.claude/*')
 
 imports:
-	goimports -l .
+	@goimports -l $$(find . -name '*.go' ! -name '*.pb.go' ! -path './.claude/*')
 
 test:
 	go test ./...

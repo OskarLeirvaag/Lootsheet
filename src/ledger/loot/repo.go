@@ -81,7 +81,7 @@ func UpdateLootItem(ctx context.Context, databasePath string, campaignID string,
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootItemRecord, error) {
-		current, err := getLootItemByID(ctx, db, lootItemID)
+		current, err := getLootItemByID(ctx, db, campaignID, lootItemID)
 		if err != nil {
 			return LootItemRecord{}, err
 		}
@@ -110,7 +110,7 @@ func UpdateLootItem(ctx context.Context, databasePath string, campaignID string,
 			return LootItemRecord{}, err
 		}
 
-		return getLootItemByID(ctx, db, lootItemID)
+		return getLootItemByID(ctx, db, campaignID, lootItemID)
 	})
 }
 
@@ -133,7 +133,7 @@ func AppraiseLootItem(ctx context.Context, databasePath string, campaignID strin
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootAppraisalRecord, error) {
 		// Verify item exists and is held.
-		status, err := getLootItemStatus(ctx, db, lootItemID)
+		status, err := getLootItemStatus(ctx, db, campaignID, lootItemID)
 		if err != nil {
 			return LootAppraisalRecord{}, err
 		}
@@ -187,8 +187,11 @@ func RecognizeLootAppraisal(ctx context.Context, databasePath string, campaignID
 		var recognizedEntryID sql.NullString
 
 		if err := db.QueryRowContext(ctx,
-			"SELECT id, loot_item_id, appraised_value, appraiser, recognized_entry_id FROM loot_appraisals WHERE id = ?",
-			appraisalID,
+			`SELECT la.id, la.loot_item_id, la.appraised_value, la.appraiser, la.recognized_entry_id
+			 FROM loot_appraisals la
+			 JOIN loot_items li ON li.id = la.loot_item_id
+			 WHERE la.id = ? AND li.campaign_id = ?`,
+			appraisalID, campaignID,
 		).Scan(&appraisal.ID, &appraisal.LootItemID, &appraisal.AppraisedValue, &appraisal.Appraiser, &recognizedEntryID); err != nil {
 			if err == sql.ErrNoRows {
 				return ledger.PostedJournalEntry{}, fmt.Errorf("appraisal %q does not exist", appraisalID)
@@ -274,7 +277,7 @@ func SellLootItem(ctx context.Context, databasePath string, campaignID string, l
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
 		// Verify item exists and is recognized.
-		status, err := getLootItemStatus(ctx, db, lootItemID)
+		status, err := getLootItemStatus(ctx, db, campaignID, lootItemID)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -286,8 +289,11 @@ func SellLootItem(ctx context.Context, databasePath string, campaignID string, l
 		// Get the recognized appraisal value.
 		var appraisedValue int64
 		if err := db.QueryRowContext(ctx,
-			"SELECT appraised_value FROM loot_appraisals WHERE loot_item_id = ? AND recognized_entry_id IS NOT NULL ORDER BY appraised_at DESC LIMIT 1",
-			lootItemID,
+			`SELECT la.appraised_value FROM loot_appraisals la
+			 JOIN loot_items li ON li.id = la.loot_item_id
+			 WHERE la.loot_item_id = ? AND li.campaign_id = ? AND la.recognized_entry_id IS NOT NULL
+			 ORDER BY la.appraised_at DESC LIMIT 1`,
+			lootItemID, campaignID,
 		).Scan(&appraisedValue); err != nil {
 			if err == sql.ErrNoRows {
 				return ledger.PostedJournalEntry{}, fmt.Errorf("loot item %q has no recognized appraisal", lootItemID)
@@ -353,10 +359,10 @@ func SellLootItem(ctx context.Context, databasePath string, campaignID string, l
 }
 
 // getLootItemStatus returns the current status of a loot item.
-func getLootItemStatus(ctx context.Context, db *sql.DB, lootItemID string) (ledger.LootStatus, error) {
+func getLootItemStatus(ctx context.Context, db *sql.DB, campaignID string, lootItemID string) (ledger.LootStatus, error) {
 	var status string
 	if err := db.QueryRowContext(ctx,
-		"SELECT status FROM loot_items WHERE id = ?", lootItemID,
+		"SELECT status FROM loot_items WHERE id = ? AND campaign_id = ?", lootItemID, campaignID,
 	).Scan(&status); err != nil {
 		if err == sql.ErrNoRows {
 			return "", fmt.Errorf("loot item %q does not exist", lootItemID)
@@ -386,7 +392,7 @@ func TransferItemType(ctx context.Context, databasePath string, campaignID strin
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
 		var currentType string
 		if err := db.QueryRowContext(ctx,
-			"SELECT item_type FROM loot_items WHERE id = ?", itemID,
+			"SELECT item_type FROM loot_items WHERE id = ? AND campaign_id = ?", itemID, campaignID,
 		).Scan(&currentType); err != nil {
 			if err == sql.ErrNoRows {
 				return fmt.Errorf("item %q does not exist", itemID)
@@ -406,15 +412,15 @@ func TransferItemType(ctx context.Context, databasePath string, campaignID strin
 	})
 }
 
-func getLootItemByID(ctx context.Context, db *sql.DB, lootItemID string) (LootItemRecord, error) {
+func getLootItemByID(ctx context.Context, db *sql.DB, campaignID string, lootItemID string) (LootItemRecord, error) {
 	var item LootItemRecord
 	var status string
 
 	if err := db.QueryRowContext(ctx,
 		`SELECT id, name, source, status, item_type, quantity, holder, notes, created_at, updated_at
 		 FROM loot_items
-		 WHERE id = ?`,
-		lootItemID,
+		 WHERE id = ? AND campaign_id = ?`,
+		lootItemID, campaignID,
 	).Scan(
 		&item.ID, &item.Name, &item.Source, &status, &item.ItemType,
 		&item.Quantity, &item.Holder, &item.Notes,

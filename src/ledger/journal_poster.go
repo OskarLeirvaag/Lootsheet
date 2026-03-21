@@ -12,8 +12,8 @@ import (
 // allocates an entry number, and inserts the journal entry and lines within
 // the provided transaction. The caller is responsible for committing.
 //
-// Read-only queries (account resolution, next entry number) use db so they
-// do not widen the write transaction's lock scope. All inserts use tx.
+// Account resolution uses db; entry-number allocation and all inserts use tx
+// so that numbering is serialised within the write transaction.
 func PostJournalWithinTx(ctx context.Context, db *sql.DB, tx *sql.Tx, campaignID string, input JournalPostInput) (PostedJournalEntry, error) {
 	validated, err := ValidateJournalPostInput(input)
 	if err != nil {
@@ -25,16 +25,21 @@ func PostJournalWithinTx(ctx context.Context, db *sql.DB, tx *sql.Tx, campaignID
 		return PostedJournalEntry{}, err
 	}
 
-	entryNumber, err := NextJournalEntryNumber(ctx, db, campaignID)
+	entryNumber, err := NextJournalEntryNumber(ctx, tx, campaignID)
 	if err != nil {
 		return PostedJournalEntry{}, err
 	}
 
 	entryID := uuid.NewString()
 
+	var sourceQuestID *string
+	if input.SourceQuestID != "" {
+		sourceQuestID = &input.SourceQuestID
+	}
+
 	if _, err := tx.ExecContext(ctx,
-		"INSERT INTO journal_entries (id, campaign_id, entry_number, status, entry_date, description, posted_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-		entryID, campaignID, entryNumber, "posted", validated.EntryDate, validated.Description,
+		"INSERT INTO journal_entries (id, campaign_id, entry_number, status, entry_date, description, source_quest_id, posted_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+		entryID, campaignID, entryNumber, "posted", validated.EntryDate, validated.Description, sourceQuestID,
 	); err != nil {
 		return PostedJournalEntry{}, fmt.Errorf("insert journal entry: %w", err)
 	}

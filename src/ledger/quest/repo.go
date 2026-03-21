@@ -108,7 +108,7 @@ func UpdateQuest(ctx context.Context, databasePath string, campaignID string, qu
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (QuestRecord, error) {
-		current, err := getQuestByID(ctx, db, questID)
+		current, err := getQuestByID(ctx, db, campaignID, questID)
 		if err != nil {
 			return QuestRecord{}, err
 		}
@@ -160,7 +160,7 @@ func UpdateQuest(ctx context.Context, databasePath string, campaignID string, qu
 			return QuestRecord{}, err
 		}
 
-		return getQuestByID(ctx, db, questID)
+		return getQuestByID(ctx, db, campaignID, questID)
 	})
 }
 
@@ -247,8 +247,8 @@ func CollectQuestPayment(ctx context.Context, databasePath string, campaignID st
 		var acceptedOn, completedOn, closedOn sql.NullString
 
 		if err := db.QueryRowContext(ctx,
-			"SELECT id, title, promised_base_reward, partial_advance, status, accepted_on, completed_on, closed_on FROM quests WHERE id = ?",
-			questID,
+			"SELECT id, title, promised_base_reward, partial_advance, status, accepted_on, completed_on, closed_on FROM quests WHERE id = ? AND campaign_id = ?",
+			questID, campaignID,
 		).Scan(&quest.ID, &quest.Title, &quest.PromisedBaseReward, &quest.PartialAdvance, &statusStr, &acceptedOn, &completedOn, &closedOn); err != nil {
 			if err == sql.ErrNoRows {
 				return ledger.PostedJournalEntry{}, fmt.Errorf("quest %q does not exist", questID)
@@ -268,7 +268,7 @@ func CollectQuestPayment(ctx context.Context, databasePath string, campaignID st
 			return ledger.PostedJournalEntry{}, fmt.Errorf("quest %q cannot be collected: current status is %q, expected one of completed, collectible, partially_paid", questID, quest.Status)
 		}
 
-		totalPaid, err := queryQuestTotalPaid(ctx, db, quest.Title)
+		totalPaid, err := queryQuestTotalPaid(ctx, db, campaignID, questID, quest.Title)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -279,8 +279,9 @@ func CollectQuestPayment(ctx context.Context, databasePath string, campaignID st
 		}
 
 		journalInput := ledger.JournalPostInput{
-			EntryDate:   date,
-			Description: description,
+			EntryDate:     date,
+			Description:   description,
+			SourceQuestID: questID,
 			Lines: []ledger.JournalLineInput{
 				{AccountCode: "1000", DebitAmount: input.Amount, Memo: fmt.Sprintf("Quest payment: %s", quest.Title)},
 				{AccountCode: "4000", CreditAmount: input.Amount, Memo: fmt.Sprintf("Quest payment: %s", quest.Title)},
@@ -348,8 +349,8 @@ func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, 
 		var acceptedOn, completedOn, closedOn sql.NullString
 
 		if err := db.QueryRowContext(ctx,
-			"SELECT id, title, promised_base_reward, partial_advance, status, accepted_on, completed_on, closed_on FROM quests WHERE id = ?",
-			questID,
+			"SELECT id, title, promised_base_reward, partial_advance, status, accepted_on, completed_on, closed_on FROM quests WHERE id = ? AND campaign_id = ?",
+			questID, campaignID,
 		).Scan(&quest.ID, &quest.Title, &quest.PromisedBaseReward, &quest.PartialAdvance, &statusStr, &acceptedOn, &completedOn, &closedOn); err != nil {
 			if err == sql.ErrNoRows {
 				return ledger.PostedJournalEntry{}, fmt.Errorf("quest %q does not exist", questID)
@@ -369,7 +370,7 @@ func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, 
 			return ledger.PostedJournalEntry{}, fmt.Errorf("quest %q cannot be written off: current status is %q, expected one of completed, collectible, partially_paid", questID, quest.Status)
 		}
 
-		totalPaid, err := queryQuestTotalPaid(ctx, db, quest.Title)
+		totalPaid, err := queryQuestTotalPaid(ctx, db, campaignID, questID, quest.Title)
 		if err != nil {
 			return ledger.PostedJournalEntry{}, err
 		}
@@ -385,8 +386,9 @@ func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, 
 		}
 
 		journalInput := ledger.JournalPostInput{
-			EntryDate:   date,
-			Description: description,
+			EntryDate:     date,
+			Description:   description,
+			SourceQuestID: questID,
 			Lines: []ledger.JournalLineInput{
 				{AccountCode: "5500", DebitAmount: outstanding, Memo: fmt.Sprintf("Quest write-off: %s", quest.Title)},
 				{AccountCode: "1100", CreditAmount: outstanding, Memo: fmt.Sprintf("Quest write-off: %s", quest.Title)},
@@ -419,7 +421,7 @@ func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, 
 	})
 }
 
-func getQuestByID(ctx context.Context, db *sql.DB, questID string) (QuestRecord, error) {
+func getQuestByID(ctx context.Context, db *sql.DB, campaignID string, questID string) (QuestRecord, error) {
 	var record QuestRecord
 	var status string
 
@@ -429,8 +431,8 @@ func getQuestByID(ctx context.Context, db *sql.DB, questID string) (QuestRecord,
 		       COALESCE(accepted_on, ''), COALESCE(completed_on, ''), COALESCE(closed_on, ''),
 		       created_at, updated_at
 		FROM quests
-		WHERE id = ?
-	`, questID).Scan(
+		WHERE id = ? AND campaign_id = ?
+	`, questID, campaignID).Scan(
 		&record.ID, &record.Title, &record.Patron, &record.Description,
 		&record.PromisedBaseReward, &record.PartialAdvance,
 		&record.BonusConditions, &status, &record.Notes,
@@ -458,7 +460,7 @@ func nullString(value string) any {
 	return strings.TrimSpace(value)
 }
 
-func queryQuestTotalPaid(ctx context.Context, db *sql.DB, questTitle string) (int64, error) {
+func queryQuestTotalPaid(ctx context.Context, db *sql.DB, campaignID string, questID string, questTitle string) (int64, error) {
 	var totalPaid int64
 	if err := db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(jl.debit_amount), 0)
@@ -466,9 +468,10 @@ func queryQuestTotalPaid(ctx context.Context, db *sql.DB, questTitle string) (in
 		 JOIN journal_entries je ON je.id = jl.journal_entry_id
 		 JOIN accounts a ON a.id = jl.account_id
 		 WHERE je.status = 'posted'
+		   AND je.campaign_id = ?
 		   AND a.code = '1000'
-		   AND jl.memo = ?`,
-		fmt.Sprintf("Quest payment: %s", questTitle),
+		   AND (je.source_quest_id = ? OR (je.source_quest_id IS NULL AND jl.memo = ?))`,
+		campaignID, questID, fmt.Sprintf("Quest payment: %s", questTitle),
 	).Scan(&totalPaid); err != nil {
 		return 0, fmt.Errorf("query total paid: %w", err)
 	}

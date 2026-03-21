@@ -7,7 +7,6 @@ Repo-specific rules for working in LootSheet.
 For meaningful product or architecture changes, read:
 
 - [README.md](README.md)
-- [TODO.md](TODO.md)
 
 ## Invariants
 
