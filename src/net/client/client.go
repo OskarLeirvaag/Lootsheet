@@ -135,6 +135,12 @@ func (c *Client) Call(_ context.Context, req *pb.Request) (*pb.Response, error) 
 	return resp, nil
 }
 
+// Ping sends a lightweight PING request to verify the connection is alive.
+func (c *Client) Ping(ctx context.Context) error {
+	_, err := c.Call(ctx, &pb.Request{Method: pb.Method_PING})
+	return err
+}
+
 // Close closes the underlying connection.
 func (c *Client) Close() error {
 	return c.conn.Close()

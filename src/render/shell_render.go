@@ -79,6 +79,9 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	if s.glossary != nil {
 		s.renderGlossaryModal(buffer, body, theme)
 	}
+	if s.disconnected {
+		s.renderDisconnectModal(buffer, body, theme)
+	}
 }
 
 func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
@@ -494,6 +497,27 @@ func drawStatusLine(buffer *Buffer, rect Rect, theme *Theme, status StatusMessag
 	}
 
 	buffer.WriteString(visible.X, visible.Y, style, clipText(status.Text, visible.W))
+}
+
+func (s *Shell) renderDisconnectModal(buffer *Buffer, rect Rect, theme *Theme) {
+	if rect.Empty() {
+		return
+	}
+
+	lines := []string{
+		"",
+		"The server has disconnected.",
+		"",
+		"Press any key to exit.",
+	}
+
+	DrawPanel(buffer, modalBounds(rect, lines, 36, 30, 44, 6), theme, Panel{
+		Title:       "Server Disconnected",
+		Lines:       lines,
+		BorderStyle: &theme.StatusError,
+		TitleStyle:  &theme.StatusError,
+		Texture:     PanelTextureNone,
+	})
 }
 
 func (s *inputState) displayValue() string {

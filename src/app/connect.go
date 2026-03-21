@@ -275,8 +275,9 @@ func (a *Application) runConnect(ctx context.Context, addr string, skipVerify bo
 	}
 
 	return render.Run(ctx, &render.Options{
-		ShellLoader:    client.RemoteShellLoader(c),
-		CommandHandler: client.RemoteCommandHandler(c),
-		SearchHandler:  client.RemoteSearchHandler(c),
+		ShellLoader:       client.RemoteShellLoader(c),
+		CommandHandler:    client.RemoteCommandHandler(c),
+		SearchHandler:     client.RemoteSearchHandler(c),
+		ConnectionChecker: c.Ping,
 	})
 }

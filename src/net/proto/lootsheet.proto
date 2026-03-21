@@ -16,6 +16,7 @@ enum Method {
   SEARCH_NOTES       = 6;
   DOWNLOAD_DATABASE  = 7;
   UPLOAD_CAMPAIGN    = 8;
+  PING               = 9;
 }
 
 message Request {

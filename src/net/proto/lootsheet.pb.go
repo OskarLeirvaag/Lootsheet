@@ -33,6 +33,7 @@ const (
 	Method_SEARCH_NOTES         Method = 6
 	Method_DOWNLOAD_DATABASE    Method = 7
 	Method_UPLOAD_CAMPAIGN      Method = 8
+	Method_PING                 Method = 9
 )
 
 // Enum value maps for Method.
@@ -47,6 +48,7 @@ var (
 		6: "SEARCH_NOTES",
 		7: "DOWNLOAD_DATABASE",
 		8: "UPLOAD_CAMPAIGN",
+		9: "PING",
 	}
 	Method_value = map[string]int32{
 		"AUTH":                 0,
@@ -58,6 +60,7 @@ var (
 		"SEARCH_NOTES":         6,
 		"DOWNLOAD_DATABASE":    7,
 		"UPLOAD_CAMPAIGN":      8,
+		"PING":                 9,
 	}
 )
 
@@ -2554,7 +2557,7 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x0fselect_item_key\x18\x04 \x01(\tR\rselectItemKey\">\n" +
 	"\x12StatusMessageProto\x12\x14\n" +
 	"\x05level\x18\x01 \x01(\tR\x05level\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text*\xbb\x01\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text*\xc5\x01\n" +
 	"\x06Method\x12\b\n" +
 	"\x04AUTH\x10\x00\x12\x14\n" +
 	"\x10BUILD_SHELL_DATA\x10\x01\x12\x13\n" +
@@ -2564,7 +2567,8 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x14SEARCH_CODEX_ENTRIES\x10\x05\x12\x10\n" +
 	"\fSEARCH_NOTES\x10\x06\x12\x15\n" +
 	"\x11DOWNLOAD_DATABASE\x10\a\x12\x13\n" +
-	"\x0fUPLOAD_CAMPAIGN\x10\b*2\n" +
+	"\x0fUPLOAD_CAMPAIGN\x10\b\x12\b\n" +
+	"\x04PING\x10\t*2\n" +
 	"\n" +
 	"UploadMode\x12\x0e\n" +
 	"\n" +
