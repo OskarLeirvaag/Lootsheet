@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -43,21 +44,21 @@ type ValidatedJournalPost struct {
 func ValidateJournalPostInput(input JournalPostInput) (ValidatedJournalPost, error) {
 	entryDate := strings.TrimSpace(input.EntryDate)
 	if entryDate == "" {
-		return ValidatedJournalPost{}, fmt.Errorf("journal entry date is required")
+		return ValidatedJournalPost{}, errors.New("journal entry date is required")
 	}
 
 	parsedDate, err := time.Parse("2006-01-02", entryDate)
 	if err != nil {
-		return ValidatedJournalPost{}, fmt.Errorf("journal entry date must use YYYY-MM-DD")
+		return ValidatedJournalPost{}, errors.New("journal entry date must use YYYY-MM-DD")
 	}
 
 	description := strings.TrimSpace(input.Description)
 	if description == "" {
-		return ValidatedJournalPost{}, fmt.Errorf("journal entry description is required")
+		return ValidatedJournalPost{}, errors.New("journal entry description is required")
 	}
 
 	if len(input.Lines) < 2 {
-		return ValidatedJournalPost{}, fmt.Errorf("journal entry must have at least 2 lines")
+		return ValidatedJournalPost{}, errors.New("journal entry must have at least 2 lines")
 	}
 
 	lines := make([]JournalLineInput, 0, len(input.Lines))
@@ -90,6 +91,7 @@ func ValidateJournalPostInput(input JournalPostInput) (ValidatedJournalPost, err
 		case line.CreditAmount > 0:
 			creditLines++
 			totals.CreditAmount += line.CreditAmount
+		default:
 		}
 
 		lines = append(lines, JournalLineInput{
@@ -101,11 +103,11 @@ func ValidateJournalPostInput(input JournalPostInput) (ValidatedJournalPost, err
 	}
 
 	if debitLines == 0 {
-		return ValidatedJournalPost{}, fmt.Errorf("journal entry must contain at least one debit line")
+		return ValidatedJournalPost{}, errors.New("journal entry must contain at least one debit line")
 	}
 
 	if creditLines == 0 {
-		return ValidatedJournalPost{}, fmt.Errorf("journal entry must contain at least one credit line")
+		return ValidatedJournalPost{}, errors.New("journal entry must contain at least one credit line")
 	}
 
 	if totals.DebitAmount != totals.CreditAmount {

@@ -76,7 +76,7 @@ func (p *pickerState) refilter() {
 // handlePickerKey processes a key event for the picker.
 // closed=true means the picker was dismissed (Esc or Enter).
 // selectedValue is non-empty only when the user pressed Enter on a valid selection.
-func handlePickerKey(p *pickerState, event *tcell.EventKey) (closed bool, selectedValue string) {
+func handlePickerKey(p *pickerState, event *tcell.EventKey) (bool, string) {
 	switch event.Key() { //nolint:exhaustive // only handle relevant keys
 	case tcell.KeyEsc:
 		return true, ""
@@ -115,12 +115,13 @@ func handlePickerKey(p *pickerState, event *tcell.EventKey) (closed bool, select
 		}
 		p.Query += string(r)
 		p.refilter()
+	default:
 	}
 	return false, ""
 }
 
 // renderPicker draws the picker modal centered in rect.
-func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accent *SectionStyle) {
+func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accent *SectionStyle) { //nolint:revive // TUI picker rendering
 	if p == nil || rect.Empty() {
 		return
 	}
@@ -160,7 +161,7 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 		var tabs strings.Builder
 		for i := range len(p.Kinds) + 1 {
 			if i > 0 {
-				tabs.WriteString("  ")
+				_, _ = tabs.WriteString("  ")
 			}
 			label := "All"
 			if i > 0 {
@@ -171,7 +172,7 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 			} else {
 				label = " " + label + " "
 			}
-			tabs.WriteString(label)
+			_, _ = tabs.WriteString(label)
 		}
 		buffer.WriteString(content.X, y, theme.Muted, clipText(tabs.String(), content.W))
 		y++

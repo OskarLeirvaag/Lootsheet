@@ -342,11 +342,12 @@ func TestBuildTUIShellDataOmitsJournalReverseActionForReversedOriginal(t *testin
 			if !strings.Contains(detail, "Reverses: entry #"+strconv.Itoa(posted.EntryNumber)) {
 				t.Fatalf("reversal detail missing original linkage:\n%s", detail)
 			}
+		default:
 		}
 	}
 
 	if !foundOriginal || !foundReversal {
-		t.Fatalf("expected original and reversal entries in journal items")
+		t.Fatal("expected original and reversal entries in journal items")
 	}
 }
 
@@ -968,7 +969,7 @@ func TestHandleTUICommandCreatesLootAndNavigatesToLoot(t *testing.T) {
 	}
 }
 
-func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.T) {
+func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.T) { //nolint:revive // cognitive-complexity: test function with sequential assertions
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
@@ -1052,7 +1053,7 @@ func TestBuildTUIShellDataAddsLootRecognizeActionFromLatestAppraisal(t *testing.
 	}
 }
 
-func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) {
+func TestBuildTUIShellDataAddsLootSellActionForRecognizedItems(t *testing.T) { //nolint:revive // cognitive-complexity: test function with sequential assertions
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
@@ -1183,11 +1184,12 @@ func TestBuildTUIShellDataOmitsLootRecognizeWithoutPositiveLatestAppraisal(t *te
 			if !strings.Contains(strings.Join(row.DetailLines, "\n"), "Latest appraisal: 0 CP") {
 				t.Fatalf("zero-appraisal detail = %#v", row.DetailLines)
 			}
+		default:
 		}
 	}
 
 	if !foundNoAppraisal || !foundZero {
-		t.Fatalf("expected both non-actionable loot rows")
+		t.Fatal("expected both non-actionable loot rows")
 	}
 }
 

@@ -15,7 +15,7 @@ type StartupChoice struct {
 
 // RunStartupPicker opens a minimal TUI to choose between local mode and
 // connecting to a saved (or new) server. Returns the user's choice.
-func RunStartupPicker(ctx context.Context, factory ScreenFactory, savedServers []string) (StartupChoice, error) {
+func RunStartupPicker(ctx context.Context, factory ScreenFactory, savedServers []string) (StartupChoice, error) { //nolint:revive // TUI event handling
 	theme := resolveTheme(nil)
 	terminal, err := OpenTerminal(factory, &theme)
 	if err != nil {
@@ -145,6 +145,7 @@ func RunStartupPicker(ctx context.Context, factory ScreenFactory, savedServers [
 					case "new":
 						inputMode = true
 						draw()
+					default:
 					}
 				}
 			case tcell.KeyEsc, tcell.KeyCtrlC:
@@ -173,11 +174,13 @@ func RunStartupPicker(ctx context.Context, factory ScreenFactory, savedServers [
 					}
 				case 'q':
 					return StartupChoice{}, context.Canceled
+				default:
 				}
 			default:
 			}
 		case *tcell.EventResize:
 			draw()
+		default:
 		}
 	}
 }

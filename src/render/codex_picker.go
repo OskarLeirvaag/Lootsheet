@@ -17,18 +17,18 @@ func (s *Shell) openCodexPicker() bool {
 	return true
 }
 
-func (s *Shell) handleCodexPickerKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
+func (s *Shell) handleCodexPickerKeyEvent(event *tcell.EventKey, action Action) (HandleResult, bool) { //nolint:revive // large key/event dispatch
 	if s.codexPicker == nil || event == nil {
-		return handleResult{}, false
+		return HandleResult{}, false
 	}
 
 	switch action {
 	case ActionQuit:
 		s.codexPicker = nil
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case ActionRedraw:
 		s.codexPicker = nil
-		return handleResult{Reload: true}, true
+		return HandleResult{Reload: true}, true
 	default:
 		// Other actions are handled below via raw key events.
 	}
@@ -38,53 +38,53 @@ func (s *Shell) handleCodexPickerKeyEvent(event *tcell.EventKey, action Action) 
 	switch event.Key() {
 	case tcell.KeyEsc:
 		s.codexPicker = nil
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyEnter:
 		if picker.Focus == 0 {
 			// Move from name to type list
 			picker.Focus = 1
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 		// Submit
 		name := strings.TrimSpace(picker.Name)
 		if name == "" {
 			picker.ErrorText = "Name is required."
 			picker.Focus = 0
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 		if picker.TypeIndex < 0 || picker.TypeIndex >= len(s.Data.CodexTypes) {
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 		t := s.Data.CodexTypes[picker.TypeIndex]
 		s.codexPicker = nil
 		s.compose = newCodexCompose(t.FormID, t.ID, name, s.Section)
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyTab:
 		if picker.Focus == 0 {
 			picker.Focus = 1
 		} else {
 			picker.Focus = 0
 		}
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyBacktab:
 		if picker.Focus == 1 {
 			picker.Focus = 0
 		} else {
 			picker.Focus = 1
 		}
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyUp:
 		if picker.Focus == 1 && picker.TypeIndex > 0 {
 			picker.TypeIndex--
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyDown:
 		if picker.Focus == 1 && picker.TypeIndex < len(s.Data.CodexTypes)-1 {
 			picker.TypeIndex++
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if picker.Focus == 0 {
 			runes := []rune(picker.Name)
@@ -92,21 +92,21 @@ func (s *Shell) handleCodexPickerKeyEvent(event *tcell.EventKey, action Action) 
 				picker.Name = string(runes[:len(runes)-1])
 				picker.ErrorText = ""
 			}
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyCtrlU:
 		if picker.Focus == 0 {
 			picker.Name = ""
 			picker.ErrorText = ""
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyRune:
 		if picker.Focus == 0 {
 			picker.Name += string(event.Rune())
 			picker.ErrorText = ""
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 		r := event.Rune()
 		if picker.Focus == 1 {
@@ -114,18 +114,19 @@ func (s *Shell) handleCodexPickerKeyEvent(event *tcell.EventKey, action Action) 
 			case 'j':
 				if picker.TypeIndex < len(s.Data.CodexTypes)-1 {
 					picker.TypeIndex++
-					return handleResult{Redraw: true}, true
+					return HandleResult{Redraw: true}, true
 				}
 			case 'k':
 				if picker.TypeIndex > 0 {
 					picker.TypeIndex--
-					return handleResult{Redraw: true}, true
+					return HandleResult{Redraw: true}, true
 				}
+			default:
 			}
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	default:
-		return handleResult{}, true
+		return HandleResult{}, true
 	}
 }
 

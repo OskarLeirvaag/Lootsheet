@@ -3,6 +3,7 @@ package report
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -43,10 +44,10 @@ type WriteOffCandidateRow struct {
 func GetWriteOffCandidates(ctx context.Context, databasePath string, campaignID string, filter WriteOffCandidateFilter) ([]WriteOffCandidateRow, error) {
 	asOfDate := strings.TrimSpace(filter.AsOfDate)
 	if asOfDate == "" {
-		return nil, fmt.Errorf("as_of date is required")
+		return nil, errors.New("as_of date is required")
 	}
 	if filter.MinAgeDays < 0 {
-		return nil, fmt.Errorf("min_age_days must be non-negative")
+		return nil, errors.New("min_age_days must be non-negative")
 	}
 
 	asOf, err := time.Parse(reportDateLayout, asOfDate)

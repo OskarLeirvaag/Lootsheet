@@ -9,9 +9,9 @@ import (
 
 // --- Key dispatch ---
 
-func (s *Shell) handleEditorKeyEvent(event *tcell.EventKey, _ Action) (handleResult, bool) {
+func (s *Shell) handleEditorKeyEvent(event *tcell.EventKey, _ Action) (HandleResult, bool) {
 	if s.editor == nil || event == nil {
-		return handleResult{}, false
+		return HandleResult{}, false
 	}
 
 	// Ref picker intercepts all keys when open.
@@ -32,7 +32,7 @@ func (s *Shell) handleEditorKeyEvent(event *tcell.EventKey, _ Action) (handleRes
 	}
 }
 
-func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
+func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) HandleResult { //nolint:revive // large key/event dispatch
 	e := s.editor
 
 	// Handle header fields (session / title) — j/Down/Tab advance, k/Up go back.
@@ -40,33 +40,35 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
 		switch event.Key() { //nolint:exhaustive // only handle relevant keys
 		case tcell.KeyTab, tcell.KeyDown:
 			editorAdvanceFocus(e, 1)
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		case tcell.KeyBacktab, tcell.KeyUp:
 			editorAdvanceFocus(e, -1)
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		case tcell.KeyEsc:
 			return s.editorTryQuit(false)
 		case tcell.KeyRune:
 			switch event.Rune() {
 			case 'j':
 				editorAdvanceFocus(e, 1)
-				return handleResult{Redraw: true}
+				return HandleResult{Redraw: true}
 			case 'k':
 				editorAdvanceFocus(e, -1)
-				return handleResult{Redraw: true}
+				return HandleResult{Redraw: true}
 			case 'i':
 				e.Mode = editorModeInsert
-				return handleResult{Redraw: true}
+				return HandleResult{Redraw: true}
 			case 'a':
 				e.Mode = editorModeInsert
-				return handleResult{Redraw: true}
+				return HandleResult{Redraw: true}
 			case ':':
 				e.Mode = editorModeCommand
 				e.CmdBuffer = ""
-				return handleResult{Redraw: true}
+				return HandleResult{Redraw: true}
+			default:
 			}
+		default:
 		}
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
 
 	// Body focus — full vim normal mode.
@@ -75,22 +77,22 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
 		return s.editorTryQuit(false)
 	case tcell.KeyTab:
 		editorAdvanceFocus(e, 1)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBacktab:
 		editorAdvanceFocus(e, -1)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyLeft:
 		editorMoveLeft(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyRight:
 		editorMoveRight(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyUp:
 		editorMoveUp(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyDown:
 		editorMoveDown(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyRune:
 		// Handle two-key sequences.
 		if e.PendingKey != 0 {
@@ -162,14 +164,16 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
 		case ':':
 			e.Mode = editorModeCommand
 			e.CmdBuffer = ""
+		default:
 		}
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
+	default:
 	}
 
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) handleEditorTwoKey(first, second rune) handleResult {
+func (s *Shell) handleEditorTwoKey(first, second rune) HandleResult {
 	e := s.editor
 	switch first {
 	case 'g':
@@ -184,6 +188,7 @@ func (s *Shell) handleEditorTwoKey(first, second rune) handleResult {
 			editorDeleteWord(e)
 		case '$':
 			editorDeleteToEndOfLine(e)
+		default:
 		}
 	case 'c':
 		switch second {
@@ -193,17 +198,19 @@ func (s *Shell) handleEditorTwoKey(first, second rune) handleResult {
 			editorChangeWord(e)
 		case '$':
 			editorChangeToEndOfLine(e)
+		default:
 		}
 	case 'y':
 		if second == 'y' {
 			editorYankLine(e)
 			e.StatusText = "1 line yanked"
 		}
+	default:
 	}
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) handleEditorInsertKey(event *tcell.EventKey) handleResult {
+func (s *Shell) handleEditorInsertKey(event *tcell.EventKey) HandleResult {
 	e := s.editor
 
 	if e.Focus == editorFocusSession {
@@ -217,92 +224,92 @@ func (s *Shell) handleEditorInsertKey(event *tcell.EventKey) handleResult {
 	case tcell.KeyEsc:
 		e.Mode = editorModeNormal
 		editorClampCursorToLine(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyCtrlA:
 		s.openEditorRefPicker()
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyLeft:
 		editorMoveLeft(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyRight:
 		editorMoveRight(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyUp:
 		editorMoveUp(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyDown:
 		editorMoveDown(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		editorBackspace(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyEnter:
 		editorSplitLine(e)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyRune:
 		editorInsertRune(e, event.Rune())
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
 
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) handleEditorInsertTitle(event *tcell.EventKey) handleResult {
+func (s *Shell) handleEditorInsertTitle(event *tcell.EventKey) HandleResult {
 	e := s.editor
 	switch event.Key() { //nolint:exhaustive // only handle relevant keys
 	case tcell.KeyEsc:
 		e.Mode = editorModeNormal
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyTab, tcell.KeyDown:
 		editorAdvanceFocus(e, 1)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBacktab, tcell.KeyUp:
 		editorAdvanceFocus(e, -1)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		runes := []rune(e.Title)
 		if len(runes) > 0 {
 			e.Title = string(runes[:len(runes)-1])
 			e.Dirty = true
 		}
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyRune:
 		e.Title += string(event.Rune())
 		e.Dirty = true
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) handleEditorInsertSession(event *tcell.EventKey) handleResult {
+func (s *Shell) handleEditorInsertSession(event *tcell.EventKey) HandleResult {
 	e := s.editor
 	switch event.Key() { //nolint:exhaustive // only handle relevant keys
 	case tcell.KeyEsc:
 		e.Mode = editorModeNormal
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyTab, tcell.KeyDown:
 		editorAdvanceFocus(e, 1)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBacktab, tcell.KeyUp:
 		editorAdvanceFocus(e, -1)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if e.SessionNum > 0 {
 			e.SessionNum /= 10
 			e.Dirty = true
 		}
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyRune:
 		if unicode.IsDigit(event.Rune()) {
 			e.SessionNum = e.SessionNum*10 + int(event.Rune()-'0')
 			e.Dirty = true
 		}
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) handleEditorRefPickerKey(event *tcell.EventKey) handleResult {
+func (s *Shell) handleEditorRefPickerKey(event *tcell.EventKey) HandleResult {
 	p := s.editor.refPicker
 	closed, value := handlePickerKey(p, event)
 	if closed {
@@ -311,16 +318,16 @@ func (s *Shell) handleEditorRefPickerKey(event *tcell.EventKey) handleResult {
 		}
 		s.editor.refPicker = nil
 	}
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) handleEditorCommandKey(event *tcell.EventKey) handleResult {
+func (s *Shell) handleEditorCommandKey(event *tcell.EventKey) HandleResult {
 	e := s.editor
 	switch event.Key() { //nolint:exhaustive // only handle relevant keys
 	case tcell.KeyEsc:
 		e.Mode = editorModeNormal
 		e.CmdBuffer = ""
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if len(e.CmdBuffer) > 0 {
 			runes := []rune(e.CmdBuffer)
@@ -328,17 +335,17 @@ func (s *Shell) handleEditorCommandKey(event *tcell.EventKey) handleResult {
 		} else {
 			e.Mode = editorModeNormal
 		}
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case tcell.KeyEnter:
 		return s.executeEditorCommand()
 	case tcell.KeyRune:
 		e.CmdBuffer += string(event.Rune())
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) executeEditorCommand() handleResult {
+func (s *Shell) executeEditorCommand() HandleResult {
 	e := s.editor
 	cmd := strings.TrimSpace(e.CmdBuffer)
 	e.Mode = editorModeNormal
@@ -355,11 +362,11 @@ func (s *Shell) executeEditorCommand() handleResult {
 		return s.editorSave(true)
 	default:
 		e.StatusText = "Unknown command: :" + cmd
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
 }
 
-func (s *Shell) editorSave(quitAfter bool) handleResult {
+func (s *Shell) editorSave(quitAfter bool) HandleResult {
 	e := s.editor
 	s.editorSaveInFlight = true
 	s.editorQuitAfterSave = quitAfter
@@ -373,21 +380,21 @@ func (s *Shell) editorSave(quitAfter bool) handleResult {
 			"body":  strings.Join(e.Lines, "\n"),
 		},
 	}
-	return handleResult{Command: command}
+	return HandleResult{Command: command}
 }
 
-func (s *Shell) editorTryQuit(force bool) handleResult {
+func (s *Shell) editorTryQuit(force bool) HandleResult {
 	e := s.editor
 	if !force && e.Dirty {
 		e.StatusText = "Unsaved changes! Use :q! to force quit, or :w to save."
 		e.Mode = editorModeNormal
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	}
 	s.editor = nil
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }
 
-func (s *Shell) editorForceQuit() handleResult {
+func (s *Shell) editorForceQuit() HandleResult {
 	s.editor = nil
-	return handleResult{Redraw: true}
+	return HandleResult{Redraw: true}
 }

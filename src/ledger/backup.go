@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +19,7 @@ const (
 // CreateDatabaseBackup copies the database file to a timestamped backup in backupDir.
 func CreateDatabaseBackup(databasePath string, backupDir string) (string, error) {
 	if strings.TrimSpace(backupDir) == "" {
-		return "", fmt.Errorf("backup directory path is required")
+		return "", errors.New("backup directory path is required")
 	}
 
 	info, err := os.Stat(databasePath)
@@ -44,7 +45,7 @@ func CreateDatabaseBackup(databasePath string, backupDir string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("open database for backup: %w", err)
 	}
-	defer source.Close()
+	defer func() { _ = source.Close() }()
 
 	target, err := os.OpenFile(backupPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, filePerm)
 	if err != nil {
@@ -52,7 +53,7 @@ func CreateDatabaseBackup(databasePath string, backupDir string) (string, error)
 	}
 
 	if _, err := io.Copy(target, source); err != nil {
-		target.Close()
+		_ = target.Close()
 		_ = os.Remove(backupPath)
 		return "", fmt.Errorf("copy database backup: %w", err)
 	}

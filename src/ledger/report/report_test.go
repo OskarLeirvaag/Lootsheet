@@ -485,6 +485,7 @@ func TestGetWriteOffCandidatesFiltersByAgeAndOutstanding(t *testing.T) {
 	}
 }
 
+//nolint:cyclop,revive // test function exercises many report paths sequentially
 func TestSampleCampaignFixtureCoversCoreReports(t *testing.T) {
 	databasePath := testutil.InitTestDB(t)
 	testutil.ApplyFixtureForTest(t, databasePath, "sample_campaign.sql")

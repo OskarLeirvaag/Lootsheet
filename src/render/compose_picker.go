@@ -16,6 +16,7 @@ func (s *Shell) pickerOptionsForCurrentField() (string, []pickerOption) {
 			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.ExpenseAccounts)
 		case "offset_account_code":
 			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.FundingAccounts)
+		default:
 		}
 	case composeModeIncome:
 		switch fieldID {
@@ -23,6 +24,7 @@ func (s *Shell) pickerOptionsForCurrentField() (string, []pickerOption) {
 			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.IncomeAccounts)
 		case "offset_account_code":
 			return pickerTitleAccount, accountsToPickerOptions(s.Data.EntryCatalog.DepositAccounts)
+		default:
 		}
 	case composeModeCustom, composeModeAssetTemplate:
 		if fieldID == fieldAccountCode {
@@ -42,8 +44,10 @@ func (s *Shell) pickerOptionsForCurrentField() (string, []pickerOption) {
 			return "Pick Holder", s.codexPersonPickerOptions()
 		case "source":
 			return "Pick Source", s.sourcePickerOptions()
+		default:
 		}
 	case composeModeCodex, composeModeCodexType, composeModeCampaign, composeModeNotes:
+	default:
 	}
 	return "", nil
 }
@@ -57,10 +61,10 @@ func (s *Shell) openComposePicker() bool {
 	return true
 }
 
-func (s *Shell) handleComposePickerKey(event *tcell.EventKey) (handleResult, bool) {
+func (s *Shell) handleComposePickerKey(event *tcell.EventKey) (HandleResult, bool) {
 	p := s.compose.picker
 	if p == nil {
-		return handleResult{}, false
+		return HandleResult{}, false
 	}
 
 	closed, value := handlePickerKey(p, event)
@@ -70,7 +74,7 @@ func (s *Shell) handleComposePickerKey(event *tcell.EventKey) (handleResult, boo
 		}
 		s.compose.picker = nil
 	}
-	return handleResult{Redraw: true}, true
+	return HandleResult{Redraw: true}, true
 }
 
 func accountsToPickerOptions(accounts []AccountOption) []pickerOption {

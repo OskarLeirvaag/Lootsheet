@@ -3,6 +3,7 @@ package loot
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -25,7 +26,7 @@ type AssetTemplateLineRecord struct {
 func SaveAssetTemplate(ctx context.Context, databasePath string, campaignID string, itemID string, lines []AssetTemplateLineRecord) error {
 	itemID = strings.TrimSpace(itemID)
 	if itemID == "" {
-		return fmt.Errorf("item ID is required")
+		return errors.New("item ID is required")
 	}
 
 	for i, line := range lines {

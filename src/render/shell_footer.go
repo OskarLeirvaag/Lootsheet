@@ -133,7 +133,7 @@ func (s *Shell) tabsLine() string {
 	var line strings.Builder
 	for index, section := range orderedSections {
 		if index > 0 {
-			line.WriteString("  ")
+			_, _ = line.WriteString("  ")
 		}
 
 		label := section.Title()
@@ -142,7 +142,7 @@ func (s *Shell) tabsLine() string {
 		} else {
 			label = " " + label + " "
 		}
-		fmt.Fprintf(&line, "%-*s", width, label)
+		_, _ = fmt.Fprintf(&line, "%-*s", width, label)
 	}
 
 	return line.String()

@@ -7,18 +7,18 @@ import (
 )
 
 // HandleAction updates shell state for a semantic key action.
-func (s *Shell) HandleAction(action Action) handleResult {
+func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // large action dispatch
 	if s == nil {
-		return handleResult{}
+		return HandleResult{}
 	}
 
 	if s.editor != nil {
 		switch action {
 		case ActionRedraw:
 			s.editor = nil
-			return handleResult{Reload: true}
+			return HandleResult{Reload: true}
 		default:
-			return handleResult{}
+			return HandleResult{}
 		}
 	}
 	if s.input != nil {
@@ -35,13 +35,13 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
 			ActionShowNotes, ActionSearch:
-			return handleResult{}
+			return HandleResult{}
 		case ActionQuit:
 			s.compose = nil
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		case ActionRedraw:
 			s.compose = nil
-			return handleResult{Reload: true}
+			return HandleResult{Reload: true}
 		}
 	}
 
@@ -51,138 +51,139 @@ func (s *Shell) HandleAction(action Action) handleResult {
 
 	switch action {
 	case ActionNone, ActionSubmitCompose:
-		return handleResult{}
+		return HandleResult{}
 	case ActionConfirm:
 		if s.Section == SectionSettings && s.activeSettingsSection() == settingsTabCampaigns {
 			item := s.currentSelectedItem(settingsTabCampaigns)
 			if item != nil {
-				return handleResult{Command: &Command{
+				return HandleResult{Command: &Command{
 					ID:      "campaign.switch",
 					ItemKey: item.Key,
 				}}
 			}
 		}
-		return handleResult{}
+		return HandleResult{}
 	case ActionQuit:
 		if s.Section == SectionSettings {
 			s.Section = SectionDashboard
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 		s.quitConfirm = true
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionRedraw:
-		return handleResult{Reload: true}
+		return HandleResult{Reload: true}
 	case ActionHelp:
 		if s.toggleGlossary() {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionNextSection:
 		if s.Section == SectionSettings {
 			s.settingsTab = (s.settingsTab + 1) % len(settingsTabs)
 			s.reconcileSelection(s.activeSettingsSection())
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 		s.Section = s.Section.Next()
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionPrevSection:
 		if s.Section == SectionSettings {
 			s.settingsTab = (s.settingsTab + len(settingsTabs) - 1) % len(settingsTabs)
 			s.reconcileSelection(s.activeSettingsSection())
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 		s.Section = s.Section.Previous()
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowDashboard:
 		s.Section = SectionDashboard
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowSettings:
 		s.Section = SectionSettings
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowJournal:
 		s.Section = SectionJournal
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowQuests:
 		s.Section = SectionQuests
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowLoot:
 		s.Section = SectionLoot
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowAssets:
 		s.Section = SectionAssets
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowCodex:
 		s.Section = SectionCodex
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionShowNotes:
 		s.Section = SectionNotes
 		s.reconcileSelection(s.Section)
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionMoveUp:
 		if s.moveSelection(-1) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionMoveDown:
 		if s.moveSelection(1) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionPageUp:
 		if s.moveSelection(-s.pageSize()) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionPageDown:
 		if s.moveSelection(s.pageSize()) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionMoveTop:
 		if s.moveSelectionTo(0) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionMoveBottom:
 		if s.moveSelectionTo(1 << 30) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionNewExpense:
 		if s.openComposeForAction(ActionNewExpense) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionNewIncome:
 		if s.openComposeForAction(ActionNewIncome) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionNewCustom:
 		if s.openComposeForAction(ActionNewCustom) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionSearch:
 		if s.openSearch() {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
 	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
 		if s.openAction(action) {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
+	default:
 	}
 
-	return handleResult{}
+	return HandleResult{}
 }
 
 // HandleKeyEvent updates shell state for raw key input when the shell needs more
 // than semantic action mapping, such as text entry inside a modal.
-func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResult {
+func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResult {
 	if s == nil {
-		return handleResult{}
+		return HandleResult{}
 	}
 
 	if s.disconnected {
-		return handleResult{Quit: true}
+		return HandleResult{Quit: true}
 	}
 
 	action := keymap.Resolve(event)
@@ -190,12 +191,12 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 	if s.quitConfirm {
 		switch action {
 		case ActionConfirm:
-			return handleResult{Quit: true}
+			return HandleResult{Quit: true}
 		case ActionQuit:
 			s.quitConfirm = false
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		default:
-			return handleResult{}
+			return HandleResult{}
 		}
 	}
 	if s.editor != nil {
@@ -227,57 +228,57 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 	return s.HandleAction(action)
 }
 
-func (s *Shell) handleConfirmAction(action Action) handleResult {
+func (s *Shell) handleConfirmAction(action Action) HandleResult {
 	switch action {
 	case ActionQuit:
 		s.confirm = nil
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionConfirm:
 		command := s.pendingCommand()
 		s.confirm = nil
 		if command == nil {
-			return handleResult{Redraw: true}
+			return HandleResult{Redraw: true}
 		}
-		return handleResult{Command: command}
+		return HandleResult{Command: command}
 	case ActionRedraw:
 		s.confirm = nil
-		return handleResult{Reload: true}
+		return HandleResult{Reload: true}
 	default:
-		return handleResult{}
+		return HandleResult{}
 	}
 }
 
-func (s *Shell) handleInputAction(action Action) handleResult {
+func (s *Shell) handleInputAction(action Action) HandleResult {
 	switch action {
 	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose, ActionSearch:
-		return handleResult{}
+		return HandleResult{}
 	case ActionQuit:
 		s.input = nil
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionRedraw:
 		s.input = nil
-		return handleResult{Reload: true}
+		return HandleResult{Reload: true}
 	case ActionConfirm:
-		return handleResult{}
+		return HandleResult{}
 	}
 
-	return handleResult{}
+	return HandleResult{}
 }
 
-func (s *Shell) handleGlossaryAction(action Action) handleResult {
+func (s *Shell) handleGlossaryAction(action Action) HandleResult {
 	switch action {
 	case ActionQuit, ActionHelp:
 		s.glossary = nil
-		return handleResult{Redraw: true}
+		return HandleResult{Redraw: true}
 	case ActionRedraw:
 		s.glossary = nil
-		return handleResult{Reload: true}
+		return HandleResult{Reload: true}
 	default:
-		return handleResult{}
+		return HandleResult{}
 	}
 }
 
@@ -297,9 +298,9 @@ func (s *Shell) toggleGlossary() bool {
 	return true
 }
 
-func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
+func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (HandleResult, bool) {
 	if s.input == nil || event == nil {
-		return handleResult{}, false
+		return HandleResult{}, false
 	}
 
 	switch action {
@@ -312,15 +313,15 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (handl
 				msg = "Value is required."
 			}
 			s.input.ErrorText = msg
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 
 		command := s.pendingCommand()
 		if command == nil {
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 
-		return handleResult{Command: command}, true
+		return HandleResult{Command: command}, true
 	default:
 	}
 
@@ -328,24 +329,24 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (handl
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		runes := []rune(s.input.Value)
 		if len(runes) == 0 {
-			return handleResult{}, true
+			return HandleResult{}, true
 		}
 		s.input.Value = string(runes[:len(runes)-1])
 		s.input.ErrorText = ""
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyCtrlU:
 		if s.input.Value == "" && s.input.ErrorText == "" {
-			return handleResult{}, true
+			return HandleResult{}, true
 		}
 		s.input.Value = ""
 		s.input.ErrorText = ""
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyRune:
 		s.input.Value += string(event.Rune())
 		s.input.ErrorText = ""
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	default:
-		return handleResult{}, true
+		return HandleResult{}, true
 	}
 }
 

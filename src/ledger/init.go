@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -75,43 +76,8 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 		return InitResult{}, fmt.Errorf("record initialization timestamp: %w", err)
 	}
 
-	// Seed accounts — campaign-aware if the campaigns table exists (migration 009+),
-	// otherwise plain INSERT for legacy schema testing.
-	var hasCampaigns int
-	_ = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='campaigns'").Scan(&hasCampaigns)
-
-	if hasCampaigns > 0 {
-		// Migration 009 already created the 'default' campaign and set
-		// active_campaign_id. Seed accounts under that campaign.
-		const campaignID = "default"
-
-		for _, account := range assets.Accounts {
-			active := 0
-			if account.Active {
-				active = 1
-			}
-
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO accounts (id, campaign_id, code, name, type, active) VALUES (?, ?, ?, ?, ?, ?)",
-				account.ID, campaignID, account.Code, account.Name, account.Type, active,
-			); err != nil {
-				return InitResult{}, fmt.Errorf("seed account %s: %w", account.Code, err)
-			}
-		}
-	} else {
-		for _, account := range assets.Accounts {
-			active := 0
-			if account.Active {
-				active = 1
-			}
-
-			if _, err := tx.ExecContext(ctx,
-				"INSERT INTO accounts (id, code, name, type, active) VALUES (?, ?, ?, ?, ?)",
-				account.ID, account.Code, account.Name, account.Type, active,
-			); err != nil {
-				return InitResult{}, fmt.Errorf("seed account %s: %w", account.Code, err)
-			}
-		}
+	if err := seedInitAccounts(ctx, tx, assets.Accounts); err != nil {
+		return InitResult{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -124,4 +90,43 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 			Accounts: len(assets.Accounts),
 		},
 	}, nil
+}
+
+// seedInitAccounts inserts seeded accounts during database initialization.
+// Campaign-aware if the campaigns table exists (migration 009+), otherwise
+// plain INSERT for legacy schema testing.
+func seedInitAccounts(ctx context.Context, tx *sql.Tx, accounts []config.SeedAccount) error {
+	var hasCampaigns int
+	_ = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='campaigns'").Scan(&hasCampaigns)
+
+	if hasCampaigns > 0 {
+		const campaignID = "default"
+		for _, account := range accounts {
+			active := 0
+			if account.Active {
+				active = 1
+			}
+			if _, err := tx.ExecContext(ctx,
+				"INSERT INTO accounts (id, campaign_id, code, name, type, active) VALUES (?, ?, ?, ?, ?, ?)",
+				account.ID, campaignID, account.Code, account.Name, account.Type, active,
+			); err != nil {
+				return fmt.Errorf("seed account %s: %w", account.Code, err)
+			}
+		}
+	} else {
+		for _, account := range accounts {
+			active := 0
+			if account.Active {
+				active = 1
+			}
+			if _, err := tx.ExecContext(ctx,
+				"INSERT INTO accounts (id, code, name, type, active) VALUES (?, ?, ?, ?, ?)",
+				account.ID, account.Code, account.Name, account.Type, active,
+			); err != nil {
+				return fmt.Errorf("seed account %s: %w", account.Code, err)
+			}
+		}
+	}
+
+	return nil
 }

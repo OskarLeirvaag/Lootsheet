@@ -5,6 +5,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -71,31 +72,31 @@ func Dial(ctx context.Context, addr, token string, opts *DialOptions) (*Client, 
 	}
 
 	if err := wire.WriteMessage(conn, authReq); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, nil, fmt.Errorf("send auth: %w", err)
 	}
 
 	resp := new(pb.Response)
 	if err := wire.ReadMessage(conn, resp); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, nil, fmt.Errorf("read auth response: %w", err)
 	}
 
 	if !resp.Ok {
-		conn.Close()
+		_ = conn.Close()
 		return nil, nil, fmt.Errorf("auth rejected: %s", resp.Error)
 	}
 
 	authResp := resp.GetAuth()
 	if authResp == nil {
-		conn.Close()
-		return nil, nil, fmt.Errorf("auth response missing payload")
+		_ = conn.Close()
+		return nil, nil, errors.New("auth response missing payload")
 	}
 
 	// Verify the server's protocol version. An old server that predates the
 	// version field will report 0, which will not match ProtocolVersion (>= 1).
 	if sv := authResp.ProtocolVersion; sv != pb.ProtocolVersion {
-		conn.Close()
+		_ = conn.Close()
 		target := "server"
 		if sv > pb.ProtocolVersion {
 			target = "client"

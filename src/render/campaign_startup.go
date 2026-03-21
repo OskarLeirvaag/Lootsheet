@@ -88,13 +88,14 @@ func RunCampaignCreator(ctx context.Context, factory ScreenFactory) (string, err
 			}
 		case *tcell.EventResize:
 			draw()
+		default:
 		}
 	}
 }
 
 // RunCampaignPicker opens a minimal TUI to select from existing campaigns.
 // Used when 2+ campaigns exist at startup.
-func RunCampaignPicker(ctx context.Context, factory ScreenFactory, campaigns []model.CampaignOption) (string, error) {
+func RunCampaignPicker(ctx context.Context, factory ScreenFactory, campaigns []model.CampaignOption) (string, error) { //nolint:revive // TUI event handling
 	theme := resolveTheme(nil)
 	terminal, err := OpenTerminal(factory, &theme)
 	if err != nil {
@@ -170,11 +171,13 @@ func RunCampaignPicker(ctx context.Context, factory ScreenFactory, campaigns []m
 					}
 				case 'q':
 					return "", context.Canceled
+				default:
 				}
 			default: //nolint:exhaustive // only handle keys relevant to list navigation
 			}
 		case *tcell.EventResize:
 			draw()
+		default:
 		}
 	}
 }

@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -21,7 +21,7 @@ type appLogger struct {
 
 func newAppLogger(output io.Writer) (*appLogger, error) {
 	if output == nil {
-		return nil, fmt.Errorf("log output is required")
+		return nil, errors.New("log output is required")
 	}
 
 	levelText := strings.TrimSpace(os.Getenv(logLevelEnvVar))

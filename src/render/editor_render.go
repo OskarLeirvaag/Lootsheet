@@ -7,7 +7,7 @@ import (
 
 // --- Editor rendering ---
 
-func (s *Shell) renderEditor(buffer *Buffer, rect Rect, theme *Theme) {
+func (s *Shell) renderEditor(buffer *Buffer, rect Rect, theme *Theme) { //nolint:revive // TUI editor rendering
 	if s.editor == nil || rect.Empty() {
 		return
 	}

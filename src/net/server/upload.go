@@ -41,7 +41,7 @@ func handleUploadCampaign(ctx context.Context, req *pb.UploadCampaignRequest, sv
 	defer os.Remove(tmpPath)
 
 	if _, err := tmpFile.Write(req.Data); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return errorResponse(fmt.Sprintf("write temp file: %v", err))
 	}
 	if err := tmpFile.Close(); err != nil {
@@ -123,6 +123,7 @@ func importCampaign(ctx context.Context, dbPath, uploadPath, campaignID string, 
 		if !errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("check campaign exists: %w", err)
 		}
+	default:
 	}
 
 	if err := insertCampaignData(ctx, tx, campaignID); err != nil {
@@ -306,7 +307,7 @@ func verifyAndReenableForeignKeys(ctx context.Context, db *sql.DB) error {
 		if scanErr := rows.Scan(&table, &rowid, &parent, &fkid); scanErr == nil {
 			return fmt.Errorf("foreign key violation after import: table=%s rowid=%s parent=%s", table, rowid, parent)
 		}
-		return fmt.Errorf("foreign key violation detected after import")
+		return errors.New("foreign key violation detected after import")
 	}
 
 	if err := rows.Err(); err != nil {

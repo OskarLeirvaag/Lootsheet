@@ -39,7 +39,7 @@ func UploadCampaign(ctx context.Context, c *Client, localDBPath, campaignID stri
 
 	ul := resp.GetUploadCampaign()
 	if ul == nil {
-		return nil, fmt.Errorf("upload campaign: empty response")
+		return nil, errors.New("upload campaign: empty response")
 	}
 
 	return ul, nil
@@ -69,13 +69,15 @@ func ListRemoteCampaigns(ctx context.Context, c *Client) ([]*pb.CampaignOptionPr
 
 // extractCampaignDB creates a minimal SQLite DB file containing just the
 // specified campaign's data. Returns the file contents as bytes.
+//
+//nolint:cyclop,revive // sequential table-copy steps are inherently linear
 func extractCampaignDB(ctx context.Context, localDBPath, campaignID string) ([]byte, error) {
 	tmpFile, err := os.CreateTemp("", "lootsheet-extract-*.db")
 	if err != nil {
 		return nil, fmt.Errorf("create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
+	_ = tmpFile.Close()
 	defer os.Remove(tmpPath)
 
 	// Initialize the temp DB with the full schema.

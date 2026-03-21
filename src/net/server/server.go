@@ -97,6 +97,7 @@ func ListenAndServe(ctx context.Context, cfg Config) error {
 	return acceptErr
 }
 
+//nolint:revive // cognitive-complexity marginally over threshold (26 vs 25); splitting would harm readability
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
@@ -200,7 +201,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (s *Server) writeError(conn net.Conn, msg string) {
+func (*Server) writeError(conn net.Conn, msg string) {
 	resp := &pb.Response{Ok: false, Error: msg}
 	_ = wire.WriteMessage(conn, resp)
 }

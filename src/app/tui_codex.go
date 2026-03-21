@@ -30,49 +30,7 @@ func buildCodexItems(entries []codex.CodexEntry, entryRefs map[string][]refs.Ent
 		e := &entries[index]
 
 		secondary := codexSecondary(e)
-
-		detailLines := []string{
-			"Name: " + e.Name,
-			"Type: " + e.TypeName,
-		}
-		if strings.TrimSpace(e.Title) != "" {
-			detailLines = append(detailLines, "Title: "+e.Title)
-		}
-		if strings.TrimSpace(e.PlayerName) != "" {
-			detailLines = append(detailLines, "Player: "+e.PlayerName)
-		}
-		if strings.TrimSpace(e.Class) != "" {
-			detailLines = append(detailLines, "Class: "+e.Class)
-		}
-		if strings.TrimSpace(e.Race) != "" {
-			detailLines = append(detailLines, "Race: "+e.Race)
-		}
-		if strings.TrimSpace(e.Background) != "" {
-			detailLines = append(detailLines, "Background: "+e.Background)
-		}
-		if strings.TrimSpace(e.Location) != "" {
-			detailLines = append(detailLines, "Location: "+e.Location)
-		}
-		if strings.TrimSpace(e.Faction) != "" {
-			detailLines = append(detailLines, "Faction: "+e.Faction)
-		}
-		if strings.TrimSpace(e.Disposition) != "" {
-			detailLines = append(detailLines, "Disposition: "+e.Disposition)
-		}
-		if strings.TrimSpace(e.Description) != "" {
-			detailLines = append(detailLines, "Description: "+e.Description)
-		}
-		if strings.TrimSpace(e.Notes) != "" {
-			detailLines = append(detailLines, "Notes: "+e.Notes)
-		}
-
-		// Show parsed references.
-		if eRefs, ok := entryRefs[e.ID]; ok && len(eRefs) > 0 {
-			detailLines = append(detailLines, "", "References:")
-			for _, ref := range eRefs {
-				detailLines = append(detailLines, fmt.Sprintf("  @%s/%s", ref.TargetType, ref.TargetName))
-			}
-		}
+		detailLines := buildCodexDetailLines(e, entryRefs)
 
 		// Build compose fields for editing — include _form_id and _type_id
 		// so the compose system can pick the correct form.
@@ -124,6 +82,40 @@ func buildCodexItems(entries []codex.CodexEntry, entryRefs map[string][]refs.Ent
 	}
 
 	return items
+}
+
+func buildCodexDetailLines(e *codex.CodexEntry, entryRefs map[string][]refs.EntityReference) []string {
+	detailLines := []string{
+		"Name: " + e.Name,
+		"Type: " + e.TypeName,
+	}
+
+	for _, pair := range []struct{ label, value string }{
+		{"Title", e.Title},
+		{"Player", e.PlayerName},
+		{"Class", e.Class},
+		{"Race", e.Race},
+		{"Background", e.Background},
+		{"Location", e.Location},
+		{"Faction", e.Faction},
+		{"Disposition", e.Disposition},
+		{"Description", e.Description},
+		{"Notes", e.Notes},
+	} {
+		if strings.TrimSpace(pair.value) != "" {
+			detailLines = append(detailLines, pair.label+": "+pair.value)
+		}
+	}
+
+	// Show parsed references.
+	if eRefs, ok := entryRefs[e.ID]; ok && len(eRefs) > 0 {
+		detailLines = append(detailLines, "", "References:")
+		for _, ref := range eRefs {
+			detailLines = append(detailLines, fmt.Sprintf("  @%s/%s", ref.TargetType, ref.TargetName))
+		}
+	}
+
+	return detailLines
 }
 
 // codexSecondary returns the type-specific secondary field for list display.

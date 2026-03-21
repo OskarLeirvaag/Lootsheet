@@ -39,6 +39,8 @@ func PostJournalEntry(ctx context.Context, databasePath string, campaignID strin
 // original entry by swapping debits and credits. The original entry's status
 // is set to 'reversed' and its reversed_at timestamp is recorded.
 // The original entry must exist and have status='posted'.
+//
+//nolint:revive // cognitive-complexity: transactional reversal logic reads best in one function
 func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID string, originalEntryID string, reversalDate string, description string) (ledger.PostedJournalEntry, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
 		// Verify the original entry exists and is posted.
@@ -57,33 +59,9 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID st
 			return ledger.PostedJournalEntry{}, ledger.ErrEntryNotReversible
 		}
 
-		// Load the original entry's lines.
-		type originalLine struct {
-			AccountID    string
-			Memo         string
-			DebitAmount  int64
-			CreditAmount int64
-		}
-
-		rows, err := db.QueryContext(ctx,
-			"SELECT account_id, memo, debit_amount, credit_amount FROM journal_lines WHERE journal_entry_id = ? ORDER BY line_number",
-			originalEntryID,
-		)
+		lines, err := loadOriginalJournalLines(ctx, db, originalEntryID)
 		if err != nil {
-			return ledger.PostedJournalEntry{}, fmt.Errorf("query original journal lines: %w", err)
-		}
-		defer rows.Close()
-
-		var lines []originalLine
-		for rows.Next() {
-			var l originalLine
-			if err := rows.Scan(&l.AccountID, &l.Memo, &l.DebitAmount, &l.CreditAmount); err != nil {
-				return ledger.PostedJournalEntry{}, fmt.Errorf("scan original journal line: %w", err)
-			}
-			lines = append(lines, l)
-		}
-		if err := rows.Err(); err != nil {
-			return ledger.PostedJournalEntry{}, fmt.Errorf("iterate original journal lines: %w", err)
+			return ledger.PostedJournalEntry{}, err
 		}
 
 		if len(lines) == 0 {
@@ -154,4 +132,36 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID st
 			CreditTotal: creditTotal,
 		}, nil
 	})
+}
+
+type originalLine struct {
+	AccountID    string
+	Memo         string
+	DebitAmount  int64
+	CreditAmount int64
+}
+
+func loadOriginalJournalLines(ctx context.Context, db *sql.DB, entryID string) ([]originalLine, error) {
+	rows, err := db.QueryContext(ctx,
+		"SELECT account_id, memo, debit_amount, credit_amount FROM journal_lines WHERE journal_entry_id = ? ORDER BY line_number",
+		entryID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query original journal lines: %w", err)
+	}
+	defer rows.Close()
+
+	var lines []originalLine
+	for rows.Next() {
+		var l originalLine
+		if err := rows.Scan(&l.AccountID, &l.Memo, &l.DebitAmount, &l.CreditAmount); err != nil {
+			return nil, fmt.Errorf("scan original journal line: %w", err)
+		}
+		lines = append(lines, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate original journal lines: %w", err)
+	}
+
+	return lines, nil
 }

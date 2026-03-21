@@ -31,7 +31,7 @@ type cancelInterrupt struct{}
 type disconnectInterrupt struct{}
 
 // Run opens the interactive boxed TUI shell and blocks until exit.
-func Run(ctx context.Context, options *Options) error {
+func Run(ctx context.Context, options *Options) error { //nolint:revive // TUI event loop — inherently complex
 	theme := resolveTheme(nil)
 	keymap := DefaultKeyMap()
 	if options != nil {
@@ -163,12 +163,13 @@ func Run(ctx context.Context, options *Options) error {
 				drawFrame(terminal, shell, &theme, keymap, true)
 			}
 		case *tcell.EventMouse:
-			var mouseResult handleResult
+			var mouseResult HandleResult
 			switch typed.Buttons() { //nolint:exhaustive // only wheel events are relevant
 			case tcell.WheelUp:
 				mouseResult = shell.HandleAction(ActionMoveUp)
 			case tcell.WheelDown:
 				mouseResult = shell.HandleAction(ActionMoveDown)
+			default:
 			}
 			if mouseResult.Redraw {
 				drawFrame(terminal, shell, &theme, keymap, false)
@@ -188,6 +189,7 @@ func Run(ctx context.Context, options *Options) error {
 			default:
 				drawFrame(terminal, shell, &theme, keymap, true)
 			}
+		default:
 		}
 	}
 }

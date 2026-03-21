@@ -38,7 +38,8 @@ type codexPickerState struct {
 	ErrorText string
 }
 
-type handleResult struct {
+// HandleResult is the outcome of a key event or action dispatch.
+type HandleResult struct {
 	Command *Command
 	Quit    bool
 	Redraw  bool

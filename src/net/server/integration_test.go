@@ -24,7 +24,7 @@ type testService struct {
 
 func (s *testService) DatabasePath() string { return s.dbPath }
 
-func (s *testService) BuildShellData(_ context.Context) (model.ShellData, error) {
+func (*testService) BuildShellData(_ context.Context) (model.ShellData, error) {
 	return model.ShellData{
 		CampaignName: "Test Campaign",
 		Dashboard: model.DashboardData{
@@ -33,7 +33,7 @@ func (s *testService) BuildShellData(_ context.Context) (model.ShellData, error)
 	}, nil
 }
 
-func (s *testService) HandleCommand(_ context.Context, cmd model.Command) (model.CommandResult, error) {
+func (*testService) HandleCommand(_ context.Context, cmd model.Command) (model.CommandResult, error) {
 	return model.CommandResult{
 		Status: model.StatusMessage{
 			Level: model.StatusSuccess,
@@ -47,20 +47,20 @@ func (s *testService) SetCampaign(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *testService) ListCampaigns(_ context.Context) ([]model.CampaignOption, error) {
+func (*testService) ListCampaigns(_ context.Context) ([]model.CampaignOption, error) {
 	return []model.CampaignOption{
 		{ID: "c1", Name: "Campaign One"},
 		{ID: "c2", Name: "Campaign Two"},
 	}, nil
 }
 
-func (s *testService) SearchCodexEntries(_ context.Context, query string) ([]model.ListItemData, error) {
+func (*testService) SearchCodexEntries(_ context.Context, query string) ([]model.ListItemData, error) {
 	return []model.ListItemData{
 		{Key: "codex-1", Row: "Result: " + query},
 	}, nil
 }
 
-func (s *testService) SearchNotes(_ context.Context, query string) ([]model.ListItemData, error) {
+func (*testService) SearchNotes(_ context.Context, query string) ([]model.ListItemData, error) {
 	return []model.ListItemData{
 		{Key: "note-1", Row: "Note: " + query},
 	}, nil
@@ -98,7 +98,7 @@ func startTestServer(t *testing.T, token string) (string, context.CancelFunc) {
 			return
 		}
 		boundAddr := ln.Addr().String()
-		ln.Close()
+		_ = ln.Close()
 		ready <- boundAddr
 		_ = server.ListenAndServe(ctx, server.Config{
 			Addr:      boundAddr,
@@ -128,7 +128,11 @@ func dialTLS(t *testing.T, addr string) *tls.Conn {
 		t.Fatalf("dial: %v", err)
 	}
 
-	return conn.(*tls.Conn)
+	tlsConn, ok := conn.(*tls.Conn)
+	if !ok {
+		t.Fatal("expected *tls.Conn from dialer")
+	}
+	return tlsConn
 }
 
 func authenticate(t *testing.T, conn *tls.Conn, token string) {

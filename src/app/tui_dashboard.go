@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -78,6 +79,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	case ledger.DatabaseStateForeign, ledger.DatabaseStateDamaged:
 		return unavailableShellData(&status, blankStatusDetail(status.Detail)), nil
 	case ledger.DatabaseStateCurrent:
+	default:
 	}
 
 	databaseName := loader.DatabaseName()
@@ -196,8 +198,8 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 
 		accountLedgers := make(map[string]journal.AccountLedgerReport, len(accounts))
 		for _, acct := range accounts {
-			if report, ledgerErr := loader.GetAccountLedger(ctx, acct.Code); ledgerErr == nil {
-				accountLedgers[acct.Code] = report
+			if rpt, ledgerErr := loader.GetAccountLedger(ctx, acct.Code); ledgerErr == nil {
+				accountLedgers[acct.Code] = rpt
 			}
 		}
 		data.Accounts.Items = buildAccountItems(accounts, accountLedgers)
@@ -238,6 +240,38 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		trialBalanceAvailable = true
 	}
 
+	panelErrors = loadShellQuestData(ctx, loader, &data, panelErrors)
+
+	lootRows, lootSummaryAvailable, panelErrors := loadShellLootData(ctx, loader, &data, panelErrors)
+	panelErrors = loadShellAssetData(ctx, loader, &data, panelErrors)
+
+	codexTypes, panelErrors := loadShellCodexData(ctx, loader, &data, panelErrors)
+
+	// Build Settings tabs from accounts, codex types, and campaigns.
+	buildShellSettingsData(&data, databaseName, accounts, codexTypes, campaignRecords, campaignListErr, loader)
+
+	panelErrors = loadShellNotesData(ctx, loader, &data, panelErrors)
+
+	// Load and append entity cross-reference links.
+	panelErrors = appendEntityReferenceLinks(ctx, loader, &data, panelErrors)
+
+	if trialBalanceAvailable {
+		data.Dashboard.HoardLines = summarizeShareableGold(trialBalance, lootRows, lootSummaryAvailable)
+	} else {
+		data.Dashboard.HoardLines = []string{
+			"To share now: unavailable",
+			"Ledger snapshot is unavailable.",
+		}
+	}
+
+	if len(panelErrors) > 0 {
+		data.Dashboard.HeaderLines[1] = "Some panels are unavailable: " + strings.Join(uniqueStrings(panelErrors), ", ") + "."
+	}
+
+	return data, nil
+}
+
+func loadShellQuestData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
 	promisedQuests, err := loader.GetPromisedQuests(ctx)
 	var receivables []report.QuestReceivableRow
 	questSummaryAvailable := false
@@ -275,6 +309,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 	}
 
+	return panelErrors
+}
+
+func loadShellLootData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) ([]report.LootSummaryRow, bool, []string) {
 	lootRows, err := loader.GetLootSummary(ctx, "loot")
 	lootSummaryAvailable := false
 	if err != nil {
@@ -302,6 +340,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 	}
 
+	return lootRows, lootSummaryAvailable, panelErrors
+}
+
+func loadShellAssetData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
 	assetRows, assetSummaryErr := loader.GetLootSummary(ctx, "asset")
 	assetSummaryAvailable := false
 	if assetSummaryErr != nil {
@@ -329,7 +371,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 	}
 
-	// Load codex entries, references, and types.
+	return panelErrors
+}
+
+func loadShellCodexData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) ([]codex.CodexType, []string) {
 	var allCodexRefs map[string][]refs.EntityReference
 
 	codexEntries, codexErr := loader.ListCodexEntries(ctx)
@@ -363,53 +408,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 	}
 
-	// Build Settings tabs from accounts, codex types, and campaigns.
-	{
-		data.SettingsAccounts = render.ListScreenData{
-			HeaderLines: []string{
-				fmt.Sprintf("Accounts from %s.", databaseName),
-				"Chart of accounts. `a` adds, `u` renames, `d` deletes, `t` toggles active/inactive.",
-			},
-			SummaryLines:  summarizeSettingsAccounts(accounts),
-			ListHeaderRow: fmt.Sprintf("%-4s %-9s %-8s %s", "CODE", "TYPE", "STATUS", "NAME"),
-			Items:         buildSettingsAccountItems(accounts),
-			EmptyLines: []string{
-				"No accounts to display.",
-				"Create an account with `a`.",
-			},
-		}
-		data.SettingsCodexTypes = render.ListScreenData{
-			HeaderLines: []string{
-				fmt.Sprintf("Codex types from %s.", databaseName),
-				"Entry categories. `a` adds, `u` renames, `d` deletes.",
-			},
-			SummaryLines:  summarizeSettingsCodexTypes(codexTypes),
-			ListHeaderRow: fmt.Sprintf("%-12s %-12s %s", "ID", "FORM", "NAME"),
-			Items:         buildSettingsCodexTypeItems(codexTypes),
-			EmptyLines: []string{
-				"No codex types to display.",
-				"Create a codex type with `a`.",
-			},
-		}
-		if campaignListErr == nil {
-			activeCampaignID := loader.CampaignID()
-			data.SettingsCampaigns = render.ListScreenData{
-				HeaderLines: []string{
-					fmt.Sprintf("Campaigns from %s.", databaseName),
-					"Manage campaigns. `a` adds, `u` renames, `d` deletes. Enter switches.",
-				},
-				SummaryLines:  summarizeSettingsCampaigns(campaignRecords, activeCampaignID),
-				ListHeaderRow: fmt.Sprintf("%-40s %s", "NAME", "STATUS"),
-				Items:         buildSettingsCampaignItems(campaignRecords, activeCampaignID),
-				EmptyLines: []string{
-					"No campaigns to display.",
-					"Create a campaign with `a`.",
-				},
-			}
-		}
-	}
+	return codexTypes, panelErrors
+}
 
-	// Load notes and references.
+func loadShellNotesData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
 	var allNotesRefs map[string][]refs.EntityReference
 
 	noteRecords, notesErr := loader.ListNotes(ctx)
@@ -430,63 +432,89 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		data.Notes.Items = buildNotesItems(noteRecords, allNotesRefs)
 	}
 
-	// Load unified entity references indexed by target for cross-reference display.
+	return panelErrors
+}
+
+func buildShellSettingsData(
+	data *render.ShellData,
+	databaseName string,
+	accounts []ledger.AccountRecord,
+	codexTypes []codex.CodexType,
+	campaignRecords []campaign.Record,
+	campaignListErr error,
+	loader TUIDataLoader,
+) {
+	data.SettingsAccounts = render.ListScreenData{
+		HeaderLines: []string{
+			fmt.Sprintf("Accounts from %s.", databaseName),
+			"Chart of accounts. `a` adds, `u` renames, `d` deletes, `t` toggles active/inactive.",
+		},
+		SummaryLines:  summarizeSettingsAccounts(accounts),
+		ListHeaderRow: fmt.Sprintf("%-4s %-9s %-8s %s", "CODE", "TYPE", "STATUS", "NAME"),
+		Items:         buildSettingsAccountItems(accounts),
+		EmptyLines: []string{
+			"No accounts to display.",
+			"Create an account with `a`.",
+		},
+	}
+	data.SettingsCodexTypes = render.ListScreenData{
+		HeaderLines: []string{
+			fmt.Sprintf("Codex types from %s.", databaseName),
+			"Entry categories. `a` adds, `u` renames, `d` deletes.",
+		},
+		SummaryLines:  summarizeSettingsCodexTypes(codexTypes),
+		ListHeaderRow: fmt.Sprintf("%-12s %-12s %s", "ID", "FORM", "NAME"),
+		Items:         buildSettingsCodexTypeItems(codexTypes),
+		EmptyLines: []string{
+			"No codex types to display.",
+			"Create a codex type with `a`.",
+		},
+	}
+	if campaignListErr == nil {
+		activeCampaignID := loader.CampaignID()
+		data.SettingsCampaigns = render.ListScreenData{
+			HeaderLines: []string{
+				fmt.Sprintf("Campaigns from %s.", databaseName),
+				"Manage campaigns. `a` adds, `u` renames, `d` deletes. Enter switches.",
+			},
+			SummaryLines:  summarizeSettingsCampaigns(campaignRecords, activeCampaignID),
+			ListHeaderRow: fmt.Sprintf("%-40s %s", "NAME", "STATUS"),
+			Items:         buildSettingsCampaignItems(campaignRecords, activeCampaignID),
+			EmptyLines: []string{
+				"No campaigns to display.",
+				"Create a campaign with `a`.",
+			},
+		}
+	}
+}
+
+func appendEntityReferenceLinks(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
 	allRefsByTarget, entityRefsErr := loader.ListAllEntityReferences(ctx)
 	if entityRefsErr != nil {
 		panelErrors = append(panelErrors, "entity-refs")
 	}
 
-	// Append "Linked from:" lines to all entity detail views.
 	if allRefsByTarget != nil {
-		for i, item := range data.Quests.Items {
-			linkLines := buildLinkedFromLines(allRefsByTarget, "quest", item.DetailTitle)
-			if len(linkLines) > 0 {
-				data.Quests.Items[i].DetailLines = append(data.Quests.Items[i].DetailLines, linkLines...)
-			}
-		}
-		for i, item := range data.Loot.Items {
-			linkLines := buildLinkedFromLines(allRefsByTarget, "loot", item.DetailTitle)
-			if len(linkLines) > 0 {
-				data.Loot.Items[i].DetailLines = append(data.Loot.Items[i].DetailLines, linkLines...)
-			}
-		}
-		for i, item := range data.Assets.Items {
-			linkLines := buildLinkedFromLines(allRefsByTarget, "asset", item.DetailTitle)
-			if len(linkLines) > 0 {
-				data.Assets.Items[i].DetailLines = append(data.Assets.Items[i].DetailLines, linkLines...)
-			}
-		}
-		for i, item := range data.Codex.Items {
-			linkLines := buildLinkedFromLines(allRefsByTarget, "person", item.DetailTitle)
-			if len(linkLines) > 0 {
-				data.Codex.Items[i].DetailLines = append(data.Codex.Items[i].DetailLines, linkLines...)
-			}
-		}
-		for i, item := range data.Notes.Items {
-			linkLines := buildLinkedFromLines(allRefsByTarget, "note", item.DetailTitle)
-			if len(linkLines) > 0 {
-				data.Notes.Items[i].DetailLines = append(data.Notes.Items[i].DetailLines, linkLines...)
-			}
-		}
+		appendItemLinks(data.Quests.Items, allRefsByTarget, "quest")
+		appendItemLinks(data.Loot.Items, allRefsByTarget, "loot")
+		appendItemLinks(data.Assets.Items, allRefsByTarget, "asset")
+		appendItemLinks(data.Codex.Items, allRefsByTarget, "person")
+		appendItemLinks(data.Notes.Items, allRefsByTarget, "note")
 	}
 
-	if trialBalanceAvailable {
-		data.Dashboard.HoardLines = summarizeShareableGold(trialBalance, lootRows, lootSummaryAvailable)
-	} else {
-		data.Dashboard.HoardLines = []string{
-			"To share now: unavailable",
-			"Ledger snapshot is unavailable.",
-		}
-	}
-
-	if len(panelErrors) > 0 {
-		data.Dashboard.HeaderLines[1] = "Some panels are unavailable: " + strings.Join(uniqueStrings(panelErrors), ", ") + "."
-	}
-
-	return data, nil
+	return panelErrors
 }
 
-func handleTUICommand(ctx context.Context, command render.Command, databasePath string, loader TUIDataLoader) (render.CommandResult, error) {
+func appendItemLinks(items []render.ListItemData, allRefsByTarget map[string][]refs.EntityReference, targetType string) {
+	for i, item := range items {
+		linkLines := buildLinkedFromLines(allRefsByTarget, targetType, item.DetailTitle)
+		if len(linkLines) > 0 {
+			items[i].DetailLines = append(items[i].DetailLines, linkLines...)
+		}
+	}
+}
+
+func handleTUICommand(ctx context.Context, command render.Command, databasePath string, loader TUIDataLoader) (render.CommandResult, error) { //nolint:revive // cyclomatic: command dispatch switch
 	var message render.StatusMessage
 	var navigateTo render.Section
 	var selectItemKey string
@@ -494,59 +522,15 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	campaignID := loader.CampaignID()
 
 	switch command.ID {
-	case tuiCommandAccountCreate:
-		accountType := ledger.AccountType(strings.TrimSpace(command.Fields["account_type"]))
-		result, err := account.CreateAccount(
-			ctx,
-			databasePath,
-			campaignID,
-			strings.TrimSpace(command.Fields["code"]),
-			strings.TrimSpace(command.Fields["name"]),
-			accountType,
-		)
+	case tuiCommandAccountCreate, tuiCommandAccountRename, tuiCommandAccountActivate,
+		tuiCommandAccountDeactivate, tuiCommandAccountDelete:
+		result, err := handleAccountCommand(ctx, command, databasePath, campaignID)
 		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Created account %s.", result.Code),
-		}
-		navigateTo = render.SectionSettings
-		selectItemKey = result.Code
-	case tuiCommandAccountRename:
-		newName := strings.TrimSpace(command.Fields["name"])
-		if err := account.RenameAccount(ctx, databasePath, campaignID, command.ItemKey, newName); err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Renamed account %s to %q.", command.ItemKey, newName),
-		}
-		selectItemKey = command.ItemKey
-	case tuiCommandAccountActivate:
-		if err := account.ActivateAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
 			return render.CommandResult{}, err
 		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Account %s activated.", command.ItemKey),
-		}
-	case tuiCommandAccountDeactivate:
-		if err := account.DeactivateAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
-			return render.CommandResult{}, err
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Account %s deactivated.", command.ItemKey),
-		}
-	case tuiCommandAccountDelete:
-		if err := account.DeleteAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
-			return render.CommandResult{}, err
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Removed account %s.", command.ItemKey),
-		}
+		message = result.message
+		navigateTo = result.navigateTo
+		selectItemKey = result.selectItemKey
 	case tuiCommandJournalReverse:
 		entries, err := loader.ListBrowseJournalEntries(ctx)
 		if err != nil {
@@ -568,7 +552,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Text:  fmt.Sprintf("Entry #%d reversed as entry #%d.", entry.EntryNumber, result.EntryNumber),
 		}
 	case tuiCommandCreateExpense:
-		result, err := handleEntryCommand(ctx, command, databasePath, today, "expense",
+		result, err := handleEntryCommand(command, today, "expense",
 			func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error) {
 				return journal.PostExpenseEntry(ctx, databasePath, campaignID, &journal.ExpenseEntryInput{
 					Date:               date,
@@ -587,7 +571,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
 	case tuiCommandCreateIncome:
-		result, err := handleEntryCommand(ctx, command, databasePath, today, "income",
+		result, err := handleEntryCommand(command, today, "income",
 			func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error) {
 				return journal.PostIncomeEntry(ctx, databasePath, campaignID, &journal.IncomeEntryInput{
 					Date:               date,
@@ -693,196 +677,24 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Wrote off %s for quest %q as entry #%d.", currency.FormatAmount(questRow.Outstanding), questRow.Record.Title, result.EntryNumber),
 		}
-	case tuiCommandLootCreate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "loot", "loot item", render.SectionLoot, true)
+	case tuiCommandLootCreate, tuiCommandLootUpdate, tuiCommandLootAppraise,
+		tuiCommandLootRecognize, tuiCommandLootSell, tuiCommandLootTransferToAsset:
+		result, err := handleLootCommand(ctx, command, databasePath, campaignID, today, loader)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
 		message = result.message
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
-	case tuiCommandLootUpdate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "loot", "loot item", render.SectionLoot, false)
+	case tuiCommandAssetCreate, tuiCommandAssetUpdate, tuiCommandAssetAppraise,
+		tuiCommandAssetRecognize, tuiCommandAssetTransferToLoot, tuiCommandAssetTemplateSave:
+		result, err := handleAssetCommand(ctx, command, databasePath, campaignID, today, loader)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
 		message = result.message
 		navigateTo = result.navigateTo
 		selectItemKey = result.selectItemKey
-	case tuiCommandLootAppraise:
-		amountText := strings.TrimSpace(command.Fields["amount"])
-		if amountText == "" {
-			return render.CommandResult{}, render.InputError{Message: "Appraised value is required."}
-		}
-		amount, err := currency.ParseAmount(amountText)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
-		}
-		if amount < 0 {
-			return render.CommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
-		}
-		if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, "", today, ""); err != nil {
-			return render.CommandResult{}, err
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Appraised loot item at %s.", currency.FormatAmount(amount)),
-		}
-	case tuiCommandLootRecognize:
-		items, err := loader.ListBrowseLootItems(ctx, "loot")
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-
-		item, ok := findBrowseLootItem(items, command.ItemKey)
-		if !ok {
-			return render.CommandResult{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
-		}
-		if !lootRecognizable(&item) {
-			return render.CommandResult{}, fmt.Errorf("loot item %q cannot be recognized right now", command.ItemKey)
-		}
-
-		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, item.LatestAppraisal.ID, today, "")
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Recognized loot item %q as entry #%d.", item.Name, result.EntryNumber),
-		}
-	case tuiCommandLootSell:
-		items, err := loader.ListBrowseLootItems(ctx, "loot")
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-
-		item, ok := findBrowseLootItem(items, command.ItemKey)
-		if !ok {
-			return render.CommandResult{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
-		}
-		if !lootSellable(&item) {
-			return render.CommandResult{}, fmt.Errorf("loot item %q cannot be sold right now", command.ItemKey)
-		}
-
-		amountText := strings.TrimSpace(command.Fields["amount"])
-		if amountText == "" {
-			return render.CommandResult{}, render.InputError{Message: "Sale amount is required."}
-		}
-
-		amount, err := currency.ParseAmount(amountText)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
-		}
-		if amount <= 0 {
-			return render.CommandResult{}, render.InputError{Message: "Sale amount must be positive."}
-		}
-
-		result, err := loot.SellLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, today, "")
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Sold loot item %q as entry #%d.", item.Name, result.EntryNumber),
-		}
-	case tuiCommandLootTransferToAsset:
-		if err := loot.TransferItemType(ctx, databasePath, campaignID, command.ItemKey, "asset"); err != nil {
-			return render.CommandResult{}, err
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  "Transferred item to asset register.",
-		}
-		navigateTo = render.SectionAssets
-		selectItemKey = command.ItemKey
-	case tuiCommandAssetCreate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "asset", "asset", render.SectionAssets, true)
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-		message = result.message
-		navigateTo = result.navigateTo
-		selectItemKey = result.selectItemKey
-	case tuiCommandAssetUpdate:
-		result, err := handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "asset", "asset", render.SectionAssets, false)
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-		message = result.message
-		navigateTo = result.navigateTo
-		selectItemKey = result.selectItemKey
-	case tuiCommandAssetAppraise:
-		amountText := strings.TrimSpace(command.Fields["amount"])
-		if amountText == "" {
-			return render.CommandResult{}, render.InputError{Message: "Appraised value is required."}
-		}
-		amount, err := currency.ParseAmount(amountText)
-		if err != nil {
-			return render.CommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
-		}
-		if amount < 0 {
-			return render.CommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
-		}
-		if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, "", today, ""); err != nil {
-			return render.CommandResult{}, err
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Appraised asset at %s.", currency.FormatAmount(amount)),
-		}
-	case tuiCommandAssetRecognize:
-		items, err := loader.ListBrowseLootItems(ctx, "asset")
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-
-		item, ok := findBrowseLootItem(items, command.ItemKey)
-		if !ok {
-			return render.CommandResult{}, fmt.Errorf("asset %q does not exist", command.ItemKey)
-		}
-		if !lootRecognizable(&item) {
-			return render.CommandResult{}, fmt.Errorf("asset %q cannot be recognized right now", command.ItemKey)
-		}
-
-		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, item.LatestAppraisal.ID, today, "")
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  fmt.Sprintf("Recognized asset %q as entry #%d.", item.Name, result.EntryNumber),
-		}
-	case tuiCommandAssetTransferToLoot:
-		if err := loot.TransferItemType(ctx, databasePath, campaignID, command.ItemKey, "loot"); err != nil {
-			return render.CommandResult{}, err
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  "Transferred item to loot register.",
-		}
-		navigateTo = render.SectionLoot
-		selectItemKey = command.ItemKey
-	case tuiCommandAssetTemplateSave:
-		lines := make([]loot.AssetTemplateLineRecord, 0, len(command.Lines))
-		for _, cl := range command.Lines {
-			lines = append(lines, loot.AssetTemplateLineRecord{
-				Side:        strings.TrimSpace(cl.Side),
-				AccountCode: strings.TrimSpace(cl.AccountCode),
-				Amount:      strings.TrimSpace(cl.Amount),
-			})
-		}
-		if err := loot.SaveAssetTemplate(ctx, databasePath, campaignID, command.ItemKey, lines); err != nil {
-			return render.CommandResult{}, render.InputError{Message: err.Error()}
-		}
-		message = render.StatusMessage{
-			Level: render.StatusSuccess,
-			Text:  "Saved entry template.",
-		}
-		navigateTo = render.SectionAssets
-		selectItemKey = command.ItemKey
 	case tuiCommandCodexCreate:
 		result, err := handleCodexCreateOrUpdate(ctx, command, databasePath, campaignID, true)
 		if err != nil {
@@ -966,92 +778,8 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			Level: render.StatusSuccess,
 			Text:  fmt.Sprintf("Deleted codex type %q.", typeID),
 		}
-	case tuiCommandCampaignCreate:
-		name := command.Fields["name"]
-		record, err := campaign.Create(ctx, databasePath, name, loader.SeedAccounts())
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-		if err := campaign.SetActive(ctx, databasePath, record.ID); err != nil {
-			return render.CommandResult{}, err
-		}
-		loader.SetCampaign(record.ID, record.Name)
-		data, loadErr := buildTUIShellData(ctx, loader)
-		if loadErr != nil {
-			return render.CommandResult{}, loadErr
-		}
-		return render.CommandResult{
-			Data:   data,
-			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Campaign %q created.", record.Name)},
-		}, nil
-
-	case tuiCommandCampaignRename:
-		name := command.Fields["amount"]
-		if name == "" {
-			name = command.Fields["name"]
-		}
-		campaignID := command.ItemKey
-		if campaignID == "" {
-			campaignID = loader.CampaignID()
-		}
-		record, err := campaign.Rename(ctx, databasePath, campaignID, name)
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-		if record.ID == loader.CampaignID() {
-			loader.SetCampaign(record.ID, record.Name)
-		}
-		data, loadErr := buildTUIShellData(ctx, loader)
-		if loadErr != nil {
-			return render.CommandResult{}, loadErr
-		}
-		return render.CommandResult{
-			Data:   data,
-			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Campaign renamed to %q.", record.Name)},
-		}, nil
-
-	case tuiCommandCampaignSwitch:
-		campaignSwitchID := command.ItemKey
-		if err := campaign.SetActive(ctx, databasePath, campaignSwitchID); err != nil {
-			return render.CommandResult{}, err
-		}
-		campaigns, err := campaign.List(ctx, databasePath)
-		if err != nil {
-			return render.CommandResult{}, err
-		}
-		var selectedName string
-		for _, c := range campaigns {
-			if c.ID == campaignSwitchID {
-				selectedName = c.Name
-				break
-			}
-		}
-		loader.SetCampaign(campaignSwitchID, selectedName)
-		data, loadErr := buildTUIShellData(ctx, loader)
-		if loadErr != nil {
-			return render.CommandResult{}, loadErr
-		}
-		return render.CommandResult{
-			Data:   data,
-			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Switched to campaign %q.", selectedName)},
-		}, nil
-
-	case tuiCommandCampaignDelete:
-		deleteID := command.ItemKey
-		if deleteID == loader.CampaignID() {
-			return render.CommandResult{}, fmt.Errorf("cannot delete the active campaign")
-		}
-		if err := campaign.Delete(ctx, databasePath, deleteID); err != nil {
-			return render.CommandResult{}, err
-		}
-		data, loadErr := buildTUIShellData(ctx, loader)
-		if loadErr != nil {
-			return render.CommandResult{}, loadErr
-		}
-		return render.CommandResult{
-			Data:   data,
-			Status: render.StatusMessage{Level: render.StatusSuccess, Text: "Campaign deleted."},
-		}, nil
+	case tuiCommandCampaignCreate, tuiCommandCampaignRename, tuiCommandCampaignSwitch, tuiCommandCampaignDelete:
+		return handleCampaignCommand(ctx, command, databasePath, loader)
 
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
@@ -1158,10 +886,10 @@ func buildTUIJournalPostInput(command render.Command, today string) (ledger.Jour
 	}
 	description := strings.TrimSpace(command.Fields["description"])
 	if description == "" {
-		return ledger.JournalPostInput{}, fmt.Errorf("description is required")
+		return ledger.JournalPostInput{}, errors.New("description is required")
 	}
 	if len(command.Lines) < 2 {
-		return ledger.JournalPostInput{}, fmt.Errorf("custom entry must contain at least 2 lines")
+		return ledger.JournalPostInput{}, errors.New("custom entry must contain at least 2 lines")
 	}
 
 	lines := make([]ledger.JournalLineInput, 0, len(command.Lines))
@@ -1280,9 +1008,7 @@ type tuiCommandResult struct {
 
 // handleEntryCommand extracts the shared expense/income TUI command logic.
 func handleEntryCommand(
-	ctx context.Context,
 	command render.Command,
-	databasePath string,
 	today string,
 	label string,
 	poster func(date, desc, acct, offset string, amt int64, memo string) (ledger.PostedJournalEntry, error),
@@ -1318,6 +1044,316 @@ func handleEntryCommand(
 	}, nil
 }
 
+func handleAccountCommand(ctx context.Context, command render.Command, databasePath, campaignID string) (tuiCommandResult, error) {
+	switch command.ID {
+	case tuiCommandAccountCreate:
+		accountType := ledger.AccountType(strings.TrimSpace(command.Fields["account_type"]))
+		result, err := account.CreateAccount(
+			ctx,
+			databasePath,
+			campaignID,
+			strings.TrimSpace(command.Fields["code"]),
+			strings.TrimSpace(command.Fields["name"]),
+			accountType,
+		)
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		return tuiCommandResult{
+			message:       render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Created account %s.", result.Code)},
+			navigateTo:    render.SectionSettings,
+			selectItemKey: result.Code,
+		}, nil
+	case tuiCommandAccountRename:
+		newName := strings.TrimSpace(command.Fields["name"])
+		if err := account.RenameAccount(ctx, databasePath, campaignID, command.ItemKey, newName); err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		return tuiCommandResult{
+			message:       render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Renamed account %s to %q.", command.ItemKey, newName)},
+			selectItemKey: command.ItemKey,
+		}, nil
+	case tuiCommandAccountActivate:
+		if err := account.ActivateAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Account %s activated.", command.ItemKey)},
+		}, nil
+	case tuiCommandAccountDeactivate:
+		if err := account.DeactivateAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Account %s deactivated.", command.ItemKey)},
+		}, nil
+	case tuiCommandAccountDelete:
+		if err := account.DeleteAccount(ctx, databasePath, campaignID, command.ItemKey); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Removed account %s.", command.ItemKey)},
+		}, nil
+	default:
+		return tuiCommandResult{}, fmt.Errorf("unsupported account command %q", command.ID)
+	}
+}
+
+func handleLootCommand(ctx context.Context, command render.Command, databasePath, campaignID, today string, loader TUIDataLoader) (tuiCommandResult, error) { //nolint:revive // cyclomatic: loot command dispatch switch
+	switch command.ID {
+	case tuiCommandLootCreate:
+		return handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "loot", "loot item", render.SectionLoot, true)
+	case tuiCommandLootUpdate:
+		return handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "loot", "loot item", render.SectionLoot, false)
+	case tuiCommandLootAppraise:
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return tuiCommandResult{}, render.InputError{Message: "Appraised value is required."}
+		}
+		amount, err := currency.ParseAmount(amountText)
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+		if amount < 0 {
+			return tuiCommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
+		}
+		if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, "", today, ""); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Appraised loot item at %s.", currency.FormatAmount(amount))},
+		}, nil
+	case tuiCommandLootRecognize:
+		items, err := loader.ListBrowseLootItems(ctx, "loot")
+		if err != nil {
+			return tuiCommandResult{}, err
+		}
+		item, ok := findBrowseLootItem(items, command.ItemKey)
+		if !ok {
+			return tuiCommandResult{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
+		}
+		if !lootRecognizable(&item) {
+			return tuiCommandResult{}, fmt.Errorf("loot item %q cannot be recognized right now", command.ItemKey)
+		}
+		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, item.LatestAppraisal.ID, today, "")
+		if err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Recognized loot item %q as entry #%d.", item.Name, result.EntryNumber)},
+		}, nil
+	case tuiCommandLootSell:
+		items, err := loader.ListBrowseLootItems(ctx, "loot")
+		if err != nil {
+			return tuiCommandResult{}, err
+		}
+		item, ok := findBrowseLootItem(items, command.ItemKey)
+		if !ok {
+			return tuiCommandResult{}, fmt.Errorf("loot item %q does not exist", command.ItemKey)
+		}
+		if !lootSellable(&item) {
+			return tuiCommandResult{}, fmt.Errorf("loot item %q cannot be sold right now", command.ItemKey)
+		}
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return tuiCommandResult{}, render.InputError{Message: "Sale amount is required."}
+		}
+		amount, err := currency.ParseAmount(amountText)
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+		if amount <= 0 {
+			return tuiCommandResult{}, render.InputError{Message: "Sale amount must be positive."}
+		}
+		result, err := loot.SellLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, today, "")
+		if err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Sold loot item %q as entry #%d.", item.Name, result.EntryNumber)},
+		}, nil
+	case tuiCommandLootTransferToAsset:
+		if err := loot.TransferItemType(ctx, databasePath, campaignID, command.ItemKey, "asset"); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message:       render.StatusMessage{Level: render.StatusSuccess, Text: "Transferred item to asset register."},
+			navigateTo:    render.SectionAssets,
+			selectItemKey: command.ItemKey,
+		}, nil
+	default:
+		return tuiCommandResult{}, fmt.Errorf("unsupported loot command %q", command.ID)
+	}
+}
+
+func handleAssetCommand(ctx context.Context, command render.Command, databasePath, campaignID, today string, loader TUIDataLoader) (tuiCommandResult, error) {
+	switch command.ID {
+	case tuiCommandAssetCreate:
+		return handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "asset", "asset", render.SectionAssets, true)
+	case tuiCommandAssetUpdate:
+		return handleItemCreateOrUpdate(ctx, command, databasePath, campaignID, "asset", "asset", render.SectionAssets, false)
+	case tuiCommandAssetAppraise:
+		amountText := strings.TrimSpace(command.Fields["amount"])
+		if amountText == "" {
+			return tuiCommandResult{}, render.InputError{Message: "Appraised value is required."}
+		}
+		amount, err := currency.ParseAmount(amountText)
+		if err != nil {
+			return tuiCommandResult{}, render.InputError{Message: fmt.Sprintf("Invalid amount %q.", amountText)}
+		}
+		if amount < 0 {
+			return tuiCommandResult{}, render.InputError{Message: "Appraised value must be non-negative."}
+		}
+		if _, err := loot.AppraiseLootItem(ctx, databasePath, campaignID, command.ItemKey, amount, "", today, ""); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Appraised asset at %s.", currency.FormatAmount(amount))},
+		}, nil
+	case tuiCommandAssetRecognize:
+		items, err := loader.ListBrowseLootItems(ctx, "asset")
+		if err != nil {
+			return tuiCommandResult{}, err
+		}
+		item, ok := findBrowseLootItem(items, command.ItemKey)
+		if !ok {
+			return tuiCommandResult{}, fmt.Errorf("asset %q does not exist", command.ItemKey)
+		}
+		if !lootRecognizable(&item) {
+			return tuiCommandResult{}, fmt.Errorf("asset %q cannot be recognized right now", command.ItemKey)
+		}
+		result, err := loot.RecognizeLootAppraisal(ctx, databasePath, campaignID, item.LatestAppraisal.ID, today, "")
+		if err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Recognized asset %q as entry #%d.", item.Name, result.EntryNumber)},
+		}, nil
+	case tuiCommandAssetTransferToLoot:
+		if err := loot.TransferItemType(ctx, databasePath, campaignID, command.ItemKey, "loot"); err != nil {
+			return tuiCommandResult{}, err
+		}
+		return tuiCommandResult{
+			message:       render.StatusMessage{Level: render.StatusSuccess, Text: "Transferred item to loot register."},
+			navigateTo:    render.SectionLoot,
+			selectItemKey: command.ItemKey,
+		}, nil
+	case tuiCommandAssetTemplateSave:
+		lines := make([]loot.AssetTemplateLineRecord, 0, len(command.Lines))
+		for _, cl := range command.Lines {
+			lines = append(lines, loot.AssetTemplateLineRecord{
+				Side:        strings.TrimSpace(cl.Side),
+				AccountCode: strings.TrimSpace(cl.AccountCode),
+				Amount:      strings.TrimSpace(cl.Amount),
+			})
+		}
+		if err := loot.SaveAssetTemplate(ctx, databasePath, campaignID, command.ItemKey, lines); err != nil {
+			return tuiCommandResult{}, render.InputError{Message: err.Error()}
+		}
+		return tuiCommandResult{
+			message:       render.StatusMessage{Level: render.StatusSuccess, Text: "Saved entry template."},
+			navigateTo:    render.SectionAssets,
+			selectItemKey: command.ItemKey,
+		}, nil
+	default:
+		return tuiCommandResult{}, fmt.Errorf("unsupported asset command %q", command.ID)
+	}
+}
+
+func handleCampaignCommand(ctx context.Context, command render.Command, databasePath string, loader TUIDataLoader) (render.CommandResult, error) { //nolint:revive // cognitive-complexity: campaign command dispatch
+	switch command.ID {
+	case tuiCommandCampaignCreate:
+		name := command.Fields["name"]
+		record, err := campaign.Create(ctx, databasePath, name, loader.SeedAccounts())
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		if err := campaign.SetActive(ctx, databasePath, record.ID); err != nil {
+			return render.CommandResult{}, err
+		}
+		loader.SetCampaign(record.ID, record.Name)
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Campaign %q created.", record.Name)},
+		}, nil
+
+	case tuiCommandCampaignRename:
+		name := command.Fields["amount"]
+		if name == "" {
+			name = command.Fields["name"]
+		}
+		renameCampaignID := command.ItemKey
+		if renameCampaignID == "" {
+			renameCampaignID = loader.CampaignID()
+		}
+		record, err := campaign.Rename(ctx, databasePath, renameCampaignID, name)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		if record.ID == loader.CampaignID() {
+			loader.SetCampaign(record.ID, record.Name)
+		}
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Campaign renamed to %q.", record.Name)},
+		}, nil
+
+	case tuiCommandCampaignSwitch:
+		campaignSwitchID := command.ItemKey
+		if err := campaign.SetActive(ctx, databasePath, campaignSwitchID); err != nil {
+			return render.CommandResult{}, err
+		}
+		campaigns, err := campaign.List(ctx, databasePath)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		var selectedName string
+		for _, c := range campaigns {
+			if c.ID == campaignSwitchID {
+				selectedName = c.Name
+				break
+			}
+		}
+		loader.SetCampaign(campaignSwitchID, selectedName)
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: fmt.Sprintf("Switched to campaign %q.", selectedName)},
+		}, nil
+
+	case tuiCommandCampaignDelete:
+		deleteID := command.ItemKey
+		if deleteID == loader.CampaignID() {
+			return render.CommandResult{}, errors.New("cannot delete the active campaign")
+		}
+		if err := campaign.Delete(ctx, databasePath, deleteID); err != nil {
+			return render.CommandResult{}, err
+		}
+		data, loadErr := buildTUIShellData(ctx, loader)
+		if loadErr != nil {
+			return render.CommandResult{}, loadErr
+		}
+		return render.CommandResult{
+			Data:   data,
+			Status: render.StatusMessage{Level: render.StatusSuccess, Text: "Campaign deleted."},
+		}, nil
+
+	default:
+		return render.CommandResult{}, fmt.Errorf("unsupported campaign command %q", command.ID)
+	}
+}
+
 // handleQuestCreateOrUpdate extracts the shared quest create and update TUI
 // command logic. When create is true it calls CreateQuest; otherwise it calls
 // UpdateQuest.
@@ -1349,7 +1385,7 @@ func handleQuestCreateOrUpdate(
 	patron := strings.TrimSpace(command.Fields["patron"])
 	description := strings.TrimSpace(command.Fields["description"])
 	bonus := strings.TrimSpace(command.Fields["bonus"])
-	notes := strings.TrimSpace(command.Fields["notes"])
+	questNotes := strings.TrimSpace(command.Fields["notes"])
 	acceptedOn := strings.TrimSpace(command.Fields["accepted_on"])
 
 	var resultTitle, resultID string
@@ -1361,7 +1397,7 @@ func handleQuestCreateOrUpdate(
 			PromisedBaseReward: reward,
 			PartialAdvance:     advance,
 			BonusConditions:    bonus,
-			Notes:              notes,
+			Notes:              questNotes,
 			Status:             strings.TrimSpace(command.Fields["status"]),
 			AcceptedOn:         acceptedOn,
 		})
@@ -1378,7 +1414,7 @@ func handleQuestCreateOrUpdate(
 			PromisedBaseReward: reward,
 			PartialAdvance:     advance,
 			BonusConditions:    bonus,
-			Notes:              notes,
+			Notes:              questNotes,
 			AcceptedOn:         acceptedOn,
 		})
 		if updateErr != nil {
@@ -1507,7 +1543,7 @@ func handleCodexCreateOrUpdate(
 	race := strings.TrimSpace(command.Fields["race"])
 	background := strings.TrimSpace(command.Fields["background"])
 	description := strings.TrimSpace(command.Fields["description"])
-	notes := strings.TrimSpace(command.Fields["notes"])
+	codexNotes := strings.TrimSpace(command.Fields["notes"])
 
 	var resultName, resultID string
 	if create {
@@ -1523,7 +1559,7 @@ func handleCodexCreateOrUpdate(
 			Race:        race,
 			Background:  background,
 			Description: description,
-			Notes:       notes,
+			Notes:       codexNotes,
 		})
 		if err != nil {
 			return tuiCommandResult{}, render.InputError{Message: err.Error()}
@@ -1543,7 +1579,7 @@ func handleCodexCreateOrUpdate(
 			Race:        race,
 			Background:  background,
 			Description: description,
-			Notes:       notes,
+			Notes:       codexNotes,
 		})
 		if err != nil {
 			return tuiCommandResult{}, render.InputError{Message: err.Error()}

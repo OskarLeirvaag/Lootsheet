@@ -3,6 +3,7 @@ package journal
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -40,7 +41,7 @@ type guidedAccountRecord struct {
 // two-line journal entry.
 func PostExpenseEntry(ctx context.Context, databasePath string, campaignID string, input *ExpenseEntryInput) (ledger.PostedJournalEntry, error) {
 	if input == nil {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("expense entry input is required")
+		return ledger.PostedJournalEntry{}, errors.New("expense entry input is required")
 	}
 	sanitizeExpenseEntryInput(input)
 	if err := validateGuidedAmount(input.Amount); err != nil {
@@ -78,7 +79,7 @@ func PostExpenseEntry(ctx context.Context, databasePath string, campaignID strin
 // two-line journal entry.
 func PostIncomeEntry(ctx context.Context, databasePath string, campaignID string, input *IncomeEntryInput) (ledger.PostedJournalEntry, error) {
 	if input == nil {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("income entry input is required")
+		return ledger.PostedJournalEntry{}, errors.New("income entry input is required")
 	}
 	sanitizeIncomeEntryInput(input)
 	if err := validateGuidedAmount(input.Amount); err != nil {
@@ -130,7 +131,7 @@ func sanitizeIncomeEntryInput(input *IncomeEntryInput) {
 
 func validateGuidedAmount(amount int64) error {
 	if amount <= 0 {
-		return fmt.Errorf("journal entry amount must be positive")
+		return errors.New("journal entry amount must be positive")
 	}
 	return nil
 }
@@ -141,7 +142,7 @@ func loadGuidedAccountsByCode(ctx context.Context, db *sql.DB, campaignID string
 	for _, code := range codes {
 		code = strings.TrimSpace(code)
 		if code == "" {
-			return nil, fmt.Errorf("account code is required")
+			return nil, errors.New("account code is required")
 		}
 		if _, ok := seen[code]; ok {
 			continue

@@ -9,7 +9,7 @@ type Modal interface {
 	// HandleKeyEvent processes a raw key event. It returns a result and
 	// whether the event was consumed. Consumed events are not forwarded
 	// to the default key map.
-	HandleKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool)
+	HandleKeyEvent(event *tcell.EventKey, action Action) (HandleResult, bool)
 
 	// Render draws the modal onto the provided buffer region.
 	Render(buffer *Buffer, rect Rect, theme *Theme)
@@ -23,8 +23,8 @@ type Modal interface {
 // interactive TUI. It decouples the run loop from the concrete Shell type,
 // making it easier to test and extend.
 type ShellUI interface {
-	HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResult
-	HandleAction(action Action) handleResult
+	HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResult
+	HandleAction(action Action) HandleResult
 	Render(buffer *Buffer, theme *Theme, keymap KeyMap)
 	Reload(data *ShellData)
 	SetStatus(status StatusMessage)

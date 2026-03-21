@@ -34,6 +34,8 @@ type BrowseEntryRecord struct {
 
 // ListBrowseEntries returns journal entries ordered newest first with line detail
 // and reversal linkage for TUI browsing.
+//
+//nolint:revive // cognitive-complexity: marginally over; two-query join logic reads best inline
 func ListBrowseEntries(ctx context.Context, databasePath string, campaignID string) ([]BrowseEntryRecord, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]BrowseEntryRecord, error) {
 		rows, err := db.QueryContext(ctx, `

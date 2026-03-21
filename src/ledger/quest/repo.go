@@ -3,6 +3,7 @@ package quest
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 func CreateQuest(ctx context.Context, databasePath string, campaignID string, input *CreateQuestInput) (QuestRecord, error) {
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
-		return QuestRecord{}, fmt.Errorf("quest title is required")
+		return QuestRecord{}, errors.New("quest title is required")
 	}
 
 	status := strings.TrimSpace(input.Status)
@@ -37,11 +38,11 @@ func CreateQuest(ctx context.Context, databasePath string, campaignID string, in
 	}
 
 	if input.PromisedBaseReward < 0 {
-		return QuestRecord{}, fmt.Errorf("promised_base_reward must be non-negative")
+		return QuestRecord{}, errors.New("promised_base_reward must be non-negative")
 	}
 
 	if input.PartialAdvance < 0 {
-		return QuestRecord{}, fmt.Errorf("partial_advance must be non-negative")
+		return QuestRecord{}, errors.New("partial_advance must be non-negative")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (QuestRecord, error) {
@@ -84,24 +85,26 @@ func CreateQuest(ctx context.Context, databasePath string, campaignID string, in
 }
 
 // UpdateQuest edits operational quest fields without mutating posted journal history.
+//
+//nolint:revive // cognitive-complexity: status-dependent validation logic reads best in one function
 func UpdateQuest(ctx context.Context, databasePath string, campaignID string, questID string, input *UpdateQuestInput) (QuestRecord, error) {
 	questID = strings.TrimSpace(questID)
 	if questID == "" {
-		return QuestRecord{}, fmt.Errorf("quest ID is required")
+		return QuestRecord{}, errors.New("quest ID is required")
 	}
 	if input == nil {
-		return QuestRecord{}, fmt.Errorf("quest input is required")
+		return QuestRecord{}, errors.New("quest input is required")
 	}
 
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
-		return QuestRecord{}, fmt.Errorf("quest title is required")
+		return QuestRecord{}, errors.New("quest title is required")
 	}
 	if input.PromisedBaseReward < 0 {
-		return QuestRecord{}, fmt.Errorf("promised_base_reward must be non-negative")
+		return QuestRecord{}, errors.New("promised_base_reward must be non-negative")
 	}
 	if input.PartialAdvance < 0 {
-		return QuestRecord{}, fmt.Errorf("partial_advance must be non-negative")
+		return QuestRecord{}, errors.New("partial_advance must be non-negative")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (QuestRecord, error) {
@@ -114,7 +117,7 @@ func UpdateQuest(ctx context.Context, databasePath string, campaignID string, qu
 		switch current.Status {
 		case ledger.QuestStatusOffered:
 			if acceptedOn != "" {
-				return QuestRecord{}, fmt.Errorf("accepted_on can only be set after a quest is accepted")
+				return QuestRecord{}, errors.New("accepted_on can only be set after a quest is accepted")
 			}
 		case ledger.QuestStatusAccepted:
 			if acceptedOn == "" {
@@ -122,13 +125,13 @@ func UpdateQuest(ctx context.Context, databasePath string, campaignID string, qu
 			}
 		default:
 			if input.PromisedBaseReward != current.PromisedBaseReward {
-				return QuestRecord{}, fmt.Errorf("promised reward cannot be edited after quest status moves beyond accepted")
+				return QuestRecord{}, errors.New("promised reward cannot be edited after quest status moves beyond accepted")
 			}
 			if input.PartialAdvance != current.PartialAdvance {
-				return QuestRecord{}, fmt.Errorf("partial advance cannot be edited after quest status moves beyond accepted")
+				return QuestRecord{}, errors.New("partial advance cannot be edited after quest status moves beyond accepted")
 			}
 			if acceptedOn != current.AcceptedOn {
-				return QuestRecord{}, fmt.Errorf("accepted_on cannot be edited after quest status moves beyond accepted")
+				return QuestRecord{}, errors.New("accepted_on cannot be edited after quest status moves beyond accepted")
 			}
 			acceptedOn = current.AcceptedOn
 		}
@@ -221,19 +224,21 @@ func ListQuests(ctx context.Context, databasePath string, campaignID string) ([]
 }
 
 // CollectQuestPayment creates a journal entry for quest payment collection.
+//
+//nolint:revive // cognitive-complexity: transactional payment + status logic reads best in one function
 func CollectQuestPayment(ctx context.Context, databasePath string, campaignID string, input CollectQuestPaymentInput) (ledger.PostedJournalEntry, error) {
 	questID := strings.TrimSpace(input.QuestID)
 	if questID == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("quest ID is required")
+		return ledger.PostedJournalEntry{}, errors.New("quest ID is required")
 	}
 
 	if input.Amount <= 0 {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("payment amount must be positive")
+		return ledger.PostedJournalEntry{}, errors.New("payment amount must be positive")
 	}
 
 	date := strings.TrimSpace(input.Date)
 	if date == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("payment date is required")
+		return ledger.PostedJournalEntry{}, errors.New("payment date is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
@@ -329,12 +334,12 @@ func CollectQuestPayment(ctx context.Context, databasePath string, campaignID st
 func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, input WriteOffQuestInput) (ledger.PostedJournalEntry, error) {
 	questID := strings.TrimSpace(input.QuestID)
 	if questID == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("quest ID is required")
+		return ledger.PostedJournalEntry{}, errors.New("quest ID is required")
 	}
 
 	date := strings.TrimSpace(input.Date)
 	if date == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("write-off date is required")
+		return ledger.PostedJournalEntry{}, errors.New("write-off date is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
@@ -371,7 +376,7 @@ func WriteOffQuest(ctx context.Context, databasePath string, campaignID string, 
 
 		outstanding := quest.PromisedBaseReward - totalPaid
 		if outstanding <= 0 {
-			return ledger.PostedJournalEntry{}, fmt.Errorf("quest has no outstanding balance to write off")
+			return ledger.PostedJournalEntry{}, errors.New("quest has no outstanding balance to write off")
 		}
 
 		description := strings.TrimSpace(input.Description)

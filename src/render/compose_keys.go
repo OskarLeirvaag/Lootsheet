@@ -6,9 +6,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
+func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (HandleResult, bool) { //nolint:revive // large key/event dispatch
 	if s.compose == nil || event == nil {
-		return handleResult{}, false
+		return HandleResult{}, false
 	}
 
 	if s.compose.picker != nil {
@@ -18,27 +18,27 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 	switch event.Key() {
 	case tcell.KeyUp, tcell.KeyLeft:
 		s.composeAdvance(-1)
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyDown, tcell.KeyRight:
 		s.composeAdvance(1)
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyTab:
 		s.composeAdvance(1)
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyBacktab:
 		s.composeAdvance(-1)
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		s.composeBackspace()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyCtrlU:
 		s.composeClearCurrent()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyCtrlA:
 		if s.openComposePicker() {
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyCtrlN:
 		switch s.compose.Mode {
 		case composeModeCustom:
@@ -53,7 +53,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 			}
 		default:
 		}
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyCtrlD:
 		switch s.compose.Mode {
 		case composeModeCustom:
@@ -89,40 +89,40 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (han
 			}
 		default:
 		}
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyRune:
 		if toggled := s.composeToggleSide(event.Rune()); toggled {
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
 
 		s.composeAppendRune(event.Rune())
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	default:
 	}
 
 	switch action {
 	case ActionQuit:
 		s.compose = nil
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case ActionRedraw:
 		s.compose = nil
-		return handleResult{Reload: true}, true
+		return HandleResult{Reload: true}, true
 	case ActionSubmitCompose, ActionConfirm:
 		if command, ok := s.composeCommand(); ok {
-			return handleResult{Command: command}, true
+			return HandleResult{Command: command}, true
 		}
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
 		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSearch:
-		return handleResult{}, false
+		return HandleResult{}, false
 	case ActionHelp:
-		return handleResult{}, true
+		return HandleResult{}, true
 	}
 
-	return handleResult{}, true
+	return HandleResult{}, true
 }
 
 func (s *Shell) composeAdvance(delta int) {
@@ -219,6 +219,7 @@ func (s *Shell) composeEditCurrentField(op fieldOp) {
 			s.compose.Lines[lineIndex].AccountCode = op(s.compose.Lines[lineIndex].AccountCode)
 		case 2:
 			s.compose.Lines[lineIndex].Amount = op(s.compose.Lines[lineIndex].Amount)
+		default:
 		}
 		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
 		s.compose.GeneralError = ""
@@ -246,6 +247,7 @@ func (s *Shell) composeEditCurrentField(op fieldOp) {
 			s.compose.Lines[lineIndex].Amount = op(s.compose.Lines[lineIndex].Amount)
 		case 3:
 			s.compose.Lines[lineIndex].Memo = op(s.compose.Lines[lineIndex].Memo)
+		default:
 		}
 		delete(s.compose.FieldErrors, s.composeLineFieldKey(lineIndex, column))
 	}
@@ -285,7 +287,7 @@ func (s *Shell) clearErrorForCurrentField() {
 	delete(s.compose.FieldErrors, fieldID)
 }
 
-func (s *Shell) composeLineFieldKey(index int, column int) string {
+func (*Shell) composeLineFieldKey(index int, column int) string {
 	switch column {
 	case 0:
 		return fmt.Sprintf("line_%d_side", index)

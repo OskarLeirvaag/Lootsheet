@@ -122,7 +122,7 @@ func parseBlockLine(line string, styles *MarkdownStyles) ([]StyledSpan, int) {
 }
 
 // parseInlineSpans processes inline markdown formatting within a line.
-func parseInlineSpans(text string, baseStyle tcell.Style, opts ...tcell.Style) []StyledSpan {
+func parseInlineSpans(text string, baseStyle tcell.Style, opts ...tcell.Style) []StyledSpan { //nolint:revive // inline markdown parser with many format cases
 	if text == "" {
 		return nil
 	}
@@ -244,7 +244,7 @@ func wrapSpans(spans []StyledSpan, maxWidth int, contIndent int) []StyledLine {
 	// Flatten to measure.
 	var fullText strings.Builder
 	for _, sp := range spans {
-		fullText.WriteString(sp.Text)
+		_, _ = fullText.WriteString(sp.Text)
 	}
 	if fullText.Len() == 0 {
 		return []StyledLine{{Spans: spans}}

@@ -2,11 +2,12 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ var manPageDate = time.Date(2026, time.March, 8, 0, 0, 0, 0, time.UTC)
 func GenerateManPages(outputDir string) error {
 	outputDir = strings.TrimSpace(outputDir)
 	if outputDir == "" {
-		return fmt.Errorf("man page output directory is required")
+		return errors.New("man page output directory is required")
 	}
 
 	if err := os.MkdirAll(outputDir, manDirPerm); err != nil {
@@ -66,8 +67,14 @@ func generateManPageTree(cmd *cobra.Command, outputDir string) error {
 	}
 
 	children := cmd.Commands()
-	sort.Slice(children, func(i, j int) bool {
-		return children[i].Name() < children[j].Name()
+	slices.SortFunc(children, func(a, b *cobra.Command) int {
+		if a.Name() < b.Name() {
+			return -1
+		}
+		if a.Name() > b.Name() {
+			return 1
+		}
+		return 0
 	})
 
 	for _, child := range children {
@@ -100,7 +107,7 @@ func renderManPage(cmd *cobra.Command) string {
 	var buf bytes.Buffer
 
 	title := strings.ToUpper(strings.ReplaceAll(cmd.CommandPath(), " ", "-"))
-	fmt.Fprintf(&buf, ".TH %s 1 %q %q %q\n", title, manPageDate.Format("Jan 2006"), "LootSheet", "LootSheet Manual")
+	_, _ = fmt.Fprintf(&buf, ".TH %s 1 %q %q %q\n", title, manPageDate.Format("Jan 2006"), "LootSheet", "LootSheet Manual")
 	writeSection(&buf, "NAME", fmt.Sprintf("%s \\- %s", strings.ReplaceAll(cmd.CommandPath(), " ", "-"), cmd.Short))
 	writeSection(&buf, "SYNOPSIS", cmd.UseLine())
 
@@ -123,12 +130,12 @@ func writeSection(buf *bytes.Buffer, title string, body string) {
 		return
 	}
 
-	buf.WriteString(".SH ")
-	buf.WriteString(title)
-	buf.WriteByte('\n')
+	_, _ = buf.WriteString(".SH ")
+	_, _ = buf.WriteString(title)
+	_ = buf.WriteByte('\n')
 	for line := range strings.SplitSeq(body, "\n") {
-		buf.WriteString(roffLine(line))
-		buf.WriteByte('\n')
+		_, _ = buf.WriteString(roffLine(line))
+		_ = buf.WriteByte('\n')
 	}
 }
 
@@ -137,20 +144,20 @@ func writeFlagsSection(buf *bytes.Buffer, title string, flags *pflag.FlagSet) {
 		return
 	}
 
-	buf.WriteString(".SH ")
-	buf.WriteString(title)
-	buf.WriteByte('\n')
+	_, _ = buf.WriteString(".SH ")
+	_, _ = buf.WriteString(title)
+	_ = buf.WriteByte('\n')
 
 	flags.VisitAll(func(flag *pflag.Flag) {
 		if flag.Hidden || flag.Deprecated != "" {
 			return
 		}
 
-		buf.WriteString(".TP\n")
-		buf.WriteString(roffLine(renderFlagUsage(flag)))
-		buf.WriteByte('\n')
-		buf.WriteString(roffLine(renderFlagDescription(flag)))
-		buf.WriteByte('\n')
+		_, _ = buf.WriteString(".TP\n")
+		_, _ = buf.WriteString(roffLine(renderFlagUsage(flag)))
+		_ = buf.WriteByte('\n')
+		_, _ = buf.WriteString(roffLine(renderFlagDescription(flag)))
+		_ = buf.WriteByte('\n')
 	})
 }
 
@@ -162,8 +169,14 @@ func writeSeeAlsoSection(buf *bytes.Buffer, cmd *cobra.Command) {
 	}
 
 	children := cmd.Commands()
-	sort.Slice(children, func(i, j int) bool {
-		return children[i].Name() < children[j].Name()
+	slices.SortFunc(children, func(a, b *cobra.Command) int {
+		if a.Name() < b.Name() {
+			return -1
+		}
+		if a.Name() > b.Name() {
+			return 1
+		}
+		return 0
 	})
 	for _, child := range children {
 		if !child.IsAvailableCommand() || child.IsAdditionalHelpTopicCommand() {
