@@ -79,6 +79,9 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	if s.glossary != nil {
 		s.renderGlossaryModal(buffer, body, theme)
 	}
+	if s.quitConfirm {
+		s.renderQuitConfirmModal(buffer, body, theme)
+	}
 	if s.disconnected {
 		s.renderDisconnectModal(buffer, body, theme)
 	}
@@ -497,6 +500,26 @@ func drawStatusLine(buffer *Buffer, rect Rect, theme *Theme, status StatusMessag
 	}
 
 	buffer.WriteString(visible.X, visible.Y, style, clipText(status.Text, visible.W))
+}
+
+func (s *Shell) renderQuitConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
+	if rect.Empty() {
+		return
+	}
+
+	lines := []string{
+		"",
+		"Are you sure you want",
+		"to quit LootSheet?",
+		"",
+		"Enter quit  Esc cancel",
+	}
+
+	DrawPanel(buffer, modalBounds(rect, lines, 30, 26, 36, 5), theme, Panel{
+		Title:   "Quit?",
+		Lines:   lines,
+		Texture: PanelTextureNone,
+	})
 }
 
 func (s *Shell) renderDisconnectModal(buffer *Buffer, rect Rect, theme *Theme) {

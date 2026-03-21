@@ -67,6 +67,7 @@ type Shell struct {
 
 	editorSaveInFlight  bool
 	editorQuitAfterSave bool
+	quitConfirm         bool
 	disconnected        bool
 }
 
@@ -131,6 +132,7 @@ func (s *Shell) Reload(data *ShellData) {
 	s.glossary = nil
 	s.codexPicker = nil
 	s.search = nil
+	s.quitConfirm = false
 
 	if s.editorSaveInFlight {
 		s.editorSaveInFlight = false
@@ -180,6 +182,7 @@ func (s *Shell) CloseModal() {
 	s.codexPicker = nil
 	s.search = nil
 	s.editor = nil
+	s.quitConfirm = false
 }
 
 // Navigate switches to the requested section and optionally selects the given item key.

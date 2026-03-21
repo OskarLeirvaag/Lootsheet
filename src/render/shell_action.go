@@ -68,7 +68,8 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			s.Section = SectionDashboard
 			return handleResult{Redraw: true}
 		}
-		return handleResult{Quit: true}
+		s.quitConfirm = true
+		return handleResult{Redraw: true}
 	case ActionRedraw:
 		return handleResult{Reload: true}
 	case ActionHelp:
@@ -185,6 +186,18 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 	}
 
 	action := keymap.Resolve(event)
+
+	if s.quitConfirm {
+		switch action {
+		case ActionConfirm:
+			return handleResult{Quit: true}
+		case ActionQuit:
+			s.quitConfirm = false
+			return handleResult{Redraw: true}
+		default:
+			return handleResult{}
+		}
+	}
 	if s.editor != nil {
 		if result, handled := s.handleEditorKeyEvent(event, action); handled {
 			return result
