@@ -16,17 +16,11 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (Han
 	}
 
 	switch event.Key() {
-	case tcell.KeyUp, tcell.KeyLeft:
+	case tcell.KeyUp, tcell.KeyLeft, tcell.KeyBacktab:
 		s.composeAdvance(-1)
 		return HandleResult{Redraw: true}, true
-	case tcell.KeyDown, tcell.KeyRight:
+	case tcell.KeyDown, tcell.KeyRight, tcell.KeyTab:
 		s.composeAdvance(1)
-		return HandleResult{Redraw: true}, true
-	case tcell.KeyTab:
-		s.composeAdvance(1)
-		return HandleResult{Redraw: true}, true
-	case tcell.KeyBacktab:
-		s.composeAdvance(-1)
 		return HandleResult{Redraw: true}, true
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		s.composeBackspace()
