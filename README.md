@@ -7,7 +7,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/OskarLeirvaag/Lootsheet)](https://github.com/OskarLeirvaag/Lootsheet/commits)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue)](https://github.com/OskarLeirvaag/Lootsheet)
 
-LootSheet is a local bookkeeping tool for D&D 5e parties.
+LootSheet is a local-first bookkeeping tool for D&D 5e parties.
 
 It is meant for groups that want to track party money, quest rewards, loot, and expenses with a little more rigor than a notes app or spreadsheet.
 
@@ -23,6 +23,7 @@ LootSheet is for things like:
 - keeping a codex of NPCs, players, and contacts encountered in the campaign
 - writing session notes with cross-references to quests, loot, and people
 - seeing what the party has in cash, what is still owed, and what has already been recognized in the books
+- exporting the ledger as CSV, Excel, or PDF for end-of-campaign accounting
 - keeping a clean history instead of rewriting old entries
 
 ## What It Tries To Feel Like
@@ -38,7 +39,7 @@ That means:
 
 ## Features
 
-The TUI provides seven main sections:
+The TUI provides seven main sections navigable with `1`–`7`:
 
 | Section | Description |
 |---------|-------------|
@@ -50,16 +51,33 @@ The TUI provides seven main sections:
 | **Codex** | In-game reference book for NPCs, players, and contacts |
 | **Notes** | Campaign and session notes with cross-references |
 
-Additional capabilities:
+### General Ledger (`#`)
 
-- full-text search across all sections
-- glossary of accounting and game terms
+Press `#` from anywhere to open the full-screen ledger overlay — an interactive trial balance grouped by account type (Assets, Liabilities, Equity, Income, Expenses) with subtotals. Select an account and press Enter to drill into its posting history.
+
+From the ledger view you can export:
+
+| Key | Format | Notes |
+|-----|--------|-------|
+| `c` | CSV | Machine-readable, stdlib only |
+| `x` | Excel | Multi-sheet workbook with per-account detail |
+| `p` | PDF | Formatted trial balance report |
+
+### Settings (`@`)
+
+Press `@` to manage the chart of accounts, codex types, and campaigns. Accounts can be created, renamed, deactivated, or deleted. Each campaign has its own isolated ledger.
+
+### Additional capabilities
+
+- full-text search across all sections (`/`)
+- glossary of accounting and game terms (`?`)
 - configurable chart of accounts
 - GP/SP/CP currency formatting throughout
+- multi-campaign support with isolated data
 
 ## Interface
 
-LootSheet is used primarily through a full-screen terminal TUI (`lootsheet tui`).
+LootSheet is used primarily through a full-screen terminal TUI.
 
 A small CLI surface handles setup, database management, and server hosting:
 
@@ -115,9 +133,12 @@ Connected to LootSheet Server
 
 The token is saved automatically so reconnecting does not require it again. After authenticating, the full TUI opens with live data from the server — all sections, actions, and search work identically to local mode.
 
+### Version compatibility
+
+The client and server exchange version information during connection. If the server is too old for the client's requirements (or vice versa), the connection is rejected with a message indicating which side needs to be upgraded. The protocol version gates wire-format compatibility, while the app version gates feature compatibility.
+
 ### Requirements
 
-- The server and all clients must run the **same version** of LootSheet. A version mismatch during connection will print which side needs to be upgraded.
 - Players need network access to the server's address and port. For remote play over the internet, the DM may need to configure port forwarding or use a VPN.
 - There is no user-level access control — anyone with the token has full read/write access to the ledger. Rotate the token by deleting the `token` file in the server data directory and restarting.
 

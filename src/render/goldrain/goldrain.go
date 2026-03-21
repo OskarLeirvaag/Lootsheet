@@ -9,17 +9,25 @@ import (
 
 // GoldRain wraps the animation state for the hoard panel.
 type GoldRain struct {
-	rain *animation.GoldRain
+	rain    *animation.GoldRain
+	static  bool
+	settled bool
 }
 
-// NewGoldRain creates a new gold rain animation.
+// NewGoldRain creates a new animated gold rain.
 func NewGoldRain() *GoldRain {
 	return &GoldRain{rain: animation.NewGoldRain()}
 }
 
-// Update advances the animation by one frame.
+// NewStaticGoldRain creates a frozen gold rain — drops render at random
+// positions but never move. Useful for screenshots and VHS recordings.
+func NewStaticGoldRain() *GoldRain {
+	return &GoldRain{rain: animation.NewGoldRain(), static: true}
+}
+
+// Update advances the animation by one frame. No-op when static.
 func (r *GoldRain) Update() {
-	if r == nil {
+	if r == nil || r.static {
 		return
 	}
 	r.rain.Update()
@@ -32,6 +40,14 @@ func (r *GoldRain) Render(buffer *canvas.Buffer, rect canvas.Rect, goldStyle tce
 	}
 
 	r.rain.Resize(rect.W, rect.H)
+
+	// For static rain, advance drops into the visible area on first render.
+	if r.static && !r.settled {
+		for range rect.H * 10 { //nolint:mnd // enough frames to fill the panel
+			r.rain.Update()
+		}
+		r.settled = true
+	}
 
 	for _, d := range r.rain.Drops() {
 		for t := 0; t <= d.Trail; t++ {
