@@ -18,6 +18,8 @@ type pickerOption struct {
 type pickerState struct {
 	Title         string
 	Options       []pickerOption
+	Kinds         []string // unique kinds in order (for filter tabs)
+	FilterIndex   int      // 0=All, 1..N=Kinds[i-1]
 	Query         string
 	Filtered      []pickerOption
 	SelectedIndex int
@@ -25,35 +27,53 @@ type pickerState struct {
 }
 
 func newPicker(title string, options []pickerOption) *pickerState {
-	return &pickerState{
-		Title:    title,
-		Options:  options,
-		Filtered: options,
+	// Collect unique kinds in order.
+	seen := make(map[string]bool)
+	var kinds []string
+	for _, opt := range options {
+		if !seen[opt.Kind] {
+			seen[opt.Kind] = true
+			kinds = append(kinds, opt.Kind)
+		}
 	}
+
+	p := &pickerState{
+		Title:   title,
+		Options: options,
+		Kinds:   kinds,
+	}
+	p.refilter()
+	return p
 }
 
 func (p *pickerState) refilter() {
-	if p.Query == "" {
-		p.Filtered = p.Options
-	} else {
-		query := strings.ToLower(p.Query)
-		filtered := make([]pickerOption, 0, len(p.Options))
-		for _, opt := range p.Options {
-			if strings.Contains(strings.ToLower(opt.Value), query) ||
-				strings.Contains(strings.ToLower(opt.Label), query) ||
-				strings.Contains(strings.ToLower(opt.Kind), query) {
-				filtered = append(filtered, opt)
-			}
-		}
-		p.Filtered = filtered
+	var kindFilter string
+	if p.FilterIndex > 0 && p.FilterIndex <= len(p.Kinds) {
+		kindFilter = p.Kinds[p.FilterIndex-1]
 	}
+
+	query := strings.ToLower(p.Query)
+	filtered := make([]pickerOption, 0, len(p.Options))
+	for _, opt := range p.Options {
+		if kindFilter != "" && opt.Kind != kindFilter {
+			continue
+		}
+		if query != "" &&
+			!strings.Contains(strings.ToLower(opt.Value), query) &&
+			!strings.Contains(strings.ToLower(opt.Label), query) {
+			continue
+		}
+		filtered = append(filtered, opt)
+	}
+
+	p.Filtered = filtered
 	if p.SelectedIndex >= len(p.Filtered) {
 		p.SelectedIndex = max(0, len(p.Filtered)-1)
 	}
 	p.Scroll = 0
 }
 
-// handlePickerKey processes a key event for the picker. Returns (redraw, closed, selectedValue).
+// handlePickerKey processes a key event for the picker.
 // closed=true means the picker was dismissed (Esc or Enter).
 // selectedValue is non-empty only when the user pressed Enter on a valid selection.
 func handlePickerKey(p *pickerState, event *tcell.EventKey) (closed bool, selectedValue string) {
@@ -73,6 +93,12 @@ func handlePickerKey(p *pickerState, event *tcell.EventKey) (closed bool, select
 		if p.SelectedIndex < len(p.Filtered)-1 {
 			p.SelectedIndex++
 		}
+	case tcell.KeyTab, tcell.KeyRight:
+		p.FilterIndex = (p.FilterIndex + 1) % (len(p.Kinds) + 1)
+		p.refilter()
+	case tcell.KeyBacktab, tcell.KeyLeft:
+		p.FilterIndex = (p.FilterIndex + len(p.Kinds)) % (len(p.Kinds) + 1)
+		p.refilter()
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		if len(p.Query) > 0 {
 			runes := []rune(p.Query)
@@ -101,7 +127,7 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 
 	maxVisible := 10
 	viewH := min(maxVisible, max(1, len(p.Filtered)))
-	totalH := viewH + 6 // border(2) + search(1) + gap(1) + list + help(1) + gap(1)
+	totalH := viewH + 7 // border(2) + tabs(1) + search(1) + gap(1) + list + help(1) + gap(1)
 	width := clampInt(rect.W/2, 36, 56)
 
 	modalRect := Rect{
@@ -128,6 +154,30 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 	}
 
 	y := content.Y
+
+	// Filter tabs.
+	if len(p.Kinds) > 1 && y < content.Y+content.H {
+		var tabs strings.Builder
+		for i := range len(p.Kinds) + 1 {
+			if i > 0 {
+				tabs.WriteString("  ")
+			}
+			label := "All"
+			if i > 0 {
+				label = p.Kinds[i-1]
+			}
+			if i == p.FilterIndex {
+				label = "[" + label + "]"
+			} else {
+				label = " " + label + " "
+			}
+			tabs.WriteString(label)
+		}
+		buffer.WriteString(content.X, y, theme.Muted, clipText(tabs.String(), content.W))
+		y++
+	}
+
+	// Search input.
 	searchText := "/ " + p.Query + "_"
 	buffer.WriteString(content.X, y, theme.Text, clipText(searchText, content.W))
 	y++
@@ -145,21 +195,10 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 	if len(p.Filtered) == 0 {
 		buffer.WriteString(content.X, y, theme.Muted, clipText("  No matches.", content.W))
 	} else {
-		prevKind := ""
 		for row := 0; row < viewH && p.Scroll+row < len(p.Filtered); row++ {
 			idx := p.Scroll + row
 			opt := p.Filtered[idx]
 			lineRect := Rect{X: content.X, Y: y + row, W: content.W, H: 1}
-
-			// Show category header when kind changes.
-			if opt.Kind != prevKind && p.Query == "" {
-				prevKind = opt.Kind
-				buffer.WriteString(content.X, y+row, theme.Muted, clipText("  "+strings.ToUpper(opt.Kind), content.W))
-				viewH++ // header takes a row but doesn't count as an item row
-				continue
-			}
-			prevKind = opt.Kind
-
 			style := theme.Text
 			prefix := "  "
 			if idx == p.SelectedIndex {
@@ -167,16 +206,11 @@ func renderPicker(p *pickerState, buffer *Buffer, rect Rect, theme *Theme, accen
 				style = theme.SelectedRow
 				prefix = "> "
 			}
-			tag := fmt.Sprintf("[%s] ", opt.Kind)
-			buffer.WriteString(content.X, y+row, theme.Muted, clipText(prefix+tag, content.W))
-			labelX := content.X + len([]rune(prefix+tag))
-			labelW := content.W - len([]rune(prefix+tag))
-			if labelW > 0 {
-				buffer.WriteString(labelX, y+row, style, clipText(opt.Label, labelW))
-			}
+			label := fmt.Sprintf("%s%s", prefix, opt.Label)
+			buffer.WriteString(content.X, y+row, style, clipText(label, content.W))
 		}
 	}
 
 	helpY := content.Y + content.H - 1
-	buffer.WriteString(content.X, helpY, theme.Muted, clipText("↑↓ select  Enter pick  Esc cancel", content.W))
+	buffer.WriteString(content.X, helpY, theme.Muted, clipText("↑↓ select  ←→/Tab filter  Enter pick  Esc cancel", content.W))
 }
