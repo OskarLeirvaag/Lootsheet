@@ -197,12 +197,16 @@ func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) {
 	data := &s.Data.Notes
 	selectedIndex := s.currentSelectionIndex(SectionNotes)
 
-	// Layout: narrow title list on left, large body on right.
-	listW := clampInt(rect.W/4, 20, 36)
-	listRect, bodyRect := rect.SplitVertical(listW, 1)
+	// Layout: narrow left column (list + refs) and large body on right.
+	leftW := clampInt(rect.W/4, 20, 36)
+	leftRect, bodyRect := rect.SplitVertical(leftW, 1)
+
+	// Split left column: title list (75%) and references (25%).
+	refsH := clampInt(leftRect.H/4, 4, 10)
+	titleListRect, refsRect := leftRect.SplitHorizontal(leftRect.H-refsH, 0)
 
 	// --- Title list panel ---
-	DrawPanel(buffer, listRect, theme, Panel{
+	DrawPanel(buffer, titleListRect, theme, Panel{
 		Title:         "Notes",
 		BorderStyle:   &ss.Accent,
 		TitleStyle:    &ss.Accent,
@@ -212,9 +216,8 @@ func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) {
 		ScatterStyle:  ss.ScatterStyle,
 	})
 
-	listContent := panelContentRect(listRect, buffer.Bounds())
+	listContent := panelContentRect(titleListRect, buffer.Bounds())
 	if !listContent.Empty() && len(data.Items) > 0 {
-		// Scroll to keep selection visible.
 		scroll := min(s.scrolls[SectionNotes], selectedIndex)
 		if selectedIndex >= scroll+listContent.H {
 			scroll = selectedIndex - listContent.H + 1
@@ -244,6 +247,26 @@ func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) {
 		}
 	}
 
+	// --- References panel ---
+	var refLines []string
+	if item := s.currentSelectedItem(SectionNotes); item != nil {
+		for _, line := range item.DetailLines {
+			if strings.HasPrefix(line, "  @") || strings.HasPrefix(line, "Linked from:") || strings.HasPrefix(line, "References:") {
+				refLines = append(refLines, line)
+			}
+		}
+	}
+	if len(refLines) == 0 {
+		refLines = []string{"No references."}
+	}
+	DrawPanel(buffer, refsRect, theme, Panel{
+		Title:       "References",
+		Lines:       refLines,
+		BorderStyle: &ss.Accent,
+		TitleStyle:  &ss.Accent,
+		Texture:     PanelTextureNone,
+	})
+
 	// --- Body panel (markdown render of selected note) ---
 	bodyTitle := "Note"
 	var metaLines []string
@@ -251,7 +274,12 @@ func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) {
 
 	if item := s.currentSelectedItem(SectionNotes); item != nil {
 		bodyTitle = item.DetailTitle
-		metaLines = item.DetailLines
+		// Only pass non-reference detail lines as meta.
+		for _, line := range item.DetailLines {
+			if !strings.HasPrefix(line, "  @") && !strings.HasPrefix(line, "References:") && !strings.HasPrefix(line, "Linked from:") {
+				metaLines = append(metaLines, line)
+			}
+		}
 		bodyText = item.DetailBody
 	}
 
