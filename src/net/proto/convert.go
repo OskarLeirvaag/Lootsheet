@@ -26,6 +26,7 @@ func ShellDataToProto(d *model.ShellData) *ShellDataProto {
 		CodexTypes:         codexTypeOptionsToProto(d.CodexTypes),
 		CampaignName:       d.CampaignName,
 		Campaigns:          campaignOptionsToProto(d.Campaigns),
+		LedgerReport:       ledgerViewDataToProto(&d.LedgerReport),
 	}
 }
 
@@ -91,6 +92,7 @@ func ShellDataFromProto(p *ShellDataProto) model.ShellData {
 		CodexTypes:         codexTypeOptionsFromProto(p.CodexTypes),
 		CampaignName:       p.CampaignName,
 		Campaigns:          campaignOptionsFromProto(p.Campaigns),
+		LedgerReport:       ledgerViewDataFromProto(p.LedgerReport),
 	}
 }
 
@@ -397,5 +399,103 @@ func statusMessageFromProto(p *StatusMessageProto) model.StatusMessage {
 	return model.StatusMessage{
 		Level: model.StatusLevel(p.Level),
 		Text:  p.Text,
+	}
+}
+
+// ---------- LedgerViewData conversion ----------
+
+func ledgerViewDataToProto(d *model.LedgerViewData) *LedgerViewDataProto {
+	if d == nil {
+		return nil
+	}
+	rows := make([]*LedgerViewRowProto, len(d.Rows))
+	for i, r := range d.Rows {
+		rows[i] = &LedgerViewRowProto{
+			AccountCode:  r.AccountCode,
+			AccountName:  r.AccountName,
+			AccountType:  r.AccountType,
+			TotalDebits:  r.TotalDebits,
+			TotalCredits: r.TotalCredits,
+			Balance:      r.Balance,
+		}
+	}
+	details := make(map[string]*LedgerAccountDetailProto, len(d.AccountDetail))
+	for code, det := range d.AccountDetail {
+		entries := make([]*LedgerDetailEntryProto, len(det.Entries))
+		for j, e := range det.Entries {
+			entries[j] = &LedgerDetailEntryProto{
+				EntryNumber:    int32(e.EntryNumber), //nolint:gosec // entry numbers are small
+				Date:           e.Date,
+				Description:    e.Description,
+				Debit:          e.Debit,
+				Credit:         e.Credit,
+				RunningBalance: e.RunningBalance,
+			}
+		}
+		details[code] = &LedgerAccountDetailProto{
+			AccountCode:  det.AccountCode,
+			AccountName:  det.AccountName,
+			AccountType:  det.AccountType,
+			Entries:      entries,
+			TotalDebits:  det.TotalDebits,
+			TotalCredits: det.TotalCredits,
+			Balance:      det.Balance,
+		}
+	}
+	return &LedgerViewDataProto{
+		Rows:          rows,
+		AccountDetail: details,
+		TotalDebits:   d.TotalDebits,
+		TotalCredits:  d.TotalCredits,
+		Balanced:      d.Balanced,
+		Available:     d.Available,
+	}
+}
+
+func ledgerViewDataFromProto(p *LedgerViewDataProto) model.LedgerViewData {
+	if p == nil {
+		return model.LedgerViewData{}
+	}
+	rows := make([]model.LedgerViewRow, len(p.Rows))
+	for i, r := range p.Rows {
+		rows[i] = model.LedgerViewRow{
+			AccountCode:  r.AccountCode,
+			AccountName:  r.AccountName,
+			AccountType:  r.AccountType,
+			TotalDebits:  r.TotalDebits,
+			TotalCredits: r.TotalCredits,
+			Balance:      r.Balance,
+		}
+	}
+	details := make(map[string]model.LedgerAccountDetail, len(p.AccountDetail))
+	for code, det := range p.AccountDetail {
+		entries := make([]model.LedgerDetailEntry, len(det.Entries))
+		for j, e := range det.Entries {
+			entries[j] = model.LedgerDetailEntry{
+				EntryNumber:    int(e.EntryNumber),
+				Date:           e.Date,
+				Description:    e.Description,
+				Debit:          e.Debit,
+				Credit:         e.Credit,
+				RunningBalance: e.RunningBalance,
+			}
+		}
+		details[code] = model.LedgerAccountDetail{
+			AccountCode:  det.AccountCode,
+			AccountName:  det.AccountName,
+			AccountType:  det.AccountType,
+			Entries:      entries,
+			TotalDebits:  det.TotalDebits,
+			TotalCredits: det.TotalCredits,
+			Balance:      det.Balance,
+		}
+	}
+	return model.LedgerViewData{
+		Rows:          rows,
+		AccountDetail: details,
+		TotalDebits:   p.TotalDebits,
+		TotalCredits:  p.TotalCredits,
+		Balanced:      p.Balanced,
+		Available:     p.Available,
 	}
 }

@@ -144,6 +144,7 @@ func authenticate(t *testing.T, conn *tls.Conn, token string) {
 			Auth: &pb.AuthRequest{
 				Token:           token,
 				ProtocolVersion: pb.ProtocolVersion,
+				AppVersion:      pb.AppVersion,
 			},
 		},
 	}
@@ -217,6 +218,7 @@ func TestIntegrationInvalidToken(t *testing.T) {
 			Auth: &pb.AuthRequest{
 				Token:           "wrong-token",
 				ProtocolVersion: pb.ProtocolVersion,
+				AppVersion:      pb.AppVersion,
 			},
 		},
 	}

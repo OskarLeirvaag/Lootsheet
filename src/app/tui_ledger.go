@@ -152,3 +152,63 @@ func truncate(s string, maxLen int) string {
 	}
 	return string(runes[:maxLen-1]) + "\u2026"
 }
+
+func buildLedgerViewData(tb report.TrialBalanceReport, accountLedgers map[string]journal.AccountLedgerReport) render.LedgerViewData {
+	rows := make([]render.LedgerViewRow, 0, len(tb.Accounts))
+	for _, row := range tb.Accounts {
+		rows = append(rows, render.LedgerViewRow{
+			AccountCode:  row.AccountCode,
+			AccountName:  row.AccountName,
+			AccountType:  string(row.AccountType),
+			TotalDebits:  currency.FormatAmount(row.TotalDebits),
+			TotalCredits: currency.FormatAmount(row.TotalCredits),
+			Balance:      currency.FormatAmount(row.Balance),
+		})
+	}
+
+	details := make(map[string]render.LedgerAccountDetail, len(accountLedgers))
+	for code, rpt := range accountLedgers {
+		entries := make([]render.LedgerDetailEntry, 0, len(rpt.Entries))
+		for _, e := range rpt.Entries {
+			debit := ""
+			credit := ""
+			if e.DebitAmount > 0 {
+				debit = currency.FormatAmount(e.DebitAmount)
+			}
+			if e.CreditAmount > 0 {
+				credit = currency.FormatAmount(e.CreditAmount)
+			}
+			entries = append(entries, render.LedgerDetailEntry{
+				EntryNumber:    e.EntryNumber,
+				Date:           e.EntryDate,
+				Description:    e.Description,
+				Debit:          debit,
+				Credit:         credit,
+				RunningBalance: currency.FormatAmount(e.RunningBalance),
+			})
+		}
+		var totalDebits, totalCredits int64
+		for _, e := range rpt.Entries {
+			totalDebits += e.DebitAmount
+			totalCredits += e.CreditAmount
+		}
+		details[code] = render.LedgerAccountDetail{
+			AccountCode:  rpt.AccountCode,
+			AccountName:  rpt.AccountName,
+			AccountType:  string(rpt.AccountType),
+			Entries:      entries,
+			TotalDebits:  currency.FormatAmount(totalDebits),
+			TotalCredits: currency.FormatAmount(totalCredits),
+			Balance:      currency.FormatAmount(rpt.Balance),
+		}
+	}
+
+	return render.LedgerViewData{
+		Rows:          rows,
+		AccountDetail: details,
+		TotalDebits:   currency.FormatAmount(tb.TotalDebits),
+		TotalCredits:  currency.FormatAmount(tb.TotalCredits),
+		Balanced:      tb.Balanced,
+		Available:     true,
+	}
+}

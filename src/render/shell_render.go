@@ -35,23 +35,27 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	})
 	s.drawHeaderHighlights(buffer, header, theme)
 
-	switch s.Section {
-	case SectionJournal:
-		s.renderListSection(buffer, body, theme, SectionJournal, &s.Data.Journal)
-	case SectionQuests:
-		s.renderListSection(buffer, body, theme, SectionQuests, &s.Data.Quests)
-	case SectionLoot:
-		s.renderListSection(buffer, body, theme, SectionLoot, &s.Data.Loot)
-	case SectionAssets:
-		s.renderListSection(buffer, body, theme, SectionAssets, &s.Data.Assets)
-	case SectionCodex:
-		s.renderListSection(buffer, body, theme, SectionCodex, &s.Data.Codex)
-	case SectionNotes:
-		s.renderNotesSection(buffer, body, theme)
-	case SectionSettings:
-		s.renderSettingsSection(buffer, body, theme)
-	default:
-		drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
+	if s.ledgerView != nil {
+		s.renderLedgerView(buffer, body, theme)
+	} else {
+		switch s.Section {
+		case SectionJournal:
+			s.renderListSection(buffer, body, theme, SectionJournal, &s.Data.Journal)
+		case SectionQuests:
+			s.renderListSection(buffer, body, theme, SectionQuests, &s.Data.Quests)
+		case SectionLoot:
+			s.renderListSection(buffer, body, theme, SectionLoot, &s.Data.Loot)
+		case SectionAssets:
+			s.renderListSection(buffer, body, theme, SectionAssets, &s.Data.Assets)
+		case SectionCodex:
+			s.renderListSection(buffer, body, theme, SectionCodex, &s.Data.Codex)
+		case SectionNotes:
+			s.renderNotesSection(buffer, body, theme)
+		case SectionSettings:
+			s.renderSettingsSection(buffer, body, theme)
+		default:
+			drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
+		}
 	}
 
 	drawStatusLine(buffer, statusRect, theme, s.status)

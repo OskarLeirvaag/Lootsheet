@@ -44,4 +44,7 @@ const (
 	ActionSwitchCampaign  Action = "switch_campaign"
 	ActionHelp            Action = "help"
 	ActionSearch          Action = "search"
+	ActionExportCSV       Action = "export_csv"
+	ActionExportExcel     Action = "export_excel"
+	ActionExportPDF       Action = "export_pdf"
 )

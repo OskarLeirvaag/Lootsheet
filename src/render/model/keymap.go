@@ -52,6 +52,7 @@ func DefaultKeyMap() KeyMap {
 			{Action: ActionShowCodex, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '6'}},
 			{Action: ActionShowNotes, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '7'}},
 			{Action: ActionShowSettings, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '@'}, Label: "@ settings"},
+			{Action: ActionShowLedger, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: '#'}, Label: "# ledger"},
 			{Action: ActionNewExpense, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'e'}},
 			{Action: ActionNewIncome, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'i'}},
 			{Action: ActionNewCustom, Stroke: KeyStroke{Key: tcell.KeyRune, Rune: 'a'}, Label: "e/i/a entry"},
