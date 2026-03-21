@@ -238,7 +238,7 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 			Mode:         render.ItemActionModeCompose,
 			ComposeMode:  "asset_template",
 			ComposeTitle: "Edit Entry Template",
-			ComposeLines: assetTemplateToCommandLines(row.TemplateLines),
+			ComposeLines: templateToCommandLines(row.TemplateLines),
 		})
 
 		// Execute template — only if template lines exist.
@@ -250,7 +250,7 @@ func buildAssetItems(rows []loot.BrowseItemRecord, today string) []render.ListIt
 				Mode:         render.ItemActionModeCompose,
 				ComposeMode:  "custom_from_template",
 				ComposeTitle: row.Name,
-				ComposeLines: assetTemplateToExecuteLines(row.TemplateLines),
+				ComposeLines: templateToCommandLines(row.TemplateLines),
 			})
 		}
 
@@ -298,22 +298,7 @@ func assetRowLabel(row *loot.BrowseItemRecord, name string) string {
 	return fmt.Sprintf("%-12s %-11s %-4s %-12s %s", lootRowAppraisalLabel(row), string(row.Status), tpl, holder, name)
 }
 
-func assetTemplateToCommandLines(lines []loot.AssetTemplateLineRecord) []render.CommandLine {
-	if len(lines) == 0 {
-		return nil
-	}
-	result := make([]render.CommandLine, len(lines))
-	for i, line := range lines {
-		result[i] = render.CommandLine{
-			Side:        line.Side,
-			AccountCode: line.AccountCode,
-			Amount:      line.Amount,
-		}
-	}
-	return result
-}
-
-func assetTemplateToExecuteLines(lines []loot.AssetTemplateLineRecord) []render.CommandLine {
+func templateToCommandLines(lines []loot.AssetTemplateLineRecord) []render.CommandLine {
 	if len(lines) == 0 {
 		return nil
 	}
