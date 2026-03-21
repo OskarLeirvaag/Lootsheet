@@ -112,7 +112,7 @@ func (s *Shell) handleComposeKeyEvent(event *tcell.EventKey, action Action) (Han
 			return HandleResult{Command: command}, true
 		}
 		return HandleResult{Redraw: true}, true
-	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,

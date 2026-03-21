@@ -1280,7 +1280,7 @@ func (x *UploadCampaignResponse) GetCampaignName() string {
 type ShellDataProto struct {
 	state              protoimpl.MessageState  `protogen:"open.v1"`
 	Dashboard          *DashboardDataProto     `protobuf:"bytes,1,opt,name=dashboard,proto3" json:"dashboard,omitempty"`
-	Accounts           *ListScreenDataProto    `protobuf:"bytes,2,opt,name=accounts,proto3" json:"accounts,omitempty"`
+	Ledger             *ListScreenDataProto    `protobuf:"bytes,2,opt,name=ledger,proto3" json:"ledger,omitempty"`
 	Journal            *ListScreenDataProto    `protobuf:"bytes,3,opt,name=journal,proto3" json:"journal,omitempty"`
 	Quests             *ListScreenDataProto    `protobuf:"bytes,4,opt,name=quests,proto3" json:"quests,omitempty"`
 	Loot               *ListScreenDataProto    `protobuf:"bytes,5,opt,name=loot,proto3" json:"loot,omitempty"`
@@ -1335,9 +1335,9 @@ func (x *ShellDataProto) GetDashboard() *DashboardDataProto {
 	return nil
 }
 
-func (x *ShellDataProto) GetAccounts() *ListScreenDataProto {
+func (x *ShellDataProto) GetLedger() *ListScreenDataProto {
 	if x != nil {
-		return x.Accounts
+		return x.Ledger
 	}
 	return nil
 }
@@ -2447,10 +2447,10 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x16UploadCampaignResponse\x12\x1f\n" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\x12#\n" +
-	"\rcampaign_name\x18\x02 \x01(\tR\fcampaignName\"\xa9\a\n" +
+	"\rcampaign_name\x18\x02 \x01(\tR\fcampaignName\"\xa5\a\n" +
 	"\x0eShellDataProto\x12;\n" +
-	"\tdashboard\x18\x01 \x01(\v2\x1d.lootsheet.DashboardDataProtoR\tdashboard\x12:\n" +
-	"\baccounts\x18\x02 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\baccounts\x128\n" +
+	"\tdashboard\x18\x01 \x01(\v2\x1d.lootsheet.DashboardDataProtoR\tdashboard\x126\n" +
+	"\x06ledger\x18\x02 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x06ledger\x128\n" +
 	"\ajournal\x18\x03 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\ajournal\x126\n" +
 	"\x06quests\x18\x04 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x06quests\x122\n" +
 	"\x04loot\x18\x05 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x04loot\x126\n" +
@@ -2653,7 +2653,7 @@ var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	23, // 23: lootsheet.SearchResponse.items:type_name -> lootsheet.ListItemDataProto
 	1,  // 24: lootsheet.UploadCampaignRequest.mode:type_name -> lootsheet.UploadMode
 	21, // 25: lootsheet.ShellDataProto.dashboard:type_name -> lootsheet.DashboardDataProto
-	22, // 26: lootsheet.ShellDataProto.accounts:type_name -> lootsheet.ListScreenDataProto
+	22, // 26: lootsheet.ShellDataProto.ledger:type_name -> lootsheet.ListScreenDataProto
 	22, // 27: lootsheet.ShellDataProto.journal:type_name -> lootsheet.ListScreenDataProto
 	22, // 28: lootsheet.ShellDataProto.quests:type_name -> lootsheet.ListScreenDataProto
 	22, // 29: lootsheet.ShellDataProto.loot:type_name -> lootsheet.ListScreenDataProto

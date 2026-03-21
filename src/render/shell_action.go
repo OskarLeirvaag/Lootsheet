@@ -29,7 +29,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 	}
 	if s.compose != nil {
 		switch action {
-		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
+		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
@@ -99,6 +99,10 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		return HandleResult{Redraw: true}
 	case ActionShowSettings:
 		s.Section = SectionSettings
+		s.reconcileSelection(s.Section)
+		return HandleResult{Redraw: true}
+	case ActionShowLedger:
+		s.Section = SectionLedger
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionShowJournal:
@@ -250,7 +254,7 @@ func (s *Shell) handleConfirmAction(action Action) HandleResult {
 
 func (s *Shell) handleInputAction(action Action) HandleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,

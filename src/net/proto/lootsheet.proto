@@ -138,7 +138,7 @@ message UploadCampaignResponse {
 
 message ShellDataProto {
   DashboardDataProto  dashboard            = 1;
-  ListScreenDataProto accounts             = 2;
+  ListScreenDataProto ledger               = 2;
   ListScreenDataProto journal              = 3;
   ListScreenDataProto quests               = 4;
   ListScreenDataProto loot                 = 5;

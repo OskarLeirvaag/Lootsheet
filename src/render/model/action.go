@@ -11,6 +11,7 @@ const (
 	ActionPrevSection     Action = "prev_section"
 	ActionShowDashboard   Action = "show_dashboard"
 	ActionShowSettings    Action = "show_settings"
+	ActionShowLedger      Action = "show_ledger"
 	ActionShowJournal     Action = "show_journal"
 	ActionShowQuests      Action = "show_quests"
 	ActionShowLoot        Action = "show_loot"

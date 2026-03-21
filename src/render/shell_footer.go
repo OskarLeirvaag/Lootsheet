@@ -49,8 +49,8 @@ const helpAddEdit = "a add  u edit"
 
 func (s *Shell) sectionLauncherHelpText() string {
 	switch s.Section {
-	case SectionAccounts:
-		return "a add"
+	case SectionLedger:
+		return ""
 	case SectionSettings:
 		switch s.activeSettingsSection() {
 		case settingsTabCodexTypes:
@@ -103,8 +103,8 @@ func (s *Shell) headerLines() []string {
 
 func (s *Shell) currentHeaderLines() []string {
 	switch s.Section {
-	case SectionAccounts:
-		return append([]string{}, s.Data.Accounts.HeaderLines...)
+	case SectionLedger:
+		return append([]string{}, s.Data.Ledger.HeaderLines...)
 	case SectionJournal:
 		return append([]string{}, s.Data.Journal.HeaderLines...)
 	case SectionQuests:
@@ -211,7 +211,7 @@ func (s *Shell) glossaryTitle() string {
 
 func (s *Shell) glossaryLines() []string {
 	switch s.Section {
-	case SectionAccounts:
+	case SectionLedger:
 		return []string{
 			"Assets: what the party owns or is owed.",
 			"Liabilities: what the party owes to others.",

@@ -9,7 +9,7 @@ func dashboardStyles(theme *Theme) *dashboard.Styles {
 	return &dashboard.Styles{
 		PanelStyle:  panelStyle(theme),
 		Dashboard:   theme.SectionDashboard,
-		Accounts:    sectionStyleFor(SectionAccounts, theme).Accent,
+		Ledger:      sectionStyleFor(SectionLedger, theme).Accent,
 		Journal:     sectionStyleFor(SectionJournal, theme).Accent,
 		Quests:      sectionStyleFor(SectionQuests, theme).Accent,
 		Loot:        sectionStyleFor(SectionLoot, theme).Accent,

@@ -9,10 +9,6 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
 
-func buildSettingsAccountItems(accounts []ledger.AccountRecord) []render.ListItemData {
-	return buildAccountItems(accounts, nil)
-}
-
 func buildSettingsCodexTypeItems(codexTypes []codex.CodexType) []render.ListItemData {
 	items := make([]render.ListItemData, 0, len(codexTypes))
 

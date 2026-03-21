@@ -12,7 +12,7 @@ import (
 func ShellDataToProto(d *model.ShellData) *ShellDataProto {
 	return &ShellDataProto{
 		Dashboard:          dashboardDataToProto(&d.Dashboard),
-		Accounts:           listScreenDataToProto(&d.Accounts),
+		Ledger:             listScreenDataToProto(&d.Ledger),
 		Journal:            listScreenDataToProto(&d.Journal),
 		Quests:             listScreenDataToProto(&d.Quests),
 		Loot:               listScreenDataToProto(&d.Loot),
@@ -77,7 +77,7 @@ func ShellDataFromProto(p *ShellDataProto) model.ShellData {
 	}
 	return model.ShellData{
 		Dashboard:          dashboardDataFromProto(p.Dashboard),
-		Accounts:           listScreenDataFromProto(p.Accounts),
+		Ledger:             listScreenDataFromProto(p.Ledger),
 		Journal:            listScreenDataFromProto(p.Journal),
 		Quests:             listScreenDataFromProto(p.Quests),
 		Loot:               listScreenDataFromProto(p.Loot),

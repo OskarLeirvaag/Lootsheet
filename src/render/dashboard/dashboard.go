@@ -17,7 +17,7 @@ type Styles struct {
 
 	// Section accents for sub-panels.
 	Dashboard tcell.Style
-	Accounts  tcell.Style
+	Ledger    tcell.Style
 	Journal   tcell.Style
 	Quests    tcell.Style
 	Loot      tcell.Style
@@ -88,7 +88,7 @@ func DrawPanels(buffer *canvas.Buffer, body canvas.Rect, styles *Styles, data *m
 		loot, assets = bottomRest.SplitVertical(bottomWidth, 1)
 	}
 
-	canvas.DrawPanel(buffer, accounts, styles.PanelStyle, accentPanel("Accounts", resolved.AccountsLines, styles.Accounts))
+	canvas.DrawPanel(buffer, accounts, styles.PanelStyle, accentPanel("Accounts", resolved.AccountsLines, styles.Ledger))
 	canvas.DrawPanel(buffer, journal, styles.PanelStyle, accentPanel("Journal", resolved.JournalLines, styles.Journal))
 	canvas.DrawPanel(buffer, ledger, styles.PanelStyle, canvas.Panel{
 		Title:       "Ledger Snapshot",
