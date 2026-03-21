@@ -180,6 +180,10 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 		return handleResult{}
 	}
 
+	if s.disconnected {
+		return handleResult{Quit: true}
+	}
+
 	action := keymap.Resolve(event)
 	if s.editor != nil {
 		if result, handled := s.handleEditorKeyEvent(event, action); handled {

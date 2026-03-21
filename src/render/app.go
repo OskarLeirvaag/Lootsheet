@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -68,7 +69,7 @@ func Run(ctx context.Context, options *Options) error {
 		}
 	}()
 
-	data := loadShellData(ctx, options)
+	data, _ := loadShellData(ctx, options)
 	shell := NewShell(&data)
 	if options != nil {
 		shell.SetSearchHandler(options.SearchHandler)
@@ -86,7 +87,12 @@ func Run(ctx context.Context, options *Options) error {
 				return nil
 			}
 			if result.Reload {
-				data := loadShellData(ctx, options)
+				data, err := loadShellData(ctx, options)
+				if err != nil && isDisconnectError(err) {
+					shell.SetDisconnected()
+					drawFrame(terminal, shell, &theme, keymap, true)
+					continue
+				}
 				shell.Reload(&data)
 				drawFrame(terminal, shell, &theme, keymap, true)
 				continue
@@ -103,6 +109,11 @@ func Run(ctx context.Context, options *Options) error {
 
 				commandResult, err := options.CommandHandler(ctx, *result.Command)
 				if err != nil {
+					if isDisconnectError(err) {
+						shell.SetDisconnected()
+						drawFrame(terminal, shell, &theme, keymap, true)
+						continue
+					}
 					var inputErr InputError
 					if errors.As(err, &inputErr) {
 						shell.ApplyInputError(inputErr.Error())
@@ -172,19 +183,31 @@ func loadDashboardData(ctx context.Context, options *Options) DashboardData {
 	return resolveDashboardData(&data)
 }
 
-func loadShellData(ctx context.Context, options *Options) ShellData {
+func loadShellData(ctx context.Context, options *Options) (ShellData, error) {
 	if options != nil && options.ShellLoader != nil {
 		data, err := options.ShellLoader(ctx)
 		if err != nil {
-			return ErrorShellData("TUI data unavailable.", err.Error())
+			return ErrorShellData("TUI data unavailable.", err.Error()), err
 		}
 
-		return resolveShellData(&data)
+		return resolveShellData(&data), nil
 	}
 
 	return ShellData{
 		Dashboard: loadDashboardData(ctx, options),
+	}, nil
+}
+
+// isDisconnectError returns true when the error indicates the server
+// connection is gone (graceful shutdown, broken pipe, or EOF).
+func isDisconnectError(err error) bool {
+	if err == nil {
+		return false
 	}
+	msg := err.Error()
+	return strings.Contains(msg, "server shutting down") ||
+		strings.HasPrefix(msg, "read response:") ||
+		strings.HasPrefix(msg, "write request:")
 }
 
 func drawFrame(terminal *Terminal, shell ShellUI, theme *Theme, keymap KeyMap, full bool) {

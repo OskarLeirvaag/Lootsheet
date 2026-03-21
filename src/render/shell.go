@@ -67,6 +67,7 @@ type Shell struct {
 
 	editorSaveInFlight  bool
 	editorQuitAfterSave bool
+	disconnected        bool
 }
 
 // SetSearchHandler installs a server-side search callback. Sections for which
@@ -146,6 +147,16 @@ func (s *Shell) Reload(data *ShellData) {
 	}
 
 	s.reconcileSelections()
+}
+
+// SetDisconnected marks the shell as disconnected from the server.
+// All open modals are cleared so the disconnect overlay renders on top.
+func (s *Shell) SetDisconnected() {
+	if s == nil {
+		return
+	}
+	s.disconnected = true
+	s.CloseModal()
 }
 
 // SetStatus updates the transient status line.
