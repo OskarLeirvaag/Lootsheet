@@ -100,7 +100,7 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, backupDir s
 		return result, nil
 	}
 
-	backupPath, err := createDatabaseBackup(databasePath, backupDir)
+	backupPath, err := CreateDatabaseBackup(databasePath, backupDir)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("create database backup: %w", err)
 	}

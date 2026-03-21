@@ -15,7 +15,8 @@ const (
 	filePerm              = 0o600
 )
 
-func createDatabaseBackup(databasePath string, backupDir string) (string, error) {
+// CreateDatabaseBackup copies the database file to a timestamped backup in backupDir.
+func CreateDatabaseBackup(databasePath string, backupDir string) (string, error) {
 	if strings.TrimSpace(backupDir) == "" {
 		return "", fmt.Errorf("backup directory path is required")
 	}
