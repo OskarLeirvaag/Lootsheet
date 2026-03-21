@@ -1,5 +1,8 @@
 # LootSheet TUI demo — quick walkthrough of a filled campaign database.
 # Run: go build -o ./lootsheet . && vhs demo.tape
+#
+# Safety: uses a temporary database via LOOTSHEET_DATABASE_PATH.
+# Does not touch any existing local or remote database.
 
 Output docs/demo.gif
 
@@ -9,196 +12,185 @@ Set Width 1400
 Set Height 800
 Set Padding 10
 Set Framerate 30
-Set TypingSpeed 20ms
+Set TypingSpeed 30ms
 
-# Seed a temporary demo database (hidden from recording).
+# Build and seed a temporary demo database before recording.
 Hide
-Type "export LOOTSHEET_DATABASE_PATH=$(mktemp /tmp/lootsheet-demo-XXXX.db)"
-Enter
-Sleep 300ms
-Type "./lootsheet init 2>/dev/null"
-Enter
-Sleep 2s
-Type "sqlite3 $LOOTSHEET_DATABASE_PATH < fixtures/sample_campaign.sql"
-Enter
-Sleep 500ms
-Type "clear"
-Enter
-Sleep 300ms
-Show
-
-# Open the TUI.
-Type "./lootsheet tui"
+Type "DB=$(mktemp /tmp/lootsheet-demo-XXXX.db) && export LOOTSHEET_DATABASE_PATH=$DB LOOTSHEET_NO_ANIMATION=1 && ./lootsheet init 2>/dev/null && sqlite3 $DB < fixtures/sample_campaign.sql && clear"
 Enter
 Sleep 3s
 
-# ── Dashboard ──
-Sleep 1.5s
+# Open the TUI — "Local" is pre-selected in the startup picker.
+Type "./lootsheet tui"
+Sleep 1s
+Show
+Sleep 1s
+Enter
+Sleep 500ms
+Enter
+Sleep 500ms
+Enter
 
-# ── Journal ── browse posted entries.
+# ── Dashboard ──
+Sleep 2s
+
+# ── Journal ── browse posted entries and inspect detail.
 Type "2"
-Sleep 800ms
+Sleep 1s
 Down
-Sleep 150ms
+Sleep 400ms
 Down
-Sleep 150ms
+Sleep 400ms
 Down
-Sleep 150ms
+Sleep 400ms
 Down
-Sleep 150ms
+Sleep 400ms
+Down
+Sleep 400ms
 Up
-Sleep 150ms
+Sleep 400ms
 Up
-Sleep 150ms
+Sleep 400ms
 
 # ── Quests ── browse quest register.
 Type "3"
-Sleep 800ms
+Sleep 1s
 Down
-Sleep 150ms
+Sleep 500ms
 Down
-Sleep 150ms
+Sleep 500ms
+Down
+Sleep 500ms
 
 # ── Loot ── browse loot register.
 Type "4"
-Sleep 800ms
-# Wyvern Tooth Necklace is selected (held, first in sort).
-# Move to Emerald Idol (recognized, second item).
+Sleep 1s
+Down
+Sleep 500ms
 Down
 Sleep 500ms
 
-# Sell the Emerald Idol.
+# Sell a recognized loot item.
 Type "s"
-Sleep 500ms
+Sleep 600ms
 Type "9GP"
-Sleep 300ms
-Enter
-Sleep 800ms
-
-# ── Assets ── add a new asset.
-Type "5"
-Sleep 800ms
-Type "a"
 Sleep 500ms
-# Name.
+Enter
+Sleep 1s
+
+# ── Assets ── browse existing assets, then add a new one.
+Type "5"
+Sleep 1s
+Down
+Sleep 500ms
+
+Type "a"
+Sleep 600ms
 Type "Dragonscale Shield"
 Tab
-Sleep 150ms
-# Source.
+Sleep 300ms
 Type "Dragon Hoard"
 Tab
-Sleep 150ms
-# Quantity.
+Sleep 300ms
 Type "1"
 Tab
-Sleep 150ms
-# Holder.
+Sleep 300ms
 Type "Ragnar"
 Tab
-Sleep 150ms
-# Notes.
+Sleep 300ms
 Type "Slightly singed on the left rim"
-Sleep 300ms
-Enter
-Sleep 800ms
-
-# Give the new asset a template.
-# The new asset should be selected after creation.
-Type "f"
 Sleep 500ms
-# Template starts with 2 default lines: L1 debit, L2 credit.
-# L1 Side is already debit — Tab to account.
-Tab
-Sleep 150ms
-# L1 Account code.
-Type "5100"
-Tab
-Sleep 150ms
-# L1 Amount.
-Type "5GP"
-Tab
-Sleep 150ms
-# L2 Side is already credit — Tab to account.
-Tab
-Sleep 150ms
-# L2 Account code.
-Type "1000"
-Tab
-Sleep 150ms
-# L2 Amount.
-Type "5GP"
-Sleep 400ms
 Enter
-Sleep 800ms
+Sleep 1s
 
-# Execute the template — creates a journal entry.
-Type "x"
-Sleep 500ms
-# Date and description are pre-filled. Just submit.
-Sleep 400ms
-Enter
-Sleep 800ms
-
-# ── Codex ── browse NPCs and contacts.
+# ── Codex ── browse NPCs, players, and settlements.
 Type "6"
-Sleep 800ms
+Sleep 1s
 Down
-Sleep 300ms
+Sleep 400ms
 Down
-Sleep 300ms
+Sleep 400ms
+Down
+Sleep 400ms
+Down
+Sleep 400ms
 Up
-Sleep 300ms
+Sleep 400ms
+Up
+Sleep 400ms
 
-# ── Notes ── browse campaign notes.
+# ── Notes ── browse session notes with markdown rendering.
 Type "7"
+Sleep 1.5s
+Down
 Sleep 800ms
 Down
-Sleep 300ms
+Sleep 800ms
 Down
-Sleep 300ms
+Sleep 800ms
 
 # ── Search ── find entries across all sections.
 Type "/"
-Sleep 500ms
-Type "moonlit"
-Sleep 800ms
-# Browse results.
+Sleep 600ms
+Type "ragnar"
+Sleep 1s
 Down
-Sleep 300ms
+Sleep 400ms
 Down
-Sleep 300ms
-# Close search.
+Sleep 400ms
 Escape
-Sleep 500ms
+Sleep 600ms
 
-# ── Journal ── see the new entries at the bottom.
-Type "2"
+# ── Ledger ── open the full-screen general ledger overlay.
+Type "#"
+Sleep 1.5s
+Down
+Sleep 400ms
+Down
+Sleep 400ms
+Down
+Sleep 400ms
+# Cycle filter to Assets.
+Right
 Sleep 800ms
-# Scroll to bottom to see sale + custom entries.
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
-Down
-Sleep 150ms
+# Cycle to Equity.
+Right
 Sleep 500ms
+Right
+Sleep 800ms
+# Back to All.
+Left
+Sleep 400ms
+Left
+Sleep 400ms
+Left
+Sleep 600ms
+# Drill into Party Cash.
+Enter
+Sleep 1.2s
+# Back to list.
+Escape
+Sleep 600ms
+# Close ledger overlay.
+Escape
+Sleep 600ms
+
+# ── Settings ── manage accounts, codex types, campaigns.
+Type "@"
+Sleep 1s
+Right
+Sleep 500ms
+Right
+Sleep 500ms
+Escape
+Sleep 600ms
 
 # ── Dashboard ── finish on the overview.
 Type "1"
-Sleep 1.5s
+Sleep 2s
 
 # Quit.
 Type "q"
-Sleep 300ms
+Sleep 500ms
+Enter
+Sleep 500ms

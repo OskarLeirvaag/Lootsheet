@@ -1,6 +1,7 @@
 package render
 
 import (
+	"os"
 	"strings"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/render/goldrain"
@@ -83,6 +84,10 @@ func (s *Shell) SetSearchHandler(h SearchHandler) {
 
 // NewShell constructs the interactive TUI shell state.
 func NewShell(data *ShellData) *Shell {
+	rain := goldrain.NewGoldRain()
+	if os.Getenv("LOOTSHEET_NO_ANIMATION") != "" {
+		rain = goldrain.NewStaticGoldRain()
+	}
 	shell := &Shell{
 		Data:            resolveShellData(data),
 		Section:         SectionDashboard,
@@ -90,7 +95,7 @@ func NewShell(data *ShellData) *Shell {
 		selectedKeys:    make(map[Section]string),
 		selectedIndexes: make(map[Section]int),
 		viewHeights:     make(map[Section]int),
-		rain:            goldrain.NewGoldRain(),
+		rain:            rain,
 	}
 	shell.reconcileSelections()
 

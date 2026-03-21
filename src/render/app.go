@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -61,19 +62,21 @@ func Run(ctx context.Context, options *Options) error { //nolint:revive // TUI e
 		}
 	}()
 
-	ticker := time.NewTicker(120 * time.Millisecond)
-	defer ticker.Stop()
+	if os.Getenv("LOOTSHEET_NO_ANIMATION") == "" {
+		ticker := time.NewTicker(120 * time.Millisecond)
+		defer ticker.Stop()
 
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				_ = terminal.PostEvent(tcell.NewEventInterrupt(animationTick{}))
-			case <-cancelDone:
-				return
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					_ = terminal.PostEvent(tcell.NewEventInterrupt(animationTick{}))
+				case <-cancelDone:
+					return
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	if options != nil && options.ConnectionChecker != nil {
 		checker := options.ConnectionChecker
