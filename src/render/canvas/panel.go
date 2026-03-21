@@ -234,7 +234,7 @@ var (
 	ScatterLoot     = []rune{'$', '¢', '£', '¥', '€'}
 	ScatterQuests   = []rune{'⚔', '☆', '⚑', '►'}
 	ScatterJournal  = []rune{'§', '¶', '†', '‡', '※'}
-	ScatterAccounts = []rune{'#', 'Σ', '∞', '≡'}
+	ScatterLedger   = []rune{'#', 'Σ', '∞', '≡'}
 	ScatterPeople   = []rune{'@', '&', '~', '*'}
 	ScatterNotes    = []rune{'*', '~', '#', '+'}
 	ScatterSettings = []rune{'⚙', '◆', '●', '◇'}

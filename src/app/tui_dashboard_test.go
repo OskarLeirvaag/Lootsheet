@@ -179,8 +179,8 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 		t.Fatalf("build shell data: %v", err)
 	}
 
-	if !strings.Contains(joinItemRows(data.Accounts.Items), "1000 asset") {
-		t.Fatalf("account items = %#v", data.Accounts.Items)
+	if !strings.Contains(joinItemRows(data.Ledger.Items), "1000 asset") {
+		t.Fatalf("account items = %#v", data.Ledger.Items)
 	}
 	if !strings.Contains(joinItemRows(data.Journal.Items), "Restock arrows") {
 		t.Fatalf("journal items = %#v", data.Journal.Items)
@@ -193,7 +193,7 @@ func TestBuildTUIShellDataUsesReadOnlySectionRows(t *testing.T) {
 	}
 }
 
-func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
+func TestBuildTUIShellDataLedgerItemsAreReadOnly(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {
 		t.Fatalf("load init assets: %v", err)
@@ -206,13 +206,37 @@ func TestBuildTUIShellDataAddsAccountToggleAction(t *testing.T) {
 		t.Fatalf("build shell data: %v", err)
 	}
 
-	if len(data.Accounts.Items) == 0 {
-		t.Fatal("expected account items")
+	if len(data.Ledger.Items) == 0 {
+		t.Fatal("expected ledger items")
 	}
 
-	item := data.Accounts.Items[0]
+	for _, item := range data.Ledger.Items {
+		if len(item.Actions) != 0 {
+			t.Fatalf("ledger item %q has %d actions, want 0 (read-only)", item.Key, len(item.Actions))
+		}
+	}
+}
+
+func TestBuildTUIShellDataSettingsAccountsHaveToggleAction(t *testing.T) {
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+
+	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
+	data, err := buildTUIShellData(context.Background(), &sqliteDataLoader{databasePath: databasePath, campaignID: campaignID, assets: assets})
+	if err != nil {
+		t.Fatalf("build shell data: %v", err)
+	}
+
+	if len(data.SettingsAccounts.Items) == 0 {
+		t.Fatal("expected settings account items")
+	}
+
+	item := data.SettingsAccounts.Items[0]
 	if len(item.Actions) != 3 {
-		t.Fatalf("account item actions = %d, want 3 (rename, delete, toggle)", len(item.Actions))
+		t.Fatalf("settings account item actions = %d, want 3 (rename, delete, toggle)", len(item.Actions))
 	}
 	if item.Actions[0].ID != tuiCommandAccountRename || item.Actions[0].Trigger != render.ActionEdit {
 		t.Fatalf("first action = %#v, want rename", item.Actions[0])

@@ -112,10 +112,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 				"a  Add custom entry",
 			},
 		},
-		Accounts: render.ListScreenData{
+		Ledger: render.ListScreenData{
 			HeaderLines: []string{
-				fmt.Sprintf("Chart of accounts from %s.", databaseName),
-				"Select an account to inspect it. `a` adds, `d` removes, and `t` toggles active/inactive.",
+				fmt.Sprintf("General ledger from %s.", databaseName),
+				"Select an account to view its posting history.",
 			},
 			EmptyLines: []string{
 				"No accounts found.",
@@ -186,15 +186,23 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 
 	var panelErrors []string
 
+	trialBalance, err := loader.GetTrialBalance(ctx)
+	trialBalanceAvailable := false
+	if err != nil {
+		data.Dashboard.LedgerLines = unavailablePanelLines(err)
+		panelErrors = append(panelErrors, "ledger")
+	} else {
+		data.Dashboard.LedgerLines = summarizeLedger(trialBalance)
+		trialBalanceAvailable = true
+	}
+
 	accounts, err := loader.ListAccounts(ctx)
 	if err != nil {
 		data.Dashboard.AccountsLines = unavailablePanelLines(err)
-		data.Accounts = unavailableSectionData("Accounts unavailable.", err.Error())
+		data.Ledger = unavailableSectionData("Ledger unavailable.", err.Error())
 		panelErrors = append(panelErrors, "accounts")
 	} else {
-		data.Dashboard.AccountsLines = summarizeAccounts(accounts)
-		data.Accounts.SummaryLines = summarizeAccounts(accounts)
-		data.Accounts.ListHeaderRow = fmt.Sprintf("%-4s %-9s %-8s %s", "CODE", "TYPE", "STATUS", "NAME")
+		data.Dashboard.AccountsLines = summarizeSettingsAccounts(accounts)
 
 		accountLedgers := make(map[string]journal.AccountLedgerReport, len(accounts))
 		for _, acct := range accounts {
@@ -202,7 +210,21 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 				accountLedgers[acct.Code] = rpt
 			}
 		}
-		data.Accounts.Items = buildAccountItems(accounts, accountLedgers)
+
+		balanceMap := make(map[string]report.TrialBalanceRow, len(trialBalance.Accounts))
+		if trialBalanceAvailable {
+			for _, row := range trialBalance.Accounts {
+				balanceMap[row.AccountCode] = row
+			}
+		}
+
+		if trialBalanceAvailable {
+			data.Ledger.SummaryLines = summarizeLedgerSection(trialBalance, len(accounts))
+		} else {
+			data.Ledger.SummaryLines = summarizeSettingsAccounts(accounts)
+		}
+		data.Ledger.ListHeaderRow = fmt.Sprintf("%-4s %-9s %10s %10s %10s  %s", "CODE", "TYPE", "DEBITS", "CREDITS", "BALANCE", "NAME")
+		data.Ledger.Items = buildLedgerItems(accounts, accountLedgers, balanceMap)
 		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
 
@@ -228,16 +250,6 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 	} else {
 		data.Journal.ListHeaderRow = fmt.Sprintf("#%-4s %-10s %-8s %s", "NUM", "DATE", "STATUS", "DESCRIPTION")
 		data.Journal.Items = buildJournalItems(journalEntries)
-	}
-
-	trialBalance, err := loader.GetTrialBalance(ctx)
-	trialBalanceAvailable := false
-	if err != nil {
-		data.Dashboard.LedgerLines = unavailablePanelLines(err)
-		panelErrors = append(panelErrors, "ledger")
-	} else {
-		data.Dashboard.LedgerLines = summarizeLedger(trialBalance)
-		trialBalanceAvailable = true
 	}
 
 	panelErrors = loadShellQuestData(ctx, loader, &data, panelErrors)
@@ -819,13 +831,13 @@ func unavailableShellData(status *ledger.DatabaseStatus, detail string) render.S
 			LootLines:       []string{"No loot register data loaded.", stateLine},
 			AssetLines:      []string{"No asset register data loaded.", stateLine},
 		},
-		Accounts: unavailableSectionData(stateLine, detail),
-		Journal:  unavailableSectionData(stateLine, detail),
-		Quests:   unavailableSectionData(stateLine, detail),
-		Loot:     unavailableSectionData(stateLine, detail),
-		Assets:   unavailableSectionData(stateLine, detail),
-		Codex:    unavailableSectionData(stateLine, detail),
-		Notes:    unavailableSectionData(stateLine, detail),
+		Ledger:  unavailableSectionData(stateLine, detail),
+		Journal: unavailableSectionData(stateLine, detail),
+		Quests:  unavailableSectionData(stateLine, detail),
+		Loot:    unavailableSectionData(stateLine, detail),
+		Assets:  unavailableSectionData(stateLine, detail),
+		Codex:   unavailableSectionData(stateLine, detail),
+		Notes:   unavailableSectionData(stateLine, detail),
 	}
 }
 

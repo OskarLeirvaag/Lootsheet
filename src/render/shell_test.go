@@ -81,6 +81,7 @@ func TestShellRenderShowsScrollableSettingsScreen(t *testing.T) {
 	shell := NewShell(&data)
 
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger to Accounts tab
 	for range 6 {
 		shell.HandleAction(ActionMoveDown)
 	}
@@ -136,6 +137,7 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger to Accounts tab
 	shell.Render(buffer, &theme, keymap)
 
 	output := buffer.PlainText()
@@ -169,6 +171,7 @@ func TestShellActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	}
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger tab to Accounts
 
 	result := shell.HandleAction(ActionToggle)
 	if !result.Redraw {
@@ -529,6 +532,7 @@ func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 	}
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger tab to Accounts
 	shell.HandleAction(ActionMoveDown)
 
 	if item := shell.currentSelectedItem(settingsTabAccounts); item == nil || item.Key != "1100" {
@@ -708,8 +712,13 @@ func TestShellSectionLaunchersFollowCurrentScreen(t *testing.T) {
 	}
 
 	shell.HandleAction(ActionShowSettings)
+	if help := shell.footerHelpText(DefaultKeyMap()); strings.Contains(help, "a add") {
+		t.Fatalf("ledger tab should have no add action, help = %q", help)
+	}
+
+	shell.HandleAction(ActionNextSection) // advance to Accounts tab
 	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add account") || !strings.Contains(help, "d remove") || !strings.Contains(help, "t deactivate") {
-		t.Fatalf("settings help = %q", help)
+		t.Fatalf("settings accounts help = %q", help)
 	}
 
 	shell.HandleAction(ActionShowJournal)
@@ -860,10 +869,10 @@ func TestSearchSectionFilter(t *testing.T) {
 		t.Fatalf("expected at least 2 results in All filter, got %d", len(shell.search.Results))
 	}
 
-	// Cycle Right to first section (Journal) — no items there.
-	shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
-	// Keep cycling to Quests (index 2 in searchableSections: Journal=1, Quests=2).
-	shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	// Cycle Right past Journal (1) to Quests (index 2 in searchableSections: Journal=1, Quests=2).
+	for range 2 {
+		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
+	}
 	if shell.search.FilterIndex != 2 {
 		t.Fatalf("expected filter index 2 (Quests), got %d", shell.search.FilterIndex)
 	}
@@ -967,7 +976,7 @@ func TestSearchFallsBackToClientSideWhenHandlerReturnsNil(t *testing.T) {
 
 	shell.HandleAction(ActionSearch)
 
-	// Cycle filter to Quests (index 2).
+	// Cycle filter to Quests (index 2: Journal=1, Quests=2).
 	for range 2 {
 		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
 	}

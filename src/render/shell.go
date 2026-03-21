@@ -206,8 +206,8 @@ func (s *Shell) Navigate(section Section, selectedKey string) {
 
 func (s *Shell) listDataForSection(section Section) *ListScreenData {
 	switch section {
-	case SectionAccounts:
-		return &s.Data.Accounts
+	case SectionLedger:
+		return &s.Data.Ledger
 	case SectionJournal:
 		return &s.Data.Journal
 	case SectionQuests:

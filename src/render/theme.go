@@ -18,7 +18,7 @@ type Theme struct {
 	StatusOK         tcell.Style
 	HeaderLabel      tcell.Style
 	SectionDashboard tcell.Style
-	SectionAccounts  tcell.Style
+	SectionLedger    tcell.Style
 	SectionJournal   tcell.Style
 	SectionQuests    tcell.Style
 	SectionLoot      tcell.Style
@@ -32,7 +32,7 @@ type Theme struct {
 	HoardGem         tcell.Style
 	Brick            tcell.Style
 	ScatterAssets    tcell.Style
-	ScatterAccounts  tcell.Style
+	ScatterLedger    tcell.Style
 	ScatterJournal   tcell.Style
 	ScatterQuests    tcell.Style
 	ScatterLoot      tcell.Style
@@ -78,7 +78,7 @@ func DefaultTheme() Theme {
 	gem := tcell.NewRGBColor(72, 229, 217)
 	brick := tcell.NewRGBColor(38, 43, 52)
 	leafTint := tcell.NewRGBColor(110, 78, 148)
-	scatterAccountsTint := tcell.NewRGBColor(55, 100, 130)
+	scatterLedgerTint := tcell.NewRGBColor(55, 100, 130)
 	scatterJournalTint := tcell.NewRGBColor(120, 50, 45)
 	scatterQuestsTint := tcell.NewRGBColor(55, 110, 65)
 	scatterLootTint := tcell.NewRGBColor(110, 100, 30)
@@ -105,7 +105,7 @@ func DefaultTheme() Theme {
 		StatusOK:         tcell.StyleDefault.Foreground(ink).Background(okBackground).Bold(true),
 		HeaderLabel:      tcell.StyleDefault.Foreground(bronze).Background(panelBackground).Bold(true),
 		SectionDashboard: tcell.StyleDefault.Foreground(bronze).Background(panelBackground).Bold(true),
-		SectionAccounts:  tcell.StyleDefault.Foreground(slateBlue).Background(panelBackground).Bold(true),
+		SectionLedger:    tcell.StyleDefault.Foreground(slateBlue).Background(panelBackground).Bold(true),
 		SectionJournal:   tcell.StyleDefault.Foreground(amber).Background(panelBackground).Bold(true),
 		SectionQuests:    tcell.StyleDefault.Foreground(moss).Background(panelBackground).Bold(true),
 		SectionLoot:      tcell.StyleDefault.Foreground(gold).Background(panelBackground).Bold(true),
@@ -119,7 +119,7 @@ func DefaultTheme() Theme {
 		HoardGem:         tcell.StyleDefault.Foreground(gem).Background(panelBackground).Bold(true),
 		Brick:            tcell.StyleDefault.Foreground(brick).Background(panelBackground),
 		ScatterAssets:    tcell.StyleDefault.Foreground(leafTint).Background(panelBackground),
-		ScatterAccounts:  tcell.StyleDefault.Foreground(scatterAccountsTint).Background(panelBackground),
+		ScatterLedger:    tcell.StyleDefault.Foreground(scatterLedgerTint).Background(panelBackground),
 		ScatterJournal:   tcell.StyleDefault.Foreground(scatterJournalTint).Background(panelBackground),
 		ScatterQuests:    tcell.StyleDefault.Foreground(scatterQuestsTint).Background(panelBackground),
 		ScatterLoot:      tcell.StyleDefault.Foreground(scatterLootTint).Background(panelBackground),

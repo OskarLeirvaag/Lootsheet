@@ -16,6 +16,7 @@ const (
 	ActionPrevSection     = model.ActionPrevSection
 	ActionShowDashboard   = model.ActionShowDashboard
 	ActionShowSettings    = model.ActionShowSettings
+	ActionShowLedger      = model.ActionShowLedger
 	ActionShowJournal     = model.ActionShowJournal
 	ActionShowQuests      = model.ActionShowQuests
 	ActionShowLoot        = model.ActionShowLoot

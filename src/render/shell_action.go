@@ -29,7 +29,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 	}
 	if s.compose != nil {
 		switch action {
-		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
+		case ActionNone, ActionConfirm, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex,
 			ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
@@ -100,6 +100,11 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 	case ActionShowSettings:
 		s.Section = SectionSettings
 		s.reconcileSelection(s.Section)
+		return HandleResult{Redraw: true}
+	case ActionShowLedger:
+		s.Section = SectionSettings
+		s.settingsTab = 0
+		s.reconcileSelection(s.activeSettingsSection())
 		return HandleResult{Redraw: true}
 	case ActionShowJournal:
 		s.Section = SectionJournal
@@ -250,7 +255,7 @@ func (s *Shell) handleConfirmAction(action Action) HandleResult {
 
 func (s *Shell) handleInputAction(action Action) HandleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,

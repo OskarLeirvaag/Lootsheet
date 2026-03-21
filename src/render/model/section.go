@@ -5,7 +5,7 @@ type Section int
 
 const (
 	SectionDashboard Section = iota
-	SectionAccounts
+	SectionLedger
 	SectionJournal
 	SectionQuests
 	SectionLoot
@@ -23,7 +23,7 @@ const (
 )
 
 // SettingsTabs lists the virtual settings sections.
-var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
+var SettingsTabs = []Section{SectionLedger, SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
 
 // SearchableSections lists sections that appear in the search modal.
 var SearchableSections = []Section{
@@ -45,7 +45,9 @@ var OrderedSections = []Section{
 // Title returns the user-facing section name.
 func (s Section) Title() string {
 	switch s {
-	case SectionAccounts, SettingsTabAccounts:
+	case SectionLedger:
+		return "Ledger"
+	case SettingsTabAccounts:
 		return "Accounts"
 	case SectionJournal:
 		return "Journal"

@@ -93,7 +93,7 @@ type DashboardData struct {
 // ShellData contains the full TUI snapshot.
 type ShellData struct {
 	Dashboard          DashboardData
-	Accounts           ListScreenData
+	Ledger             ListScreenData
 	Journal            ListScreenData
 	Quests             ListScreenData
 	Loot               ListScreenData

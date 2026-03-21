@@ -23,7 +23,7 @@ const (
 func DefaultShellData() ShellData {
 	return ShellData{
 		Dashboard:          DefaultDashboardData(),
-		Accounts:           defaultListScreenData(SectionAccounts),
+		Ledger:             defaultListScreenData(SectionLedger),
 		Journal:            defaultListScreenData(SectionJournal),
 		Quests:             defaultListScreenData(SectionQuests),
 		Loot:               defaultListScreenData(SectionLoot),
@@ -47,7 +47,7 @@ func ErrorShellData(summary string, detail string) ShellData {
 
 	return ShellData{
 		Dashboard: ErrorDashboardData(summary, detail),
-		Accounts: ListScreenData{
+		Ledger: ListScreenData{
 			HeaderLines:  []string{summary, detail},
 			SummaryLines: []string{"Account data unavailable.", detail},
 			EmptyLines:   []string{"No account rows loaded.", detail},
@@ -110,8 +110,8 @@ func resolveShellData(data *ShellData) ShellData {
 		resolved.Dashboard = DefaultDashboardData()
 	}
 
-	if listScreenDataEmpty(&resolved.Accounts) {
-		resolved.Accounts = defaultListScreenData(SectionAccounts)
+	if listScreenDataEmpty(&resolved.Ledger) {
+		resolved.Ledger = defaultListScreenData(SectionLedger)
 	}
 	if listScreenDataEmpty(&resolved.Journal) {
 		resolved.Journal = defaultListScreenData(SectionJournal)
@@ -150,7 +150,7 @@ func shellDataEmpty(data *ShellData) bool {
 	}
 
 	return dashboardDataEmpty(&data.Dashboard) &&
-		listScreenDataEmpty(&data.Accounts) &&
+		listScreenDataEmpty(&data.Ledger) &&
 		listScreenDataEmpty(&data.Journal) &&
 		listScreenDataEmpty(&data.Quests) &&
 		listScreenDataEmpty(&data.Loot) &&
@@ -175,7 +175,7 @@ func listScreenDataEmpty(data *ListScreenData) bool {
 
 func defaultListScreenData(section Section) ListScreenData {
 	switch section {
-	case SectionAccounts:
+	case SectionLedger:
 		return ListScreenData{
 			HeaderLines: []string{
 				"Chart of accounts shell.",

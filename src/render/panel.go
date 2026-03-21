@@ -21,7 +21,7 @@ var (
 	scatterLoot     = canvas.ScatterLoot
 	scatterQuests   = canvas.ScatterQuests
 	scatterJournal  = canvas.ScatterJournal
-	scatterAccounts = canvas.ScatterAccounts
+	scatterLedger   = canvas.ScatterLedger
 	scatterPeople   = canvas.ScatterPeople
 	scatterNotes    = canvas.ScatterNotes
 	scatterSettings = canvas.ScatterSettings

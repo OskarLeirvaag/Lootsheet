@@ -11,7 +11,7 @@ type Section = model.Section
 
 const (
 	SectionDashboard = model.SectionDashboard
-	SectionAccounts  = model.SectionAccounts
+	SectionLedger    = model.SectionLedger
 	SectionJournal   = model.SectionJournal
 	SectionQuests    = model.SectionQuests
 	SectionLoot      = model.SectionLoot
@@ -45,11 +45,11 @@ type SectionStyle struct {
 // sectionStyleFor returns the visual properties for a section under the given theme.
 func sectionStyleFor(s Section, theme *Theme) SectionStyle {
 	switch s {
-	case SectionAccounts:
+	case SectionLedger:
 		return SectionStyle{
-			Accent:        theme.SectionAccounts,
-			ScatterGlyphs: scatterAccounts,
-			ScatterStyle:  &theme.ScatterAccounts,
+			Accent:        theme.SectionLedger,
+			ScatterGlyphs: scatterLedger,
+			ScatterStyle:  &theme.ScatterLedger,
 		}
 	case SectionJournal:
 		return SectionStyle{

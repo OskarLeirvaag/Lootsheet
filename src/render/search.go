@@ -252,7 +252,7 @@ func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) { //n
 		input := fmt.Sprintf("Search: %s_", s.search.Query)
 		inputStyle := theme.Text
 		if strings.Contains(s.search.Query, "*") {
-			inputStyle = theme.SectionAccounts // blue — prefix mode
+			inputStyle = theme.SectionLedger // blue — prefix mode
 		}
 		buffer.WriteString(content.X, row, inputStyle, clipText(input, content.W))
 		row++

@@ -36,8 +36,6 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	s.drawHeaderHighlights(buffer, header, theme)
 
 	switch s.Section {
-	case SectionAccounts:
-		s.renderListSection(buffer, body, theme, SectionAccounts, &s.Data.Accounts)
 	case SectionJournal:
 		s.renderListSection(buffer, body, theme, SectionJournal, &s.Data.Journal)
 	case SectionQuests:
