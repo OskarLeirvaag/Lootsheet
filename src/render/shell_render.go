@@ -49,7 +49,7 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 	case SectionCodex:
 		s.renderListSection(buffer, body, theme, SectionCodex, &s.Data.Codex)
 	case SectionNotes:
-		s.renderListSection(buffer, body, theme, SectionNotes, &s.Data.Notes)
+		s.renderNotesSection(buffer, body, theme)
 	case SectionSettings:
 		s.renderSettingsSection(buffer, body, theme)
 	default:
@@ -182,10 +182,136 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 		mdLines := parseMarkdownLines(detailBody, mdWidth, theme)
 		DrawStyledPanel(buffer, detailRect, theme, detailTitle, detailLines, mdLines, ss.Accent, ss.Accent)
 	} else {
-		DrawPanel(buffer, detailRect, theme, ss.Panel(detailTitle, detailLines))
+		detailContent := panelContentRect(detailRect, buffer.Bounds())
+		wrappedLines := wrapDetailLines(detailLines, detailContent.W)
+		DrawPanel(buffer, detailRect, theme, ss.Panel(detailTitle, wrappedLines))
 	}
 
 	s.renderListPanel(buffer, listRect, theme, section, view, selectedIndex)
+}
+
+// --- Notes section: narrow title list + full markdown body ---
+
+func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) {
+	ss := sectionStyleFor(SectionNotes, theme)
+	data := &s.Data.Notes
+	selectedIndex := s.currentSelectionIndex(SectionNotes)
+
+	// Layout: narrow left column (list + refs) and large body on right.
+	leftW := clampInt(rect.W/4, 20, 36)
+	leftRect, bodyRect := rect.SplitVertical(leftW, 1)
+
+	// Split left column: title list (75%) and references (25%).
+	refsH := clampInt(leftRect.H/4, 4, 10)
+	titleListRect, refsRect := leftRect.SplitHorizontal(leftRect.H-refsH, 0)
+
+	// --- Title list panel ---
+	DrawPanel(buffer, titleListRect, theme, Panel{
+		Title:         "Notes",
+		BorderStyle:   &ss.Accent,
+		TitleStyle:    &ss.Accent,
+		Texture:       ss.Texture,
+		Borders:       ss.Borders,
+		ScatterGlyphs: ss.ScatterGlyphs,
+		ScatterStyle:  ss.ScatterStyle,
+	})
+
+	listContent := panelContentRect(titleListRect, buffer.Bounds())
+	if !listContent.Empty() && len(data.Items) > 0 {
+		scroll := min(s.scrolls[SectionNotes], selectedIndex)
+		if selectedIndex >= scroll+listContent.H {
+			scroll = selectedIndex - listContent.H + 1
+		}
+		scroll = clampInt(scroll, 0, max(0, len(data.Items)-listContent.H))
+		s.scrolls[SectionNotes] = scroll
+
+		for row := 0; row < listContent.H && scroll+row < len(data.Items); row++ {
+			index := scroll + row
+			item := data.Items[index]
+			lineRect := Rect{X: listContent.X, Y: listContent.Y + row, W: listContent.W, H: 1}
+			style := theme.Text
+			prefix := " "
+			if index == selectedIndex {
+				buffer.FillRect(lineRect, ' ', theme.SelectedRow)
+				style = theme.SelectedRow
+				prefix = ">"
+			}
+			buffer.WriteString(listContent.X, listContent.Y+row, style, clipText(prefix+item.DetailTitle, listContent.W))
+		}
+	} else if !listContent.Empty() {
+		for i, line := range data.EmptyLines {
+			if i >= listContent.H {
+				break
+			}
+			buffer.WriteString(listContent.X, listContent.Y+i, theme.Muted, clipText(line, listContent.W))
+		}
+	}
+
+	// --- References panel ---
+	var refLines []string
+	if item := s.currentSelectedItem(SectionNotes); item != nil {
+		for _, line := range item.DetailLines {
+			if strings.HasPrefix(line, "  @") || strings.HasPrefix(line, "Linked from:") || strings.HasPrefix(line, "References:") {
+				refLines = append(refLines, line)
+			}
+		}
+	}
+	if len(refLines) == 0 {
+		refLines = []string{"No references."}
+	}
+	DrawPanel(buffer, refsRect, theme, Panel{
+		Title:       "References",
+		Lines:       refLines,
+		BorderStyle: &ss.Accent,
+		TitleStyle:  &ss.Accent,
+		Texture:     PanelTextureNone,
+	})
+
+	// --- Body panel (markdown render of selected note) ---
+	bodyTitle := "Note"
+	var metaLines []string
+	var bodyText string
+
+	if item := s.currentSelectedItem(SectionNotes); item != nil {
+		bodyTitle = item.DetailTitle
+		// Only pass non-reference detail lines as meta.
+		for _, line := range item.DetailLines {
+			if !strings.HasPrefix(line, "  @") && !strings.HasPrefix(line, "References:") && !strings.HasPrefix(line, "Linked from:") {
+				metaLines = append(metaLines, line)
+			}
+		}
+		bodyText = item.DetailBody
+	}
+
+	if bodyText != "" {
+		bodyContent := panelContentRect(bodyRect, buffer.Bounds())
+		mdWidth := bodyContent.W
+		if mdWidth <= 0 {
+			mdWidth = 40
+		}
+		mdLines := parseMarkdownLines(bodyText, mdWidth, theme)
+		DrawStyledPanel(buffer, bodyRect, theme, bodyTitle, metaLines, mdLines, ss.Accent, ss.Accent)
+	} else {
+		DrawPanel(buffer, bodyRect, theme, Panel{
+			Title:       bodyTitle,
+			Lines:       metaLines,
+			BorderStyle: &ss.Accent,
+			TitleStyle:  &ss.Accent,
+			Texture:     PanelTextureNone,
+		})
+	}
+}
+
+// wrapDetailLines wraps each plain-text detail line to fit within width.
+func wrapDetailLines(lines []string, width int) []string {
+	if width <= 0 {
+		return lines
+	}
+	wrapped := make([]string, 0, len(lines))
+	for _, line := range lines {
+		wrapped = append(wrapped, wrapPlainText(line, width)...)
+	}
+	return wrapped
 }
 
 func (s *Shell) renderListPanel(buffer *Buffer, rect Rect, theme *Theme, section Section, data *ListScreenData, selectedIndex int) {

@@ -122,7 +122,7 @@ func TestParseInlineSpansReference(t *testing.T) {
 	if len(spans) != 2 {
 		t.Fatalf("expected 2 spans, got %d: %v", len(spans), spans)
 	}
-	if spans[1].Text != "@[quest/Clear the Tower]" {
+	if spans[1].Text != "Clear the Tower" {
 		t.Fatalf("reference span = %q", spans[1].Text)
 	}
 }

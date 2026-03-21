@@ -31,6 +31,25 @@ func parseMarkdownLines(body string, width int, theme *Theme) []styledLine {
 	return markdown.ParseMarkdownLines(body, width, &ms)
 }
 
+// wrapPlainText wraps a single line of plain text to fit within width.
+// Returns one or more lines. Empty input returns a single empty string.
+func wrapPlainText(text string, width int) []string {
+	if width <= 0 {
+		return []string{""}
+	}
+	runes := []rune(text)
+	if len(runes) <= width {
+		return []string{text}
+	}
+	var lines []string
+	for len(runes) > width {
+		lines = append(lines, string(runes[:width]))
+		runes = runes[width:]
+	}
+	lines = append(lines, string(runes))
+	return lines
+}
+
 // DrawStyledPanel renders a panel with styled line content instead of plain strings.
 func DrawStyledPanel(buffer *Buffer, rect Rect, theme *Theme, title string, metaLines []string, styledLines []styledLine, borderStyle, titleStyle tcell.Style) {
 	if buffer == nil || rect.Empty() {
@@ -52,13 +71,16 @@ func DrawStyledPanel(buffer *Buffer, rect Rect, theme *Theme, title string, meta
 
 	y := content.Y
 
-	// Write metadata lines first (plain text).
+	// Write metadata lines with wrapping.
 	for _, line := range metaLines {
-		if y >= content.Y+content.H {
-			return
+		wrapped := wrapPlainText(line, content.W)
+		for _, wl := range wrapped {
+			if y >= content.Y+content.H {
+				return
+			}
+			buffer.WriteString(content.X, y, theme.Text, wl)
+			y++
 		}
-		buffer.WriteString(content.X, y, theme.Text, clipText(line, content.W))
-		y++
 	}
 
 	// Blank separator after metadata.

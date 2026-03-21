@@ -186,14 +186,14 @@ func parseInlineSpans(text string, baseStyle tcell.Style, opts ...tcell.Style) [
 				end++
 			}
 			if end < len(runes) && runes[end] == ']' {
-				ref := string(runes[i : end+1])
-				if strings.Contains(ref, "/") {
+				inner := string(runes[i+2 : end]) // content between @[ and ]
+				if _, displayName, ok := strings.Cut(inner, "/"); ok {
 					flushCurrent()
 					rs := baseStyle.Foreground(tcell.NewRGBColor(180, 160, 220))
 					if len(opts) > 0 {
 						rs = opts[0]
 					}
-					spans = append(spans, StyledSpan{Text: ref, Style: rs})
+					spans = append(spans, StyledSpan{Text: displayName, Style: rs})
 					i = end + 1
 					continue
 				}

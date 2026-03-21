@@ -18,6 +18,7 @@ var codexFormRegistry = map[string]CodexForm{
 		ID: "player",
 		Fields: []CodexFormField{
 			{ID: "name", Label: "Name", Placeholder: "Thorin Ironfist"},
+			{ID: "player_name", Label: "Player", Placeholder: "John"},
 			{ID: "class", Label: "Class", Placeholder: "Fighter"},
 			{ID: "race", Label: "Race", Placeholder: "Dwarf"},
 			{ID: "background", Label: "Background", Placeholder: "Noble"},

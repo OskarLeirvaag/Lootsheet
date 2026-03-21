@@ -20,6 +20,7 @@ type CodexEntry struct {
 	Faction     string
 	Disposition string
 	PartyMember bool
+	PlayerName  string
 	Class       string
 	Race        string
 	Background  string
@@ -37,6 +38,7 @@ type CreateInput struct {
 	Location    string
 	Faction     string
 	Disposition string
+	PlayerName  string
 	Class       string
 	Race        string
 	Background  string
@@ -52,6 +54,7 @@ type UpdateInput struct {
 	Location    string
 	Faction     string
 	Disposition string
+	PlayerName  string
 	Class       string
 	Race        string
 	Background  string

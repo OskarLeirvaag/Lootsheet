@@ -157,12 +157,13 @@ func CreateEntry(ctx context.Context, databasePath string, campaignID string, in
 
 		if _, err := db.ExecContext(ctx,
 			`INSERT INTO codex_entries (id, campaign_id, type_id, name, title, location, faction, disposition, party_member,
-			                            class, race, background, description, notes)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			                            player_name, class, race, background, description, notes)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, campaignID, typeID, name,
 			strings.TrimSpace(input.Title), strings.TrimSpace(input.Location),
 			strings.TrimSpace(input.Faction), strings.TrimSpace(input.Disposition),
 			partyMember,
+			strings.TrimSpace(input.PlayerName),
 			strings.TrimSpace(input.Class), strings.TrimSpace(input.Race),
 			strings.TrimSpace(input.Background), strings.TrimSpace(input.Description),
 			notes,
@@ -217,12 +218,12 @@ func UpdateEntry(ctx context.Context, databasePath string, campaignID string, en
 		if _, err := db.ExecContext(ctx,
 			`UPDATE codex_entries
 			 SET type_id = ?, name = ?, title = ?, location = ?, faction = ?, disposition = ?,
-			     party_member = ?, class = ?, race = ?, background = ?, description = ?,
+			     party_member = ?, player_name = ?, class = ?, race = ?, background = ?, description = ?,
 			     notes = ?, updated_at = CURRENT_TIMESTAMP
 			 WHERE id = ?`,
 			typeID, name, strings.TrimSpace(input.Title), strings.TrimSpace(input.Location),
 			strings.TrimSpace(input.Faction), strings.TrimSpace(input.Disposition),
-			partyMember,
+			partyMember, strings.TrimSpace(input.PlayerName),
 			strings.TrimSpace(input.Class), strings.TrimSpace(input.Race),
 			strings.TrimSpace(input.Background), strings.TrimSpace(input.Description),
 			notes, entryID,
@@ -266,7 +267,7 @@ func ListEntries(ctx context.Context, databasePath string, campaignID string) ([
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexEntry, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
-			       e.party_member, e.class, e.race, e.background, e.description, e.notes,
+			       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
 			       e.created_at, e.updated_at
 			FROM codex_entries e
 			JOIN codex_types t ON t.id = e.type_id
@@ -285,7 +286,7 @@ func ListEntries(ctx context.Context, databasePath string, campaignID string) ([
 
 			if err := rows.Scan(
 				&e.ID, &e.TypeID, &e.TypeName, &e.Name, &e.Title, &e.Location, &e.Faction,
-				&e.Disposition, &partyMember, &e.Class, &e.Race, &e.Background,
+				&e.Disposition, &partyMember, &e.PlayerName, &e.Class, &e.Race, &e.Background,
 				&e.Description, &e.Notes, &e.CreatedAt, &e.UpdatedAt,
 			); err != nil {
 				return nil, fmt.Errorf("scan codex entry row: %w", err)
@@ -313,7 +314,7 @@ func SearchEntries(ctx context.Context, databasePath string, campaignID string, 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexEntry, error) {
 		rows, err := db.QueryContext(ctx, `
 			SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
-			       e.party_member, e.class, e.race, e.background, e.description, e.notes,
+			       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
 			       e.created_at, e.updated_at
 			FROM codex_entries e
 			JOIN codex_types t ON t.id = e.type_id
@@ -334,7 +335,7 @@ func SearchEntries(ctx context.Context, databasePath string, campaignID string, 
 
 			if err := rows.Scan(
 				&e.ID, &e.TypeID, &e.TypeName, &e.Name, &e.Title, &e.Location, &e.Faction,
-				&e.Disposition, &partyMember, &e.Class, &e.Race, &e.Background,
+				&e.Disposition, &partyMember, &e.PlayerName, &e.Class, &e.Race, &e.Background,
 				&e.Description, &e.Notes, &e.CreatedAt, &e.UpdatedAt,
 			); err != nil {
 				return nil, fmt.Errorf("scan codex entry row: %w", err)
@@ -365,14 +366,14 @@ func getEntryByID(ctx context.Context, db *sql.DB, entryID string) (CodexEntry, 
 
 	if err := db.QueryRowContext(ctx, `
 		SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
-		       e.party_member, e.class, e.race, e.background, e.description, e.notes,
+		       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
 		       e.created_at, e.updated_at
 		FROM codex_entries e
 		JOIN codex_types t ON t.id = e.type_id
 		WHERE e.id = ?
 	`, entryID).Scan(
 		&record.ID, &record.TypeID, &record.TypeName, &record.Name, &record.Title, &record.Location,
-		&record.Faction, &record.Disposition, &partyMember, &record.Class, &record.Race,
+		&record.Faction, &record.Disposition, &partyMember, &record.PlayerName, &record.Class, &record.Race,
 		&record.Background, &record.Description, &record.Notes, &record.CreatedAt, &record.UpdatedAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
