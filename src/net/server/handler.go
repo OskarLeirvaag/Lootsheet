@@ -50,6 +50,8 @@ func dispatch(ctx context.Context, req *pb.Request, svc TUIService) *pb.Response
 		return handleDownloadDatabase(svc)
 	case pb.Method_UPLOAD_CAMPAIGN:
 		return handleUploadCampaign(ctx, req.GetUploadCampaign(), svc)
+	case pb.Method_PING:
+		return &pb.Response{Ok: true}
 	default:
 		return errorResponse(fmt.Sprintf("unknown method: %v", req.Method))
 	}

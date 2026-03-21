@@ -11,18 +11,24 @@ import (
 
 type animationTick struct{}
 
+// ConnectionChecker is called periodically to verify the server is reachable.
+// A non-nil error triggers the disconnect modal.
+type ConnectionChecker func(context.Context) error
+
 // Options configures the interactive TUI shell.
 type Options struct {
-	ScreenFactory   ScreenFactory
-	DashboardLoader DashboardLoader
-	ShellLoader     ShellLoader
-	CommandHandler  CommandHandler
-	SearchHandler   SearchHandler
-	Theme           Theme
-	KeyMap          KeyMap
+	ScreenFactory     ScreenFactory
+	DashboardLoader   DashboardLoader
+	ShellLoader       ShellLoader
+	CommandHandler    CommandHandler
+	SearchHandler     SearchHandler
+	ConnectionChecker ConnectionChecker
+	Theme             Theme
+	KeyMap            KeyMap
 }
 
 type cancelInterrupt struct{}
+type disconnectInterrupt struct{}
 
 // Run opens the interactive boxed TUI shell and blocks until exit.
 func Run(ctx context.Context, options *Options) error {
@@ -68,6 +74,25 @@ func Run(ctx context.Context, options *Options) error {
 			}
 		}
 	}()
+
+	if options != nil && options.ConnectionChecker != nil {
+		checker := options.ConnectionChecker
+		go func() {
+			ping := time.NewTicker(2 * time.Second)
+			defer ping.Stop()
+			for {
+				select {
+				case <-ping.C:
+					if err := checker(ctx); err != nil && isDisconnectError(err) {
+						_ = terminal.PostEvent(tcell.NewEventInterrupt(disconnectInterrupt{}))
+						return
+					}
+				case <-cancelDone:
+					return
+				}
+			}
+		}()
+	}
 
 	data, _ := loadShellData(ctx, options)
 	shell := NewShell(&data)
@@ -154,6 +179,9 @@ func Run(ctx context.Context, options *Options) error {
 			switch typed.Data().(type) {
 			case cancelInterrupt:
 				return nil
+			case disconnectInterrupt:
+				shell.SetDisconnected()
+				drawFrame(terminal, shell, &theme, keymap, true)
 			case animationTick:
 				shell.TickRain()
 				drawFrame(terminal, shell, &theme, keymap, true)
