@@ -38,8 +38,9 @@ func GetQuestReceivables(ctx context.Context, databasePath string, campaignID st
 					JOIN journal_entries je ON je.id = jl.journal_entry_id
 					JOIN accounts a ON a.id = jl.account_id
 					WHERE je.status = 'posted'
+					  AND je.campaign_id = q.campaign_id
 					  AND a.code = '1000'
-					  AND jl.memo = 'Quest payment: ' || q.title
+					  AND (je.source_quest_id = q.id OR (je.source_quest_id IS NULL AND jl.memo = 'Quest payment: ' || q.title))
 				), 0) AS total_paid
 			FROM quests q
 			WHERE q.campaign_id = ? AND q.status IN ('completed', 'collectible', 'partially_paid')

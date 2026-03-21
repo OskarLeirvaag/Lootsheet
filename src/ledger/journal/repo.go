@@ -47,7 +47,7 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID st
 		var originalStatus string
 		var originalEntryNumber int
 		if err := db.QueryRowContext(ctx,
-			"SELECT status, entry_number FROM journal_entries WHERE id = ?", originalEntryID,
+			"SELECT status, entry_number FROM journal_entries WHERE id = ? AND campaign_id = ?", originalEntryID, campaignID,
 		).Scan(&originalStatus, &originalEntryNumber); err != nil {
 			if err == sql.ErrNoRows {
 				return ledger.PostedJournalEntry{}, fmt.Errorf("journal entry %q does not exist", originalEntryID)
@@ -73,11 +73,6 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID st
 			description = fmt.Sprintf("Reversal of entry #%d", originalEntryNumber)
 		}
 
-		entryNumber, err := ledger.NextJournalEntryNumber(ctx, db, campaignID)
-		if err != nil {
-			return ledger.PostedJournalEntry{}, err
-		}
-
 		reversalEntryID := uuid.NewString()
 
 		tx, err := db.BeginTx(ctx, nil)
@@ -85,6 +80,11 @@ func ReverseJournalEntry(ctx context.Context, databasePath string, campaignID st
 			return ledger.PostedJournalEntry{}, fmt.Errorf("begin reversal transaction: %w", err)
 		}
 		defer tx.Rollback()
+
+		entryNumber, err := ledger.NextJournalEntryNumber(ctx, tx, campaignID)
+		if err != nil {
+			return ledger.PostedJournalEntry{}, err
+		}
 
 		// Create the reversal entry.
 		if _, err := tx.ExecContext(ctx,

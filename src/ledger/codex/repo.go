@@ -197,7 +197,7 @@ func UpdateEntry(ctx context.Context, databasePath string, campaignID string, en
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (CodexEntry, error) {
 		var exists int
-		if err := db.QueryRowContext(ctx, "SELECT 1 FROM codex_entries WHERE id = ?", entryID).Scan(&exists); err != nil {
+		if err := db.QueryRowContext(ctx, "SELECT 1 FROM codex_entries WHERE id = ? AND campaign_id = ?", entryID, campaignID).Scan(&exists); err != nil {
 			if err == sql.ErrNoRows {
 				return CodexEntry{}, fmt.Errorf("codex entry %q does not exist", entryID)
 			}
