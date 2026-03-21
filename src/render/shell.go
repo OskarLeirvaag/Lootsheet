@@ -64,6 +64,7 @@ type Shell struct {
 	codexPicker     *codexPickerState
 	search          *searchState
 	searchHandler   SearchHandler
+	ledgerView      *ledgerViewState
 	rain            *goldrain.GoldRain
 
 	editorSaveInFlight  bool
@@ -133,6 +134,7 @@ func (s *Shell) Reload(data *ShellData) {
 	s.glossary = nil
 	s.codexPicker = nil
 	s.search = nil
+	s.ledgerView = nil
 	s.quitConfirm = false
 
 	if s.editorSaveInFlight {
@@ -182,6 +184,7 @@ func (s *Shell) CloseModal() {
 	s.glossary = nil
 	s.codexPicker = nil
 	s.search = nil
+	s.ledgerView = nil
 	s.editor = nil
 	s.quitConfirm = false
 }

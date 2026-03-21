@@ -90,10 +90,52 @@ type DashboardData struct {
 	AssetLines      []string
 }
 
+// LedgerDetailEntry is a single posting in an account's ledger.
+type LedgerDetailEntry struct {
+	EntryNumber    int
+	Date           string
+	Description    string
+	Debit          string
+	Credit         string
+	RunningBalance string
+}
+
+// LedgerAccountDetail is the drill-down data for a single account.
+type LedgerAccountDetail struct {
+	AccountCode  string
+	AccountName  string
+	AccountType  string
+	Entries      []LedgerDetailEntry
+	TotalDebits  string
+	TotalCredits string
+	Balance      string
+}
+
+// LedgerViewRow is a single account row in the trial balance.
+type LedgerViewRow struct {
+	AccountCode  string
+	AccountName  string
+	AccountType  string
+	TotalDebits  string
+	TotalCredits string
+	Balance      string
+}
+
+// LedgerViewData is the structured data for the full-screen ledger overlay.
+type LedgerViewData struct {
+	Rows          []LedgerViewRow
+	AccountDetail map[string]LedgerAccountDetail
+	TotalDebits   string
+	TotalCredits  string
+	Balanced      bool
+	Available     bool
+}
+
 // ShellData contains the full TUI snapshot.
 type ShellData struct {
 	Dashboard          DashboardData
 	Ledger             ListScreenData
+	LedgerReport       LedgerViewData
 	Journal            ListScreenData
 	Quests             ListScreenData
 	Loot               ListScreenData

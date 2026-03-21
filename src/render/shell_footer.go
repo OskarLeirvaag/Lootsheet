@@ -19,6 +19,12 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 	if s.glossary != nil {
 		return "? close  Esc cancel  q cancel"
 	}
+	if s.ledgerView != nil {
+		if s.ledgerView.mode == ledgerModeDetail {
+			return "\u2191\u2193 scroll  x Excel  p PDF  c CSV  q back"
+		}
+		return "\u2191\u2193 select  \u2190\u2192 filter  Enter detail  x Excel  p PDF  c CSV  # close"
+	}
 	if s.search != nil {
 		return "Enter select  \u2191\u2193 navigate  \u2190\u2192 filter  Ctrl+U clear  Esc close"
 	}
@@ -51,8 +57,6 @@ func (s *Shell) sectionLauncherHelpText() string {
 	switch s.Section {
 	case SectionSettings:
 		switch s.activeSettingsSection() {
-		case SectionLedger:
-			return ""
 		case settingsTabCodexTypes:
 			return "a add codex type"
 		case settingsTabCampaigns:

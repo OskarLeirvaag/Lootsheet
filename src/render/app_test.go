@@ -144,7 +144,6 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRune, '@', tcell.ModNone)
-			sim.InjectKey(tcell.KeyRight, 0, tcell.ModNone) // advance past Ledger to Accounts tab
 			sim.InjectKey(tcell.KeyRune, 't', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
@@ -253,7 +252,6 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRune, '@', tcell.ModNone)
-			sim.InjectKey(tcell.KeyRight, 0, tcell.ModNone) // advance past Ledger to Accounts tab
 			sim.InjectKey(tcell.KeyRune, 't', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard

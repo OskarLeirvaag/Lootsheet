@@ -102,10 +102,9 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionShowLedger:
-		s.Section = SectionSettings
-		s.settingsTab = 0
-		s.reconcileSelection(s.activeSettingsSection())
-		return HandleResult{Redraw: true}
+		if s.openLedgerView() {
+			return HandleResult{Redraw: true}
+		}
 	case ActionShowJournal:
 		s.Section = SectionJournal
 		s.reconcileSelection(s.Section)
@@ -211,6 +210,11 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 	}
 	if s.codexPicker != nil {
 		if result, handled := s.handleCodexPickerKeyEvent(event, action); handled {
+			return result
+		}
+	}
+	if s.ledgerView != nil {
+		if result, handled := s.handleLedgerViewKeyEvent(event, action); handled {
 			return result
 		}
 	}

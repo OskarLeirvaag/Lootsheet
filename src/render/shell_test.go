@@ -81,7 +81,6 @@ func TestShellRenderShowsScrollableSettingsScreen(t *testing.T) {
 	shell := NewShell(&data)
 
 	shell.HandleAction(ActionShowSettings)
-	shell.HandleAction(ActionNextSection) // advance past Ledger to Accounts tab
 	for range 6 {
 		shell.HandleAction(ActionMoveDown)
 	}
@@ -137,7 +136,6 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
-	shell.HandleAction(ActionNextSection) // advance past Ledger to Accounts tab
 	shell.Render(buffer, &theme, keymap)
 
 	output := buffer.PlainText()
@@ -171,7 +169,6 @@ func TestShellActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	}
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
-	shell.HandleAction(ActionNextSection) // advance past Ledger tab to Accounts
 
 	result := shell.HandleAction(ActionToggle)
 	if !result.Redraw {
@@ -532,7 +529,6 @@ func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 	}
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
-	shell.HandleAction(ActionNextSection) // advance past Ledger tab to Accounts
 	shell.HandleAction(ActionMoveDown)
 
 	if item := shell.currentSelectedItem(settingsTabAccounts); item == nil || item.Key != "1100" {
@@ -712,13 +708,8 @@ func TestShellSectionLaunchersFollowCurrentScreen(t *testing.T) {
 	}
 
 	shell.HandleAction(ActionShowSettings)
-	if help := shell.footerHelpText(DefaultKeyMap()); strings.Contains(help, "a add") {
-		t.Fatalf("ledger tab should have no add action, help = %q", help)
-	}
-
-	shell.HandleAction(ActionNextSection) // advance to Accounts tab
 	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add account") || !strings.Contains(help, "d remove") || !strings.Contains(help, "t deactivate") {
-		t.Fatalf("settings accounts help = %q", help)
+		t.Fatalf("settings help = %q", help)
 	}
 
 	shell.HandleAction(ActionShowJournal)
