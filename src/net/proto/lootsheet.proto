@@ -15,6 +15,7 @@ enum Method {
   SEARCH_CODEX_ENTRIES = 5;
   SEARCH_NOTES       = 6;
   DOWNLOAD_DATABASE  = 7;
+  UPLOAD_CAMPAIGN    = 8;
 }
 
 message Request {
@@ -28,6 +29,7 @@ message Request {
     SearchRequest          search_codex        = 15;
     SearchRequest          search_notes        = 16;
     DownloadDatabaseRequest download_database   = 17;
+    UploadCampaignRequest  upload_campaign      = 18;
   }
 }
 
@@ -43,6 +45,7 @@ message Response {
     SearchResponse          search_codex        = 15;
     SearchResponse          search_notes        = 16;
     DownloadDatabaseResponse download_database  = 17;
+    UploadCampaignResponse  upload_campaign     = 18;
   }
 }
 
@@ -109,6 +112,25 @@ message DownloadDatabaseRequest {}
 message DownloadDatabaseResponse {
   bytes data     = 1;
   string filename = 2;
+}
+
+// ---------- UploadCampaign ----------
+
+enum UploadMode {
+  UPLOAD_NEW       = 0;  // fail if campaign ID exists on server
+  UPLOAD_OVERWRITE = 1;  // delete existing, then insert
+}
+
+message UploadCampaignRequest {
+  bytes      data           = 1;  // minimal SQLite DB with one campaign
+  string     campaign_id    = 2;
+  string     schema_version = 3;  // must match server's config.SchemaVersion
+  UploadMode mode           = 4;
+}
+
+message UploadCampaignResponse {
+  string campaign_id   = 1;
+  string campaign_name = 2;
 }
 
 // ---------- Domain model mirrors ----------

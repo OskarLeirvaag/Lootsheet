@@ -48,6 +48,8 @@ func dispatch(ctx context.Context, req *pb.Request, svc TUIService) *pb.Response
 		return handleSearchNotes(ctx, req.GetSearchNotes(), svc)
 	case pb.Method_DOWNLOAD_DATABASE:
 		return handleDownloadDatabase(svc)
+	case pb.Method_UPLOAD_CAMPAIGN:
+		return handleUploadCampaign(ctx, req.GetUploadCampaign(), svc)
 	default:
 		return errorResponse(fmt.Sprintf("unknown method: %v", req.Method))
 	}

@@ -132,12 +132,14 @@ Traefik), pass --tls-skip-verify=false so the client validates the certificate.
 Flags:
   --tls-skip-verify   skip TLS certificate verification (default true)
   --download PATH     download the server database to PATH and exit
+  --upload            upload a local campaign to the server and exit
 
 Examples:
   lootsheet connect localhost:7547
   lootsheet connect 192.168.1.10:7547
   lootsheet connect --tls-skip-verify=false loot.example.com:443
   lootsheet connect --download ./backup.db localhost:7547
+  lootsheet connect --upload localhost:7547
 `
 
 const tuiHelpText = `LootSheet CLI
