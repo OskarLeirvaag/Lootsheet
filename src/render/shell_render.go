@@ -195,7 +195,7 @@ func (s *Shell) renderListSection(buffer *Buffer, rect Rect, theme *Theme, secti
 
 // --- Notes section: narrow title list + full markdown body ---
 
-func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) {
+func (s *Shell) renderNotesSection(buffer *Buffer, rect Rect, theme *Theme) { //nolint:revive // TUI notes section rendering
 	ss := sectionStyleFor(SectionNotes, theme)
 	data := &s.Data.Notes
 	selectedIndex := s.currentSelectionIndex(SectionNotes)
@@ -483,6 +483,7 @@ func drawStatusLine(buffer *Buffer, rect Rect, theme *Theme, status StatusMessag
 		style = theme.StatusError
 	case StatusSuccess:
 		style = theme.StatusOK
+	default:
 	}
 
 	if status.Empty() {
@@ -502,7 +503,7 @@ func drawStatusLine(buffer *Buffer, rect Rect, theme *Theme, status StatusMessag
 	buffer.WriteString(visible.X, visible.Y, style, clipText(status.Text, visible.W))
 }
 
-func (s *Shell) renderQuitConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
+func (*Shell) renderQuitConfirmModal(buffer *Buffer, rect Rect, theme *Theme) {
 	if rect.Empty() {
 		return
 	}
@@ -522,7 +523,7 @@ func (s *Shell) renderQuitConfirmModal(buffer *Buffer, rect Rect, theme *Theme) 
 	})
 }
 
-func (s *Shell) renderDisconnectModal(buffer *Buffer, rect Rect, theme *Theme) {
+func (*Shell) renderDisconnectModal(buffer *Buffer, rect Rect, theme *Theme) {
 	if rect.Empty() {
 		return
 	}

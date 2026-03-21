@@ -3,6 +3,7 @@ package codex
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -25,13 +26,13 @@ func CreateType(ctx context.Context, databasePath string, id, name, formID strin
 	formID = strings.TrimSpace(formID)
 
 	if id == "" {
-		return CodexType{}, fmt.Errorf("codex type ID is required")
+		return CodexType{}, errors.New("codex type ID is required")
 	}
 	if name == "" {
-		return CodexType{}, fmt.Errorf("codex type name is required")
+		return CodexType{}, errors.New("codex type name is required")
 	}
 	if !validFormIDs[formID] {
-		return CodexType{}, fmt.Errorf("form_id must be one of: npc, player, settlement")
+		return CodexType{}, errors.New("form_id must be one of: npc, player, settlement")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (CodexType, error) {
@@ -51,10 +52,10 @@ func RenameType(ctx context.Context, databasePath string, typeID, newName string
 	newName = strings.TrimSpace(newName)
 
 	if typeID == "" {
-		return fmt.Errorf("codex type ID is required")
+		return errors.New("codex type ID is required")
 	}
 	if newName == "" {
-		return fmt.Errorf("new name is required")
+		return errors.New("new name is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -77,7 +78,7 @@ func RenameType(ctx context.Context, databasePath string, typeID, newName string
 func DeleteType(ctx context.Context, databasePath string, typeID string) error {
 	typeID = strings.TrimSpace(typeID)
 	if typeID == "" {
-		return fmt.Errorf("codex type ID is required")
+		return errors.New("codex type ID is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -133,12 +134,12 @@ func ListTypes(ctx context.Context, databasePath string) ([]CodexType, error) {
 // CreateEntry inserts a new codex entry and rebuilds references.
 func CreateEntry(ctx context.Context, databasePath string, campaignID string, input *CreateInput) (CodexEntry, error) {
 	if input == nil {
-		return CodexEntry{}, fmt.Errorf("codex entry input is required")
+		return CodexEntry{}, errors.New("codex entry input is required")
 	}
 
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
-		return CodexEntry{}, fmt.Errorf("codex entry name is required")
+		return CodexEntry{}, errors.New("codex entry name is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (CodexEntry, error) {
@@ -183,15 +184,15 @@ func CreateEntry(ctx context.Context, databasePath string, campaignID string, in
 func UpdateEntry(ctx context.Context, databasePath string, campaignID string, entryID string, input *UpdateInput) (CodexEntry, error) {
 	entryID = strings.TrimSpace(entryID)
 	if entryID == "" {
-		return CodexEntry{}, fmt.Errorf("codex entry ID is required")
+		return CodexEntry{}, errors.New("codex entry ID is required")
 	}
 	if input == nil {
-		return CodexEntry{}, fmt.Errorf("codex entry input is required")
+		return CodexEntry{}, errors.New("codex entry input is required")
 	}
 
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
-		return CodexEntry{}, fmt.Errorf("codex entry name is required")
+		return CodexEntry{}, errors.New("codex entry name is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (CodexEntry, error) {
@@ -243,7 +244,7 @@ func UpdateEntry(ctx context.Context, databasePath string, campaignID string, en
 func DeleteEntry(ctx context.Context, databasePath string, campaignID string, entryID string) error {
 	entryID = strings.TrimSpace(entryID)
 	if entryID == "" {
-		return fmt.Errorf("codex entry ID is required")
+		return errors.New("codex entry ID is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {

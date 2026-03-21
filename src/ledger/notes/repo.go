@@ -3,6 +3,7 @@ package notes
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,12 +16,12 @@ import (
 // CreateNote inserts a new note into the database and rebuilds references.
 func CreateNote(ctx context.Context, databasePath string, campaignID string, input *CreateNoteInput) (NoteRecord, error) {
 	if input == nil {
-		return NoteRecord{}, fmt.Errorf("note input is required")
+		return NoteRecord{}, errors.New("note input is required")
 	}
 
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
-		return NoteRecord{}, fmt.Errorf("note title is required")
+		return NoteRecord{}, errors.New("note title is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (NoteRecord, error) {
@@ -51,15 +52,15 @@ func CreateNote(ctx context.Context, databasePath string, campaignID string, inp
 func UpdateNote(ctx context.Context, databasePath string, campaignID string, noteID string, input *UpdateNoteInput) (NoteRecord, error) {
 	noteID = strings.TrimSpace(noteID)
 	if noteID == "" {
-		return NoteRecord{}, fmt.Errorf("note ID is required")
+		return NoteRecord{}, errors.New("note ID is required")
 	}
 	if input == nil {
-		return NoteRecord{}, fmt.Errorf("note input is required")
+		return NoteRecord{}, errors.New("note input is required")
 	}
 
 	title := strings.TrimSpace(input.Title)
 	if title == "" {
-		return NoteRecord{}, fmt.Errorf("note title is required")
+		return NoteRecord{}, errors.New("note title is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (NoteRecord, error) {
@@ -95,7 +96,7 @@ func UpdateNote(ctx context.Context, databasePath string, campaignID string, not
 func DeleteNote(ctx context.Context, databasePath string, campaignID string, noteID string) error {
 	noteID = strings.TrimSpace(noteID)
 	if noteID == "" {
-		return fmt.Errorf("note ID is required")
+		return errors.New("note ID is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {

@@ -4,7 +4,6 @@ package ledger
 
 import (
 	"errors"
-	"fmt"
 )
 
 // AccountType represents the classification of a ledger account.
@@ -229,11 +228,11 @@ const (
 // ErrImmutableEntry is returned when an operation attempts to modify or delete
 // a journal entry that has been posted or reversed. Corrections must use
 // reversal, adjustment, or reclassification.
-var ErrImmutableEntry = fmt.Errorf("posted or reversed journal entries are immutable; use reversal or adjustment to correct")
+var ErrImmutableEntry = errors.New("posted or reversed journal entries are immutable; use reversal or adjustment to correct")
 
 // ErrEntryNotReversible is returned when a reversal is attempted on an entry
 // that is not in 'posted' status (e.g., it is a draft or already reversed).
-var ErrEntryNotReversible = fmt.Errorf("only posted journal entries can be reversed")
+var ErrEntryNotReversible = errors.New("only posted journal entries can be reversed")
 
 // ErrAccountHasPostings is returned when an attempt is made to delete an
 // account that has journal line postings referencing it.

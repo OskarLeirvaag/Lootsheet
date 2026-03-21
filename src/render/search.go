@@ -36,7 +36,7 @@ func (s *Shell) openSearch() bool {
 	return true
 }
 
-func (s *Shell) computeSearchResults() {
+func (s *Shell) computeSearchResults() { //nolint:revive // multi-source search with fallback logic
 	if s.search == nil {
 		return
 	}
@@ -118,86 +118,86 @@ func matchesSearch(item *ListItemData, query string) bool {
 	return false
 }
 
-func (s *Shell) handleSearchKeyEvent(event *tcell.EventKey, action Action) (handleResult, bool) {
+func (s *Shell) handleSearchKeyEvent(event *tcell.EventKey, action Action) (HandleResult, bool) {
 	if s.search == nil || event == nil {
-		return handleResult{}, false
+		return HandleResult{}, false
 	}
 
 	switch action {
 	case ActionQuit:
 		s.search = nil
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case ActionRedraw:
 		s.search = nil
-		return handleResult{Reload: true}, true
+		return HandleResult{Reload: true}, true
 	default:
 	}
 
 	switch event.Key() {
 	case tcell.KeyEsc:
 		s.search = nil
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyEnter:
 		if len(s.search.Results) > 0 && s.search.SelectedIndex < len(s.search.Results) {
 			result := s.search.Results[s.search.SelectedIndex]
 			s.search = nil
 			s.Navigate(result.Section, result.ItemKey)
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyUp:
 		if s.search.SelectedIndex > 0 {
 			s.search.SelectedIndex--
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyDown:
 		if s.search.SelectedIndex < len(s.search.Results)-1 {
 			s.search.SelectedIndex++
-			return handleResult{Redraw: true}, true
+			return HandleResult{Redraw: true}, true
 		}
-		return handleResult{}, true
+		return HandleResult{}, true
 	case tcell.KeyLeft:
 		s.search.FilterIndex = (s.search.FilterIndex + len(searchableSections) + 1 - 1) % (len(searchableSections) + 1)
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyRight:
 		s.search.FilterIndex = (s.search.FilterIndex + 1) % (len(searchableSections) + 1)
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyTab:
 		s.search.FilterIndex = (s.search.FilterIndex + 1) % (len(searchableSections) + 1)
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyBacktab:
 		s.search.FilterIndex = (s.search.FilterIndex + len(searchableSections) + 1 - 1) % (len(searchableSections) + 1)
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		runes := []rune(s.search.Query)
 		if len(runes) == 0 {
-			return handleResult{}, true
+			return HandleResult{}, true
 		}
 		s.search.Query = string(runes[:len(runes)-1])
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyCtrlU:
 		if s.search.Query == "" {
-			return handleResult{}, true
+			return HandleResult{}, true
 		}
 		s.search.Query = ""
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	case tcell.KeyRune:
 		s.search.Query += string(event.Rune())
 		s.computeSearchResults()
-		return handleResult{Redraw: true}, true
+		return HandleResult{Redraw: true}, true
 	default:
-		return handleResult{}, true
+		return HandleResult{}, true
 	}
 }
 
-func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) {
+func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) { //nolint:revive // TUI search modal rendering
 	if s.search == nil || rect.Empty() {
 		return
 	}
@@ -230,7 +230,7 @@ func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) {
 		filterCount := len(searchableSections) + 1
 		for i := range filterCount {
 			if i > 0 {
-				tabs.WriteString("  ")
+				_, _ = tabs.WriteString("  ")
 			}
 			label := "All"
 			if i > 0 {
@@ -241,7 +241,7 @@ func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) {
 			} else {
 				label = " " + label + " "
 			}
-			tabs.WriteString(label)
+			_, _ = tabs.WriteString(label)
 		}
 		buffer.WriteString(content.X, row, theme.Muted, clipText(tabs.String(), content.W))
 		row++

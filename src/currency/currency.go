@@ -3,6 +3,7 @@
 package currency
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -46,7 +47,7 @@ var bareIntegerPattern = regexp.MustCompile(`^\d+$`)
 func ParseAmount(input string) (int64, error) {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
-		return 0, fmt.Errorf("amount is required")
+		return 0, errors.New("amount is required")
 	}
 
 	// Reject negative values.

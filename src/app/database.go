@@ -125,6 +125,7 @@ func (a *Application) runDatabaseMigrate(ctx context.Context) error {
 		stateLabel = "migrated"
 	case result.MetadataRepaired:
 		stateLabel = "metadata repaired"
+	default:
 	}
 
 	if _, err := fmt.Fprintf(

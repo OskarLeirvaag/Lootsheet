@@ -42,7 +42,7 @@ func TestReadMessageTooLarge(t *testing.T) {
 	var buf bytes.Buffer
 	header := make([]byte, 4)
 	binary.BigEndian.PutUint32(header, wire.MaxMessageSize+1)
-	buf.Write(header)
+	_, _ = buf.Write(header)
 
 	got := new(pb.Request)
 	err := wire.ReadMessage(&buf, got)

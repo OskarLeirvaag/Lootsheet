@@ -55,12 +55,12 @@ func ListAccounts(ctx context.Context, databasePath string, campaignID string) (
 func CreateAccount(ctx context.Context, databasePath string, campaignID string, code string, name string, accountType ledger.AccountType) (ledger.AccountRecord, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
-		return ledger.AccountRecord{}, fmt.Errorf("account code is required")
+		return ledger.AccountRecord{}, errors.New("account code is required")
 	}
 
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return ledger.AccountRecord{}, fmt.Errorf("account name is required")
+		return ledger.AccountRecord{}, errors.New("account name is required")
 	}
 
 	if !accountType.Valid() {
@@ -95,12 +95,12 @@ func CreateAccount(ctx context.Context, databasePath string, campaignID string, 
 func RenameAccount(ctx context.Context, databasePath string, campaignID string, code string, newName string) error {
 	code = strings.TrimSpace(code)
 	if code == "" {
-		return fmt.Errorf("account code is required")
+		return errors.New("account code is required")
 	}
 
 	newName = strings.TrimSpace(newName)
 	if newName == "" {
-		return fmt.Errorf("account name is required")
+		return errors.New("account name is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -139,7 +139,7 @@ func ActivateAccount(ctx context.Context, databasePath string, campaignID string
 func setAccountActive(ctx context.Context, databasePath string, campaignID string, code string, active bool) error {
 	code = strings.TrimSpace(code)
 	if code == "" {
-		return fmt.Errorf("account code is required")
+		return errors.New("account code is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -175,7 +175,7 @@ func setAccountActive(ctx context.Context, databasePath string, campaignID strin
 func DeleteAccount(ctx context.Context, databasePath string, campaignID string, code string) error {
 	code = strings.TrimSpace(code)
 	if code == "" {
-		return fmt.Errorf("account code is required")
+		return errors.New("account code is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {

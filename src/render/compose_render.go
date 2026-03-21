@@ -72,6 +72,7 @@ func (s *Shell) composeTitle() string {
 		fallback = "Add to Codex"
 	case composeModeNotes:
 		fallback = "Add Note"
+	default:
 	}
 
 	if strings.TrimSpace(s.compose.Title) != "" {
@@ -80,7 +81,7 @@ func (s *Shell) composeTitle() string {
 	return fallback
 }
 
-func (s *Shell) composeFormLines() []string {
+func (s *Shell) composeFormLines() []string { //nolint:revive // large form rendering dispatch
 	lines := make([]string, 0, 24)
 	fields := s.composeFieldDefinitions()
 	for index := range fields {
@@ -180,7 +181,7 @@ func (s *Shell) composeHelpText() string {
 	}
 }
 
-func (s *Shell) composePreviewLines() []string {
+func (s *Shell) composePreviewLines() []string { //nolint:revive // large preview rendering dispatch
 	if s.compose == nil {
 		return nil
 	}

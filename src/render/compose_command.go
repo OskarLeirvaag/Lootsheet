@@ -166,7 +166,7 @@ func (s *Shell) composeBalanceSummary() (string, bool, bool) {
 	return summary, balanced, allFilled
 }
 
-func (s *Shell) composeCommand() (*Command, bool) {
+func (s *Shell) composeCommand() (*Command, bool) { //nolint:revive // large form validation dispatch
 	if s.compose == nil {
 		return nil, false
 	}
@@ -242,6 +242,7 @@ func (s *Shell) composeCommand() (*Command, bool) {
 	case composeModeCustom:
 	case composeModeAssetTemplate:
 		required = nil
+	default:
 	}
 	for _, key := range required {
 		if strings.TrimSpace(command.Fields[key]) == "" {

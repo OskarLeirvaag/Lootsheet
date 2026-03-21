@@ -3,6 +3,7 @@ package campaign
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 func Create(ctx context.Context, databasePath string, name string, accounts []config.SeedAccount) (Record, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return Record{}, fmt.Errorf("campaign name is required")
+		return Record{}, errors.New("campaign name is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (Record, error) {
@@ -85,12 +86,12 @@ func List(ctx context.Context, databasePath string) ([]Record, error) {
 func Rename(ctx context.Context, databasePath string, id string, name string) (Record, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return Record{}, fmt.Errorf("campaign ID is required")
+		return Record{}, errors.New("campaign ID is required")
 	}
 
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return Record{}, fmt.Errorf("campaign name is required")
+		return Record{}, errors.New("campaign name is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (Record, error) {
@@ -122,10 +123,12 @@ func Rename(ctx context.Context, databasePath string, id string, name string) (R
 }
 
 // Delete removes a campaign, but only if it has no data beyond the seeded accounts.
+//
+//nolint:revive // cognitive-complexity: sequential safety checks before cascading delete reads best inline
 func Delete(ctx context.Context, databasePath string, id string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return fmt.Errorf("campaign ID is required")
+		return errors.New("campaign ID is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -215,7 +218,7 @@ func GetActive(ctx context.Context, databasePath string) (Record, error) {
 func SetActive(ctx context.Context, databasePath string, id string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return fmt.Errorf("campaign ID is required")
+		return errors.New("campaign ID is required")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {

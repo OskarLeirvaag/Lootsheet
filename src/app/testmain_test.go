@@ -7,7 +7,7 @@ import (
 
 func TestMain(m *testing.M) {
 	if os.Getenv(logLevelEnvVar) == "" {
-		os.Setenv(logLevelEnvVar, "ERROR")
+		_ = os.Setenv(logLevelEnvVar, "ERROR")
 	}
-	os.Exit(m.Run())
+	m.Run()
 }

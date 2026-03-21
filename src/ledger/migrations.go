@@ -3,6 +3,7 @@ package ledger
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -33,6 +34,7 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 	case DatabaseStateDamaged, DatabaseStateForeign:
 		return status, nil
 	case DatabaseStateUninitialized, DatabaseStateCurrent, DatabaseStateUpgradeable:
+	default:
 	}
 
 	if state.SchemaVersion == "" {
@@ -59,6 +61,8 @@ func GetDatabaseStatusWithAssets(ctx context.Context, databasePath string, asset
 // MigrateSQLiteDatabase applies any pending schema migrations to an existing
 // LootSheet database. It also repairs legacy metadata if the database uses
 // the old settings-only format. All changes are applied in a single transaction.
+//
+//nolint:revive // cyclomatic: sequential migration pipeline reads best as one function
 func MigrateSQLiteDatabase(ctx context.Context, databasePath string, backupDir string, assets config.InitAssets) (MigrationResult, error) {
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
@@ -212,7 +216,7 @@ func verifyForeignKeys(ctx context.Context, db *sql.DB) error {
 		if scanErr := rows.Scan(&table, &rowid, &parent, &fkid); scanErr == nil {
 			return fmt.Errorf("foreign key violation after migration: table=%s rowid=%s parent=%s", table, rowid, parent)
 		}
-		return fmt.Errorf("foreign key violation detected after migration")
+		return errors.New("foreign key violation detected after migration")
 	}
 
 	if err := rows.Err(); err != nil {

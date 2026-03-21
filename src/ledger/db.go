@@ -23,7 +23,7 @@ func OpenDB(databasePath string) (*sql.DB, error) {
 		"PRAGMA busy_timeout = 5000",
 	} {
 		if _, err := db.ExecContext(context.Background(), pragma); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("set database pragma: %w", err)
 		}
 	}
@@ -31,7 +31,7 @@ func OpenDB(databasePath string) (*sql.DB, error) {
 	return db, nil
 }
 
-type databaseState struct {
+type DatabaseState struct {
 	Exists             bool
 	LifecycleState     DatabaseLifecycleState
 	Detail             string
@@ -45,8 +45,8 @@ type databaseState struct {
 // its current state, including whether it exists, its user table count, schema
 // version, and applied migrations. It handles both legacy (settings-table) and
 // current (schema_migrations-table) metadata formats.
-func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseState, error) {
-	state := databaseState{LifecycleState: DatabaseStateUninitialized}
+func InspectSQLiteDatabase(ctx context.Context, databasePath string) (DatabaseState, error) {
+	state := DatabaseState{LifecycleState: DatabaseStateUninitialized}
 
 	info, err := os.Stat(databasePath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -127,41 +127,47 @@ func InspectSQLiteDatabase(ctx context.Context, databasePath string) (databaseSt
 		return state, fmt.Errorf("load applied migrations: %w", err)
 	}
 
+	return inspectLegacyMetadata(ctx, db, &state)
+}
+
+// inspectLegacyMetadata reads schema version from the legacy settings table
+// when the schema_migrations table does not exist.
+func inspectLegacyMetadata(ctx context.Context, db *sql.DB, state *DatabaseState) (DatabaseState, error) {
 	var schemaVersion string
 	queryErr := db.QueryRowContext(ctx,
 		"SELECT value FROM settings WHERE key = 'schema_version'",
 	).Scan(&schemaVersion)
 	if queryErr != nil {
 		if isMissingTableError(queryErr, "settings") {
-			if userTableCount == 0 {
-				return state, nil
+			if state.UserTableCount == 0 {
+				return *state, nil
 			}
 
 			state.LifecycleState = DatabaseStateForeign
 			state.Detail = "database has user tables but is missing LootSheet migration metadata"
-			return state, nil
+			return *state, nil
 		}
 		if detail, ok := classifyDamagedDatabaseError(queryErr); ok {
 			state.LifecycleState = DatabaseStateDamaged
 			state.Detail = detail
-			return state, nil
+			return *state, nil
 		}
-		return state, fmt.Errorf("query schema version: %w", queryErr)
+		return *state, fmt.Errorf("query schema version: %w", queryErr)
 	}
 
 	state.SchemaVersion = strings.TrimSpace(schemaVersion)
 	if state.SchemaVersion == "" {
-		if userTableCount == 0 {
-			return state, nil
+		if state.UserTableCount == 0 {
+			return *state, nil
 		}
 
 		state.LifecycleState = DatabaseStateForeign
 		state.Detail = "database settings are present but schema_version is empty"
-		return state, nil
+		return *state, nil
 	}
 
 	state.UsesLegacyMetadata = true
-	return state, nil
+	return *state, nil
 }
 
 // WithDB ensures the database is initialized, opens a connection, calls fn,
@@ -209,6 +215,7 @@ func EnsureInitializedDatabase(ctx context.Context, databasePath string) error {
 	case DatabaseStateForeign:
 		return fmt.Errorf("database %q is foreign: %s", databasePath, blankDatabaseDetail(state.Detail))
 	case DatabaseStateUninitialized, DatabaseStateCurrent, DatabaseStateUpgradeable:
+	default:
 	}
 
 	if state.SchemaVersion == "" {

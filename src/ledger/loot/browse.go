@@ -37,6 +37,8 @@ type BrowseItemRecord struct {
 }
 
 // ListBrowseItems returns held and recognized items of the given type with latest-appraisal detail.
+//
+//nolint:revive // cyclomatic: multi-query browse assembly; splitting would scatter related logic
 func ListBrowseItems(ctx context.Context, databasePath string, campaignID string, itemType string) ([]BrowseItemRecord, error) {
 	itemType = strings.TrimSpace(itemType)
 	if itemType == "" {

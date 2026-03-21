@@ -72,6 +72,7 @@ func GetTrialBalance(ctx context.Context, databasePath string, campaignID string
 				row.Balance = row.TotalDebits - row.TotalCredits
 			case ledger.AccountTypeLiability, ledger.AccountTypeEquity, ledger.AccountTypeIncome:
 				row.Balance = row.TotalCredits - row.TotalDebits
+			default:
 			}
 
 			report.TotalDebits += row.TotalDebits

@@ -3,6 +3,7 @@ package loot
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,7 +16,7 @@ import (
 func CreateLootItem(ctx context.Context, databasePath string, campaignID string, name string, source string, quantity int, holder string, notes string, itemType string) (LootItemRecord, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return LootItemRecord{}, fmt.Errorf("loot item name is required")
+		return LootItemRecord{}, errors.New("loot item name is required")
 	}
 
 	if quantity <= 0 {
@@ -27,7 +28,7 @@ func CreateLootItem(ctx context.Context, databasePath string, campaignID string,
 		itemType = "loot"
 	}
 	if itemType != "loot" && itemType != "asset" {
-		return LootItemRecord{}, fmt.Errorf("item type must be loot or asset")
+		return LootItemRecord{}, errors.New("item type must be loot or asset")
 	}
 
 	notes = strings.TrimSpace(notes)
@@ -65,18 +66,18 @@ func CreateLootItem(ctx context.Context, databasePath string, campaignID string,
 func UpdateLootItem(ctx context.Context, databasePath string, campaignID string, lootItemID string, input *UpdateLootItemInput) (LootItemRecord, error) {
 	lootItemID = strings.TrimSpace(lootItemID)
 	if lootItemID == "" {
-		return LootItemRecord{}, fmt.Errorf("loot item ID is required")
+		return LootItemRecord{}, errors.New("loot item ID is required")
 	}
 	if input == nil {
-		return LootItemRecord{}, fmt.Errorf("loot item input is required")
+		return LootItemRecord{}, errors.New("loot item input is required")
 	}
 
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
-		return LootItemRecord{}, fmt.Errorf("loot item name is required")
+		return LootItemRecord{}, errors.New("loot item name is required")
 	}
 	if input.Quantity <= 0 {
-		return LootItemRecord{}, fmt.Errorf("quantity must be positive")
+		return LootItemRecord{}, errors.New("quantity must be positive")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootItemRecord, error) {
@@ -86,7 +87,7 @@ func UpdateLootItem(ctx context.Context, databasePath string, campaignID string,
 		}
 
 		if current.Status != ledger.LootStatusHeld && input.Quantity != current.Quantity {
-			return LootItemRecord{}, fmt.Errorf("quantity can only be edited while loot is held")
+			return LootItemRecord{}, errors.New("quantity can only be edited while loot is held")
 		}
 
 		notes := strings.TrimSpace(input.Notes)
@@ -118,16 +119,16 @@ func UpdateLootItem(ctx context.Context, databasePath string, campaignID string,
 func AppraiseLootItem(ctx context.Context, databasePath string, campaignID string, lootItemID string, appraisedValue int64, appraiser string, appraisedDate string, notes string) (LootAppraisalRecord, error) {
 	lootItemID = strings.TrimSpace(lootItemID)
 	if lootItemID == "" {
-		return LootAppraisalRecord{}, fmt.Errorf("loot item ID is required")
+		return LootAppraisalRecord{}, errors.New("loot item ID is required")
 	}
 
 	if appraisedValue < 0 {
-		return LootAppraisalRecord{}, fmt.Errorf("appraised value must be non-negative")
+		return LootAppraisalRecord{}, errors.New("appraised value must be non-negative")
 	}
 
 	appraisedDate = strings.TrimSpace(appraisedDate)
 	if appraisedDate == "" {
-		return LootAppraisalRecord{}, fmt.Errorf("appraisal date is required")
+		return LootAppraisalRecord{}, errors.New("appraisal date is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (LootAppraisalRecord, error) {
@@ -172,12 +173,12 @@ func AppraiseLootItem(ctx context.Context, databasePath string, campaignID strin
 func RecognizeLootAppraisal(ctx context.Context, databasePath string, campaignID string, appraisalID string, date string, description string) (ledger.PostedJournalEntry, error) {
 	appraisalID = strings.TrimSpace(appraisalID)
 	if appraisalID == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("appraisal ID is required")
+		return ledger.PostedJournalEntry{}, errors.New("appraisal ID is required")
 	}
 
 	date = strings.TrimSpace(date)
 	if date == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("recognition date is required")
+		return ledger.PostedJournalEntry{}, errors.New("recognition date is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
@@ -259,16 +260,16 @@ func RecognizeLootAppraisal(ctx context.Context, databasePath string, campaignID
 func SellLootItem(ctx context.Context, databasePath string, campaignID string, lootItemID string, saleAmount int64, date string, description string) (ledger.PostedJournalEntry, error) {
 	lootItemID = strings.TrimSpace(lootItemID)
 	if lootItemID == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("loot item ID is required")
+		return ledger.PostedJournalEntry{}, errors.New("loot item ID is required")
 	}
 
 	if saleAmount <= 0 {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("sale amount must be positive")
+		return ledger.PostedJournalEntry{}, errors.New("sale amount must be positive")
 	}
 
 	date = strings.TrimSpace(date)
 	if date == "" {
-		return ledger.PostedJournalEntry{}, fmt.Errorf("sale date is required")
+		return ledger.PostedJournalEntry{}, errors.New("sale date is required")
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (ledger.PostedJournalEntry, error) {
@@ -375,11 +376,11 @@ func getLootItemStatus(ctx context.Context, db *sql.DB, lootItemID string) (ledg
 func TransferItemType(ctx context.Context, databasePath string, campaignID string, itemID string, newType string) error {
 	itemID = strings.TrimSpace(itemID)
 	if itemID == "" {
-		return fmt.Errorf("item ID is required")
+		return errors.New("item ID is required")
 	}
 	newType = strings.TrimSpace(newType)
 	if newType != "loot" && newType != "asset" {
-		return fmt.Errorf("new type must be loot or asset")
+		return errors.New("new type must be loot or asset")
 	}
 
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {

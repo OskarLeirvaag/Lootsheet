@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,7 +28,7 @@ func RemoteShellLoader(c *Client) func(context.Context) (model.ShellData, error)
 
 		bsd := resp.GetBuildShellData()
 		if bsd == nil || bsd.Data == nil {
-			return model.ShellData{}, fmt.Errorf("build shell data: empty response")
+			return model.ShellData{}, errors.New("build shell data: empty response")
 		}
 
 		return pb.ShellDataFromProto(bsd.Data), nil
@@ -61,7 +62,7 @@ func RemoteCommandHandler(c *Client) func(context.Context, model.Command) (model
 
 		ec := resp.GetExecuteCommand()
 		if ec == nil || ec.Result == nil {
-			return model.CommandResult{}, fmt.Errorf("execute command: empty response")
+			return model.CommandResult{}, errors.New("execute command: empty response")
 		}
 
 		return pb.CommandResultFromProto(ec.Result), nil
@@ -105,7 +106,7 @@ func remoteSearch(c *Client, req *pb.Request, extract func(*pb.Response) *pb.Sea
 }
 
 // DownloadDatabase fetches the server's SQLite database as raw bytes.
-func DownloadDatabase(ctx context.Context, c *Client) (data []byte, filename string, err error) {
+func DownloadDatabase(ctx context.Context, c *Client) ([]byte, string, error) {
 	req := &pb.Request{
 		Method: pb.Method_DOWNLOAD_DATABASE,
 		Payload: &pb.Request_DownloadDatabase{
@@ -120,7 +121,7 @@ func DownloadDatabase(ctx context.Context, c *Client) (data []byte, filename str
 
 	dl := resp.GetDownloadDatabase()
 	if dl == nil {
-		return nil, "", fmt.Errorf("download database: empty response")
+		return nil, "", errors.New("download database: empty response")
 	}
 
 	return dl.Data, dl.Filename, nil

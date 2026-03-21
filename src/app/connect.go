@@ -3,6 +3,7 @@ package app
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,11 +63,11 @@ func (a *Application) runDownload(ctx context.Context, addr string, skipVerify b
 		}
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() {
-			return fmt.Errorf("no token provided")
+			return errors.New("no token provided")
 		}
 		token = strings.TrimSpace(scanner.Text())
 		if token == "" {
-			return fmt.Errorf("empty token")
+			return errors.New("empty token")
 		}
 	}
 
@@ -123,11 +124,11 @@ func (a *Application) runUpload(ctx context.Context, addr string, skipVerify boo
 		}
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() {
-			return fmt.Errorf("no token provided")
+			return errors.New("no token provided")
 		}
 		token = strings.TrimSpace(scanner.Text())
 		if token == "" {
-			return fmt.Errorf("empty token")
+			return errors.New("empty token")
 		}
 	}
 
@@ -147,60 +148,19 @@ func (a *Application) runUpload(ctx context.Context, addr string, skipVerify boo
 		return fmt.Errorf("list local campaigns: %w", err)
 	}
 	if len(campaigns) == 0 {
-		return fmt.Errorf("no campaigns found in local database")
+		return errors.New("no campaigns found in local database")
 	}
 
 	// Pick a campaign.
-	var selected campaign.Record
-	if len(campaigns) == 1 {
-		selected = campaigns[0]
-	} else {
-		if _, err := fmt.Fprintln(os.Stderr, "Select a campaign to upload:"); err != nil {
-			return err
-		}
-		for i, c := range campaigns {
-			if _, err := fmt.Fprintf(os.Stderr, "  %d. %s\n", i+1, c.Name); err != nil {
-				return err
-			}
-		}
-		if _, err := fmt.Fprint(os.Stderr, "Choice: "); err != nil {
-			return err
-		}
-
-		scanner := bufio.NewScanner(os.Stdin)
-		if !scanner.Scan() {
-			return fmt.Errorf("no choice provided")
-		}
-		var choice int
-		if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%d", &choice); err != nil || choice < 1 || choice > len(campaigns) {
-			return fmt.Errorf("invalid choice")
-		}
-		selected = campaigns[choice-1]
-	}
-
-	// Check if campaign already exists on server.
-	mode := pb.UploadMode_UPLOAD_NEW
-	remoteCampaigns, err := client.ListRemoteCampaigns(ctx, c)
+	selected, err := promptCampaignChoice(campaigns)
 	if err != nil {
-		return fmt.Errorf("list server campaigns: %w", err)
+		return err
 	}
 
-	for _, rc := range remoteCampaigns {
-		if rc.Id == selected.ID {
-			if _, err := fmt.Fprintf(os.Stderr, "Campaign %q already exists on server. Overwrite? [y/N] ", selected.Name); err != nil {
-				return err
-			}
-			scanner := bufio.NewScanner(os.Stdin)
-			if !scanner.Scan() {
-				return fmt.Errorf("no confirmation provided")
-			}
-			answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
-			if answer != "y" && answer != "yes" {
-				return fmt.Errorf("upload cancelled")
-			}
-			mode = pb.UploadMode_UPLOAD_OVERWRITE
-			break
-		}
+	// Determine upload mode (new vs overwrite).
+	mode, err := resolveUploadMode(ctx, c, selected)
+	if err != nil {
+		return err
 	}
 
 	if _, err := fmt.Fprintf(os.Stderr, "Uploading campaign %q to %s...\n", selected.Name, addr); err != nil {
@@ -240,11 +200,11 @@ func (a *Application) runConnect(ctx context.Context, addr string, skipVerify bo
 
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() {
-			return fmt.Errorf("no token provided")
+			return errors.New("no token provided")
 		}
 		token = strings.TrimSpace(scanner.Text())
 		if token == "" {
-			return fmt.Errorf("empty token")
+			return errors.New("empty token")
 		}
 	}
 
@@ -280,4 +240,59 @@ func (a *Application) runConnect(ctx context.Context, addr string, skipVerify bo
 		SearchHandler:     client.RemoteSearchHandler(c),
 		ConnectionChecker: c.Ping,
 	})
+}
+
+func promptCampaignChoice(campaigns []campaign.Record) (campaign.Record, error) {
+	if len(campaigns) == 1 {
+		return campaigns[0], nil
+	}
+
+	if _, err := fmt.Fprintln(os.Stderr, "Select a campaign to upload:"); err != nil {
+		return campaign.Record{}, err
+	}
+	for i, c := range campaigns {
+		if _, err := fmt.Fprintf(os.Stderr, "  %d. %s\n", i+1, c.Name); err != nil {
+			return campaign.Record{}, err
+		}
+	}
+	if _, err := fmt.Fprint(os.Stderr, "Choice: "); err != nil {
+		return campaign.Record{}, err
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
+		return campaign.Record{}, errors.New("no choice provided")
+	}
+	var choice int
+	if _, err := fmt.Sscanf(strings.TrimSpace(scanner.Text()), "%d", &choice); err != nil || choice < 1 || choice > len(campaigns) {
+		return campaign.Record{}, errors.New("invalid choice")
+	}
+	return campaigns[choice-1], nil
+}
+
+func resolveUploadMode(ctx context.Context, c *client.Client, selected campaign.Record) (pb.UploadMode, error) {
+	remoteCampaigns, err := client.ListRemoteCampaigns(ctx, c)
+	if err != nil {
+		return 0, fmt.Errorf("list server campaigns: %w", err)
+	}
+
+	for _, rc := range remoteCampaigns {
+		if rc.Id != selected.ID {
+			continue
+		}
+		if _, err := fmt.Fprintf(os.Stderr, "Campaign %q already exists on server. Overwrite? [y/N] ", selected.Name); err != nil {
+			return 0, err
+		}
+		scanner := bufio.NewScanner(os.Stdin)
+		if !scanner.Scan() {
+			return 0, errors.New("no confirmation provided")
+		}
+		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		if answer != "y" && answer != "yes" {
+			return 0, errors.New("upload cancelled")
+		}
+		return pb.UploadMode_UPLOAD_OVERWRITE, nil
+	}
+
+	return pb.UploadMode_UPLOAD_NEW, nil
 }

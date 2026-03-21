@@ -3,6 +3,7 @@ package config
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -63,7 +64,7 @@ func LoadInitAssets() (InitAssets, error) {
 	}
 
 	if len(migrationNames) == 0 {
-		return InitAssets{}, fmt.Errorf("no init migrations found")
+		return InitAssets{}, errors.New("no init migrations found")
 	}
 
 	slices.Sort(migrationNames)

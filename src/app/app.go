@@ -4,6 +4,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -42,7 +43,7 @@ func Run(ctx context.Context, args []string, stdout io.Writer) error {
 // structured logger.
 func New(cfg *config.Config, stdout io.Writer, logOutput io.Writer) (*Application, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("config is required")
+		return nil, errors.New("config is required")
 	}
 
 	if err := cfg.Validate(); err != nil {
