@@ -32,6 +32,7 @@ const (
 	Method_LIST_CAMPAIGNS       Method = 4
 	Method_SEARCH_CODEX_ENTRIES Method = 5
 	Method_SEARCH_NOTES         Method = 6
+	Method_DOWNLOAD_DATABASE    Method = 7
 )
 
 // Enum value maps for Method.
@@ -44,6 +45,7 @@ var (
 		4: "LIST_CAMPAIGNS",
 		5: "SEARCH_CODEX_ENTRIES",
 		6: "SEARCH_NOTES",
+		7: "DOWNLOAD_DATABASE",
 	}
 	Method_value = map[string]int32{
 		"AUTH":                 0,
@@ -53,6 +55,7 @@ var (
 		"LIST_CAMPAIGNS":       4,
 		"SEARCH_CODEX_ENTRIES": 5,
 		"SEARCH_NOTES":         6,
+		"DOWNLOAD_DATABASE":    7,
 	}
 )
 
@@ -95,6 +98,7 @@ type Request struct {
 	//	*Request_ListCampaigns
 	//	*Request_SearchCodex
 	//	*Request_SearchNotes
+	//	*Request_DownloadDatabase
 	Payload       isRequest_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -207,6 +211,15 @@ func (x *Request) GetSearchNotes() *SearchRequest {
 	return nil
 }
 
+func (x *Request) GetDownloadDatabase() *DownloadDatabaseRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*Request_DownloadDatabase); ok {
+			return x.DownloadDatabase
+		}
+	}
+	return nil
+}
+
 type isRequest_Payload interface {
 	isRequest_Payload()
 }
@@ -239,6 +252,10 @@ type Request_SearchNotes struct {
 	SearchNotes *SearchRequest `protobuf:"bytes,16,opt,name=search_notes,json=searchNotes,proto3,oneof"`
 }
 
+type Request_DownloadDatabase struct {
+	DownloadDatabase *DownloadDatabaseRequest `protobuf:"bytes,17,opt,name=download_database,json=downloadDatabase,proto3,oneof"`
+}
+
 func (*Request_Auth) isRequest_Payload() {}
 
 func (*Request_BuildShellData) isRequest_Payload() {}
@@ -253,6 +270,8 @@ func (*Request_SearchCodex) isRequest_Payload() {}
 
 func (*Request_SearchNotes) isRequest_Payload() {}
 
+func (*Request_DownloadDatabase) isRequest_Payload() {}
+
 type Response struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Ok    bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
@@ -266,6 +285,7 @@ type Response struct {
 	//	*Response_ListCampaigns
 	//	*Response_SearchCodex
 	//	*Response_SearchNotes
+	//	*Response_DownloadDatabase
 	Payload       isResponse_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -385,6 +405,15 @@ func (x *Response) GetSearchNotes() *SearchResponse {
 	return nil
 }
 
+func (x *Response) GetDownloadDatabase() *DownloadDatabaseResponse {
+	if x != nil {
+		if x, ok := x.Payload.(*Response_DownloadDatabase); ok {
+			return x.DownloadDatabase
+		}
+	}
+	return nil
+}
+
 type isResponse_Payload interface {
 	isResponse_Payload()
 }
@@ -417,6 +446,10 @@ type Response_SearchNotes struct {
 	SearchNotes *SearchResponse `protobuf:"bytes,16,opt,name=search_notes,json=searchNotes,proto3,oneof"`
 }
 
+type Response_DownloadDatabase struct {
+	DownloadDatabase *DownloadDatabaseResponse `protobuf:"bytes,17,opt,name=download_database,json=downloadDatabase,proto3,oneof"`
+}
+
 func (*Response_Auth) isResponse_Payload() {}
 
 func (*Response_BuildShellData) isResponse_Payload() {}
@@ -430,6 +463,8 @@ func (*Response_ListCampaigns) isResponse_Payload() {}
 func (*Response_SearchCodex) isResponse_Payload() {}
 
 func (*Response_SearchNotes) isResponse_Payload() {}
+
+func (*Response_DownloadDatabase) isResponse_Payload() {}
 
 type AuthRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
@@ -951,6 +986,94 @@ func (x *SearchResponse) GetItems() []*ListItemDataProto {
 	return nil
 }
 
+type DownloadDatabaseRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadDatabaseRequest) Reset() {
+	*x = DownloadDatabaseRequest{}
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadDatabaseRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadDatabaseRequest) ProtoMessage() {}
+
+func (x *DownloadDatabaseRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadDatabaseRequest.ProtoReflect.Descriptor instead.
+func (*DownloadDatabaseRequest) Descriptor() ([]byte, []int) {
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{14}
+}
+
+type DownloadDatabaseResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadDatabaseResponse) Reset() {
+	*x = DownloadDatabaseResponse{}
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadDatabaseResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadDatabaseResponse) ProtoMessage() {}
+
+func (x *DownloadDatabaseResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadDatabaseResponse.ProtoReflect.Descriptor instead.
+func (*DownloadDatabaseResponse) Descriptor() ([]byte, []int) {
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *DownloadDatabaseResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *DownloadDatabaseResponse) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
 type ShellDataProto struct {
 	state              protoimpl.MessageState  `protogen:"open.v1"`
 	Dashboard          *DashboardDataProto     `protobuf:"bytes,1,opt,name=dashboard,proto3" json:"dashboard,omitempty"`
@@ -973,7 +1096,7 @@ type ShellDataProto struct {
 
 func (x *ShellDataProto) Reset() {
 	*x = ShellDataProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[14]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -985,7 +1108,7 @@ func (x *ShellDataProto) String() string {
 func (*ShellDataProto) ProtoMessage() {}
 
 func (x *ShellDataProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[14]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -998,7 +1121,7 @@ func (x *ShellDataProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellDataProto.ProtoReflect.Descriptor instead.
 func (*ShellDataProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{14}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ShellDataProto) GetDashboard() *DashboardDataProto {
@@ -1116,7 +1239,7 @@ type DashboardDataProto struct {
 
 func (x *DashboardDataProto) Reset() {
 	*x = DashboardDataProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[15]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1128,7 +1251,7 @@ func (x *DashboardDataProto) String() string {
 func (*DashboardDataProto) ProtoMessage() {}
 
 func (x *DashboardDataProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[15]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1141,7 +1264,7 @@ func (x *DashboardDataProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DashboardDataProto.ProtoReflect.Descriptor instead.
 func (*DashboardDataProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{15}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DashboardDataProto) GetHeaderLines() []string {
@@ -1220,7 +1343,7 @@ type ListScreenDataProto struct {
 
 func (x *ListScreenDataProto) Reset() {
 	*x = ListScreenDataProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[16]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1232,7 +1355,7 @@ func (x *ListScreenDataProto) String() string {
 func (*ListScreenDataProto) ProtoMessage() {}
 
 func (x *ListScreenDataProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[16]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1245,7 +1368,7 @@ func (x *ListScreenDataProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScreenDataProto.ProtoReflect.Descriptor instead.
 func (*ListScreenDataProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{16}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListScreenDataProto) GetHeaderLines() []string {
@@ -1297,7 +1420,7 @@ type ListItemDataProto struct {
 
 func (x *ListItemDataProto) Reset() {
 	*x = ListItemDataProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[17]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1309,7 +1432,7 @@ func (x *ListItemDataProto) String() string {
 func (*ListItemDataProto) ProtoMessage() {}
 
 func (x *ListItemDataProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[17]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1322,7 +1445,7 @@ func (x *ListItemDataProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemDataProto.ProtoReflect.Descriptor instead.
 func (*ListItemDataProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{17}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListItemDataProto) GetKey() string {
@@ -1390,7 +1513,7 @@ type ItemActionDataProto struct {
 
 func (x *ItemActionDataProto) Reset() {
 	*x = ItemActionDataProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[18]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1402,7 +1525,7 @@ func (x *ItemActionDataProto) String() string {
 func (*ItemActionDataProto) ProtoMessage() {}
 
 func (x *ItemActionDataProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[18]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1415,7 +1538,7 @@ func (x *ItemActionDataProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemActionDataProto.ProtoReflect.Descriptor instead.
 func (*ItemActionDataProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{18}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ItemActionDataProto) GetTrigger() string {
@@ -1537,7 +1660,7 @@ type EntryCatalogProto struct {
 
 func (x *EntryCatalogProto) Reset() {
 	*x = EntryCatalogProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[19]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1549,7 +1672,7 @@ func (x *EntryCatalogProto) String() string {
 func (*EntryCatalogProto) ProtoMessage() {}
 
 func (x *EntryCatalogProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[19]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1562,7 +1685,7 @@ func (x *EntryCatalogProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntryCatalogProto.ProtoReflect.Descriptor instead.
 func (*EntryCatalogProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{19}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *EntryCatalogProto) GetDefaultDate() string {
@@ -1618,7 +1741,7 @@ type AccountOptionProto struct {
 
 func (x *AccountOptionProto) Reset() {
 	*x = AccountOptionProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[20]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1630,7 +1753,7 @@ func (x *AccountOptionProto) String() string {
 func (*AccountOptionProto) ProtoMessage() {}
 
 func (x *AccountOptionProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[20]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1643,7 +1766,7 @@ func (x *AccountOptionProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccountOptionProto.ProtoReflect.Descriptor instead.
 func (*AccountOptionProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{20}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AccountOptionProto) GetCode() string {
@@ -1677,7 +1800,7 @@ type CampaignOptionProto struct {
 
 func (x *CampaignOptionProto) Reset() {
 	*x = CampaignOptionProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[21]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1689,7 +1812,7 @@ func (x *CampaignOptionProto) String() string {
 func (*CampaignOptionProto) ProtoMessage() {}
 
 func (x *CampaignOptionProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[21]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1702,7 +1825,7 @@ func (x *CampaignOptionProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CampaignOptionProto.ProtoReflect.Descriptor instead.
 func (*CampaignOptionProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{21}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CampaignOptionProto) GetId() string {
@@ -1730,7 +1853,7 @@ type CodexTypeOptionProto struct {
 
 func (x *CodexTypeOptionProto) Reset() {
 	*x = CodexTypeOptionProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[22]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1742,7 +1865,7 @@ func (x *CodexTypeOptionProto) String() string {
 func (*CodexTypeOptionProto) ProtoMessage() {}
 
 func (x *CodexTypeOptionProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[22]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1755,7 +1878,7 @@ func (x *CodexTypeOptionProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CodexTypeOptionProto.ProtoReflect.Descriptor instead.
 func (*CodexTypeOptionProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{22}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CodexTypeOptionProto) GetId() string {
@@ -1792,7 +1915,7 @@ type CommandProto struct {
 
 func (x *CommandProto) Reset() {
 	*x = CommandProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[23]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1804,7 +1927,7 @@ func (x *CommandProto) String() string {
 func (*CommandProto) ProtoMessage() {}
 
 func (x *CommandProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[23]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1817,7 +1940,7 @@ func (x *CommandProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandProto.ProtoReflect.Descriptor instead.
 func (*CommandProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{23}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CommandProto) GetId() string {
@@ -1867,7 +1990,7 @@ type CommandLineProto struct {
 
 func (x *CommandLineProto) Reset() {
 	*x = CommandLineProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[24]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1879,7 +2002,7 @@ func (x *CommandLineProto) String() string {
 func (*CommandLineProto) ProtoMessage() {}
 
 func (x *CommandLineProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[24]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1892,7 +2015,7 @@ func (x *CommandLineProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandLineProto.ProtoReflect.Descriptor instead.
 func (*CommandLineProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{24}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CommandLineProto) GetSide() string {
@@ -1935,7 +2058,7 @@ type CommandResultProto struct {
 
 func (x *CommandResultProto) Reset() {
 	*x = CommandResultProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[25]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1947,7 +2070,7 @@ func (x *CommandResultProto) String() string {
 func (*CommandResultProto) ProtoMessage() {}
 
 func (x *CommandResultProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[25]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1960,7 +2083,7 @@ func (x *CommandResultProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResultProto.ProtoReflect.Descriptor instead.
 func (*CommandResultProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{25}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CommandResultProto) GetData() *ShellDataProto {
@@ -2001,7 +2124,7 @@ type StatusMessageProto struct {
 
 func (x *StatusMessageProto) Reset() {
 	*x = StatusMessageProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[26]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2013,7 +2136,7 @@ func (x *StatusMessageProto) String() string {
 func (*StatusMessageProto) ProtoMessage() {}
 
 func (x *StatusMessageProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[26]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2026,7 +2149,7 @@ func (x *StatusMessageProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusMessageProto.ProtoReflect.Descriptor instead.
 func (*StatusMessageProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{26}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StatusMessageProto) GetLevel() string {
@@ -2047,7 +2170,7 @@ var File_src_net_proto_lootsheet_proto protoreflect.FileDescriptor
 
 const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\n" +
-	"\x1dsrc/net/proto/lootsheet.proto\x12\tlootsheet\"\x94\x04\n" +
+	"\x1dsrc/net/proto/lootsheet.proto\x12\tlootsheet\"\xe7\x04\n" +
 	"\aRequest\x12)\n" +
 	"\x06method\x18\x01 \x01(\x0e2\x11.lootsheet.MethodR\x06method\x12,\n" +
 	"\x04auth\x18\n" +
@@ -2057,8 +2180,9 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\fset_campaign\x18\r \x01(\v2\x1d.lootsheet.SetCampaignRequestH\x00R\vsetCampaign\x12H\n" +
 	"\x0elist_campaigns\x18\x0e \x01(\v2\x1f.lootsheet.ListCampaignsRequestH\x00R\rlistCampaigns\x12=\n" +
 	"\fsearch_codex\x18\x0f \x01(\v2\x18.lootsheet.SearchRequestH\x00R\vsearchCodex\x12=\n" +
-	"\fsearch_notes\x18\x10 \x01(\v2\x18.lootsheet.SearchRequestH\x00R\vsearchNotesB\t\n" +
-	"\apayload\"\x97\x04\n" +
+	"\fsearch_notes\x18\x10 \x01(\v2\x18.lootsheet.SearchRequestH\x00R\vsearchNotes\x12Q\n" +
+	"\x11download_database\x18\x11 \x01(\v2\".lootsheet.DownloadDatabaseRequestH\x00R\x10downloadDatabaseB\t\n" +
+	"\apayload\"\xeb\x04\n" +
 	"\bResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12-\n" +
@@ -2069,7 +2193,8 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\fset_campaign\x18\r \x01(\v2\x1e.lootsheet.SetCampaignResponseH\x00R\vsetCampaign\x12I\n" +
 	"\x0elist_campaigns\x18\x0e \x01(\v2 .lootsheet.ListCampaignsResponseH\x00R\rlistCampaigns\x12>\n" +
 	"\fsearch_codex\x18\x0f \x01(\v2\x19.lootsheet.SearchResponseH\x00R\vsearchCodex\x12>\n" +
-	"\fsearch_notes\x18\x10 \x01(\v2\x19.lootsheet.SearchResponseH\x00R\vsearchNotesB\t\n" +
+	"\fsearch_notes\x18\x10 \x01(\v2\x19.lootsheet.SearchResponseH\x00R\vsearchNotes\x12R\n" +
+	"\x11download_database\x18\x11 \x01(\v2#.lootsheet.DownloadDatabaseResponseH\x00R\x10downloadDatabaseB\t\n" +
 	"\apayload\"N\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12)\n" +
@@ -2095,7 +2220,11 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\rSearchRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\"D\n" +
 	"\x0eSearchResponse\x122\n" +
-	"\x05items\x18\x01 \x03(\v2\x1c.lootsheet.ListItemDataProtoR\x05items\"\xda\x06\n" +
+	"\x05items\x18\x01 \x03(\v2\x1c.lootsheet.ListItemDataProtoR\x05items\"\x19\n" +
+	"\x17DownloadDatabaseRequest\"J\n" +
+	"\x18DownloadDatabaseResponse\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\"\xda\x06\n" +
 	"\x0eShellDataProto\x12;\n" +
 	"\tdashboard\x18\x01 \x01(\v2\x1d.lootsheet.DashboardDataProtoR\tdashboard\x12:\n" +
 	"\baccounts\x18\x02 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\baccounts\x128\n" +
@@ -2204,7 +2333,7 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x0fselect_item_key\x18\x04 \x01(\tR\rselectItemKey\">\n" +
 	"\x12StatusMessageProto\x12\x14\n" +
 	"\x05level\x18\x01 \x01(\tR\x05level\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text*\x8f\x01\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text*\xa6\x01\n" +
 	"\x06Method\x12\b\n" +
 	"\x04AUTH\x10\x00\x12\x14\n" +
 	"\x10BUILD_SHELL_DATA\x10\x01\x12\x13\n" +
@@ -2212,7 +2341,8 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\fSET_CAMPAIGN\x10\x03\x12\x12\n" +
 	"\x0eLIST_CAMPAIGNS\x10\x04\x12\x18\n" +
 	"\x14SEARCH_CODEX_ENTRIES\x10\x05\x12\x10\n" +
-	"\fSEARCH_NOTES\x10\x06B2Z0github.com/OskarLeirvaag/Lootsheet/src/net/protob\x06proto3"
+	"\fSEARCH_NOTES\x10\x06\x12\x15\n" +
+	"\x11DOWNLOAD_DATABASE\x10\aB2Z0github.com/OskarLeirvaag/Lootsheet/src/net/protob\x06proto3"
 
 var (
 	file_src_net_proto_lootsheet_proto_rawDescOnce sync.Once
@@ -2227,38 +2357,40 @@ func file_src_net_proto_lootsheet_proto_rawDescGZIP() []byte {
 }
 
 var file_src_net_proto_lootsheet_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_src_net_proto_lootsheet_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_src_net_proto_lootsheet_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_src_net_proto_lootsheet_proto_goTypes = []any{
-	(Method)(0),                    // 0: lootsheet.Method
-	(*Request)(nil),                // 1: lootsheet.Request
-	(*Response)(nil),               // 2: lootsheet.Response
-	(*AuthRequest)(nil),            // 3: lootsheet.AuthRequest
-	(*AuthResponse)(nil),           // 4: lootsheet.AuthResponse
-	(*BuildShellDataRequest)(nil),  // 5: lootsheet.BuildShellDataRequest
-	(*BuildShellDataResponse)(nil), // 6: lootsheet.BuildShellDataResponse
-	(*ExecuteCommandRequest)(nil),  // 7: lootsheet.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil), // 8: lootsheet.ExecuteCommandResponse
-	(*SetCampaignRequest)(nil),     // 9: lootsheet.SetCampaignRequest
-	(*SetCampaignResponse)(nil),    // 10: lootsheet.SetCampaignResponse
-	(*ListCampaignsRequest)(nil),   // 11: lootsheet.ListCampaignsRequest
-	(*ListCampaignsResponse)(nil),  // 12: lootsheet.ListCampaignsResponse
-	(*SearchRequest)(nil),          // 13: lootsheet.SearchRequest
-	(*SearchResponse)(nil),         // 14: lootsheet.SearchResponse
-	(*ShellDataProto)(nil),         // 15: lootsheet.ShellDataProto
-	(*DashboardDataProto)(nil),     // 16: lootsheet.DashboardDataProto
-	(*ListScreenDataProto)(nil),    // 17: lootsheet.ListScreenDataProto
-	(*ListItemDataProto)(nil),      // 18: lootsheet.ListItemDataProto
-	(*ItemActionDataProto)(nil),    // 19: lootsheet.ItemActionDataProto
-	(*EntryCatalogProto)(nil),      // 20: lootsheet.EntryCatalogProto
-	(*AccountOptionProto)(nil),     // 21: lootsheet.AccountOptionProto
-	(*CampaignOptionProto)(nil),    // 22: lootsheet.CampaignOptionProto
-	(*CodexTypeOptionProto)(nil),   // 23: lootsheet.CodexTypeOptionProto
-	(*CommandProto)(nil),           // 24: lootsheet.CommandProto
-	(*CommandLineProto)(nil),       // 25: lootsheet.CommandLineProto
-	(*CommandResultProto)(nil),     // 26: lootsheet.CommandResultProto
-	(*StatusMessageProto)(nil),     // 27: lootsheet.StatusMessageProto
-	nil,                            // 28: lootsheet.ItemActionDataProto.ComposeFieldsEntry
-	nil,                            // 29: lootsheet.CommandProto.FieldsEntry
+	(Method)(0),                      // 0: lootsheet.Method
+	(*Request)(nil),                  // 1: lootsheet.Request
+	(*Response)(nil),                 // 2: lootsheet.Response
+	(*AuthRequest)(nil),              // 3: lootsheet.AuthRequest
+	(*AuthResponse)(nil),             // 4: lootsheet.AuthResponse
+	(*BuildShellDataRequest)(nil),    // 5: lootsheet.BuildShellDataRequest
+	(*BuildShellDataResponse)(nil),   // 6: lootsheet.BuildShellDataResponse
+	(*ExecuteCommandRequest)(nil),    // 7: lootsheet.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),   // 8: lootsheet.ExecuteCommandResponse
+	(*SetCampaignRequest)(nil),       // 9: lootsheet.SetCampaignRequest
+	(*SetCampaignResponse)(nil),      // 10: lootsheet.SetCampaignResponse
+	(*ListCampaignsRequest)(nil),     // 11: lootsheet.ListCampaignsRequest
+	(*ListCampaignsResponse)(nil),    // 12: lootsheet.ListCampaignsResponse
+	(*SearchRequest)(nil),            // 13: lootsheet.SearchRequest
+	(*SearchResponse)(nil),           // 14: lootsheet.SearchResponse
+	(*DownloadDatabaseRequest)(nil),  // 15: lootsheet.DownloadDatabaseRequest
+	(*DownloadDatabaseResponse)(nil), // 16: lootsheet.DownloadDatabaseResponse
+	(*ShellDataProto)(nil),           // 17: lootsheet.ShellDataProto
+	(*DashboardDataProto)(nil),       // 18: lootsheet.DashboardDataProto
+	(*ListScreenDataProto)(nil),      // 19: lootsheet.ListScreenDataProto
+	(*ListItemDataProto)(nil),        // 20: lootsheet.ListItemDataProto
+	(*ItemActionDataProto)(nil),      // 21: lootsheet.ItemActionDataProto
+	(*EntryCatalogProto)(nil),        // 22: lootsheet.EntryCatalogProto
+	(*AccountOptionProto)(nil),       // 23: lootsheet.AccountOptionProto
+	(*CampaignOptionProto)(nil),      // 24: lootsheet.CampaignOptionProto
+	(*CodexTypeOptionProto)(nil),     // 25: lootsheet.CodexTypeOptionProto
+	(*CommandProto)(nil),             // 26: lootsheet.CommandProto
+	(*CommandLineProto)(nil),         // 27: lootsheet.CommandLineProto
+	(*CommandResultProto)(nil),       // 28: lootsheet.CommandResultProto
+	(*StatusMessageProto)(nil),       // 29: lootsheet.StatusMessageProto
+	nil,                              // 30: lootsheet.ItemActionDataProto.ComposeFieldsEntry
+	nil,                              // 31: lootsheet.CommandProto.FieldsEntry
 }
 var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	0,  // 0: lootsheet.Request.method:type_name -> lootsheet.Method
@@ -2269,49 +2401,51 @@ var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	11, // 5: lootsheet.Request.list_campaigns:type_name -> lootsheet.ListCampaignsRequest
 	13, // 6: lootsheet.Request.search_codex:type_name -> lootsheet.SearchRequest
 	13, // 7: lootsheet.Request.search_notes:type_name -> lootsheet.SearchRequest
-	4,  // 8: lootsheet.Response.auth:type_name -> lootsheet.AuthResponse
-	6,  // 9: lootsheet.Response.build_shell_data:type_name -> lootsheet.BuildShellDataResponse
-	8,  // 10: lootsheet.Response.execute_command:type_name -> lootsheet.ExecuteCommandResponse
-	10, // 11: lootsheet.Response.set_campaign:type_name -> lootsheet.SetCampaignResponse
-	12, // 12: lootsheet.Response.list_campaigns:type_name -> lootsheet.ListCampaignsResponse
-	14, // 13: lootsheet.Response.search_codex:type_name -> lootsheet.SearchResponse
-	14, // 14: lootsheet.Response.search_notes:type_name -> lootsheet.SearchResponse
-	15, // 15: lootsheet.BuildShellDataResponse.data:type_name -> lootsheet.ShellDataProto
-	24, // 16: lootsheet.ExecuteCommandRequest.command:type_name -> lootsheet.CommandProto
-	26, // 17: lootsheet.ExecuteCommandResponse.result:type_name -> lootsheet.CommandResultProto
-	22, // 18: lootsheet.ListCampaignsResponse.campaigns:type_name -> lootsheet.CampaignOptionProto
-	18, // 19: lootsheet.SearchResponse.items:type_name -> lootsheet.ListItemDataProto
-	16, // 20: lootsheet.ShellDataProto.dashboard:type_name -> lootsheet.DashboardDataProto
-	17, // 21: lootsheet.ShellDataProto.accounts:type_name -> lootsheet.ListScreenDataProto
-	17, // 22: lootsheet.ShellDataProto.journal:type_name -> lootsheet.ListScreenDataProto
-	17, // 23: lootsheet.ShellDataProto.quests:type_name -> lootsheet.ListScreenDataProto
-	17, // 24: lootsheet.ShellDataProto.loot:type_name -> lootsheet.ListScreenDataProto
-	17, // 25: lootsheet.ShellDataProto.assets:type_name -> lootsheet.ListScreenDataProto
-	17, // 26: lootsheet.ShellDataProto.codex:type_name -> lootsheet.ListScreenDataProto
-	17, // 27: lootsheet.ShellDataProto.notes:type_name -> lootsheet.ListScreenDataProto
-	17, // 28: lootsheet.ShellDataProto.settings_accounts:type_name -> lootsheet.ListScreenDataProto
-	17, // 29: lootsheet.ShellDataProto.settings_codex_types:type_name -> lootsheet.ListScreenDataProto
-	20, // 30: lootsheet.ShellDataProto.entry_catalog:type_name -> lootsheet.EntryCatalogProto
-	23, // 31: lootsheet.ShellDataProto.codex_types:type_name -> lootsheet.CodexTypeOptionProto
-	22, // 32: lootsheet.ShellDataProto.campaigns:type_name -> lootsheet.CampaignOptionProto
-	18, // 33: lootsheet.ListScreenDataProto.items:type_name -> lootsheet.ListItemDataProto
-	19, // 34: lootsheet.ListItemDataProto.actions:type_name -> lootsheet.ItemActionDataProto
-	28, // 35: lootsheet.ItemActionDataProto.compose_fields:type_name -> lootsheet.ItemActionDataProto.ComposeFieldsEntry
-	25, // 36: lootsheet.ItemActionDataProto.compose_lines:type_name -> lootsheet.CommandLineProto
-	21, // 37: lootsheet.EntryCatalogProto.expense_accounts:type_name -> lootsheet.AccountOptionProto
-	21, // 38: lootsheet.EntryCatalogProto.income_accounts:type_name -> lootsheet.AccountOptionProto
-	21, // 39: lootsheet.EntryCatalogProto.funding_accounts:type_name -> lootsheet.AccountOptionProto
-	21, // 40: lootsheet.EntryCatalogProto.deposit_accounts:type_name -> lootsheet.AccountOptionProto
-	21, // 41: lootsheet.EntryCatalogProto.all_accounts:type_name -> lootsheet.AccountOptionProto
-	29, // 42: lootsheet.CommandProto.fields:type_name -> lootsheet.CommandProto.FieldsEntry
-	25, // 43: lootsheet.CommandProto.lines:type_name -> lootsheet.CommandLineProto
-	15, // 44: lootsheet.CommandResultProto.data:type_name -> lootsheet.ShellDataProto
-	27, // 45: lootsheet.CommandResultProto.status:type_name -> lootsheet.StatusMessageProto
-	46, // [46:46] is the sub-list for method output_type
-	46, // [46:46] is the sub-list for method input_type
-	46, // [46:46] is the sub-list for extension type_name
-	46, // [46:46] is the sub-list for extension extendee
-	0,  // [0:46] is the sub-list for field type_name
+	15, // 8: lootsheet.Request.download_database:type_name -> lootsheet.DownloadDatabaseRequest
+	4,  // 9: lootsheet.Response.auth:type_name -> lootsheet.AuthResponse
+	6,  // 10: lootsheet.Response.build_shell_data:type_name -> lootsheet.BuildShellDataResponse
+	8,  // 11: lootsheet.Response.execute_command:type_name -> lootsheet.ExecuteCommandResponse
+	10, // 12: lootsheet.Response.set_campaign:type_name -> lootsheet.SetCampaignResponse
+	12, // 13: lootsheet.Response.list_campaigns:type_name -> lootsheet.ListCampaignsResponse
+	14, // 14: lootsheet.Response.search_codex:type_name -> lootsheet.SearchResponse
+	14, // 15: lootsheet.Response.search_notes:type_name -> lootsheet.SearchResponse
+	16, // 16: lootsheet.Response.download_database:type_name -> lootsheet.DownloadDatabaseResponse
+	17, // 17: lootsheet.BuildShellDataResponse.data:type_name -> lootsheet.ShellDataProto
+	26, // 18: lootsheet.ExecuteCommandRequest.command:type_name -> lootsheet.CommandProto
+	28, // 19: lootsheet.ExecuteCommandResponse.result:type_name -> lootsheet.CommandResultProto
+	24, // 20: lootsheet.ListCampaignsResponse.campaigns:type_name -> lootsheet.CampaignOptionProto
+	20, // 21: lootsheet.SearchResponse.items:type_name -> lootsheet.ListItemDataProto
+	18, // 22: lootsheet.ShellDataProto.dashboard:type_name -> lootsheet.DashboardDataProto
+	19, // 23: lootsheet.ShellDataProto.accounts:type_name -> lootsheet.ListScreenDataProto
+	19, // 24: lootsheet.ShellDataProto.journal:type_name -> lootsheet.ListScreenDataProto
+	19, // 25: lootsheet.ShellDataProto.quests:type_name -> lootsheet.ListScreenDataProto
+	19, // 26: lootsheet.ShellDataProto.loot:type_name -> lootsheet.ListScreenDataProto
+	19, // 27: lootsheet.ShellDataProto.assets:type_name -> lootsheet.ListScreenDataProto
+	19, // 28: lootsheet.ShellDataProto.codex:type_name -> lootsheet.ListScreenDataProto
+	19, // 29: lootsheet.ShellDataProto.notes:type_name -> lootsheet.ListScreenDataProto
+	19, // 30: lootsheet.ShellDataProto.settings_accounts:type_name -> lootsheet.ListScreenDataProto
+	19, // 31: lootsheet.ShellDataProto.settings_codex_types:type_name -> lootsheet.ListScreenDataProto
+	22, // 32: lootsheet.ShellDataProto.entry_catalog:type_name -> lootsheet.EntryCatalogProto
+	25, // 33: lootsheet.ShellDataProto.codex_types:type_name -> lootsheet.CodexTypeOptionProto
+	24, // 34: lootsheet.ShellDataProto.campaigns:type_name -> lootsheet.CampaignOptionProto
+	20, // 35: lootsheet.ListScreenDataProto.items:type_name -> lootsheet.ListItemDataProto
+	21, // 36: lootsheet.ListItemDataProto.actions:type_name -> lootsheet.ItemActionDataProto
+	30, // 37: lootsheet.ItemActionDataProto.compose_fields:type_name -> lootsheet.ItemActionDataProto.ComposeFieldsEntry
+	27, // 38: lootsheet.ItemActionDataProto.compose_lines:type_name -> lootsheet.CommandLineProto
+	23, // 39: lootsheet.EntryCatalogProto.expense_accounts:type_name -> lootsheet.AccountOptionProto
+	23, // 40: lootsheet.EntryCatalogProto.income_accounts:type_name -> lootsheet.AccountOptionProto
+	23, // 41: lootsheet.EntryCatalogProto.funding_accounts:type_name -> lootsheet.AccountOptionProto
+	23, // 42: lootsheet.EntryCatalogProto.deposit_accounts:type_name -> lootsheet.AccountOptionProto
+	23, // 43: lootsheet.EntryCatalogProto.all_accounts:type_name -> lootsheet.AccountOptionProto
+	31, // 44: lootsheet.CommandProto.fields:type_name -> lootsheet.CommandProto.FieldsEntry
+	27, // 45: lootsheet.CommandProto.lines:type_name -> lootsheet.CommandLineProto
+	17, // 46: lootsheet.CommandResultProto.data:type_name -> lootsheet.ShellDataProto
+	29, // 47: lootsheet.CommandResultProto.status:type_name -> lootsheet.StatusMessageProto
+	48, // [48:48] is the sub-list for method output_type
+	48, // [48:48] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_src_net_proto_lootsheet_proto_init() }
@@ -2327,6 +2461,7 @@ func file_src_net_proto_lootsheet_proto_init() {
 		(*Request_ListCampaigns)(nil),
 		(*Request_SearchCodex)(nil),
 		(*Request_SearchNotes)(nil),
+		(*Request_DownloadDatabase)(nil),
 	}
 	file_src_net_proto_lootsheet_proto_msgTypes[1].OneofWrappers = []any{
 		(*Response_Auth)(nil),
@@ -2336,6 +2471,7 @@ func file_src_net_proto_lootsheet_proto_init() {
 		(*Response_ListCampaigns)(nil),
 		(*Response_SearchCodex)(nil),
 		(*Response_SearchNotes)(nil),
+		(*Response_DownloadDatabase)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2343,7 +2479,7 @@ func file_src_net_proto_lootsheet_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_src_net_proto_lootsheet_proto_rawDesc), len(file_src_net_proto_lootsheet_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   29,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

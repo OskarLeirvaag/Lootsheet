@@ -14,6 +14,11 @@ func (s *Shell) handleEditorKeyEvent(event *tcell.EventKey, _ Action) (handleRes
 		return handleResult{}, false
 	}
 
+	// Ref picker intercepts all keys when open.
+	if s.editor.refPicker != nil {
+		return s.handleEditorRefPickerKey(event), true
+	}
+
 	e := s.editor
 	e.StatusText = ""
 
@@ -105,10 +110,14 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
 			editorMoveUp(e)
 		case '0':
 			editorMoveToLineStart(e)
+		case '^':
+			editorMoveToFirstNonBlank(e)
 		case '$':
 			editorMoveToLineEnd(e)
 		case 'w':
 			editorMoveWordForward(e)
+		case 'e':
+			editorMoveWordEnd(e)
 		case 'b':
 			editorMoveWordBackward(e)
 		case 'G':
@@ -117,10 +126,28 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
 			e.PendingKey = 'g'
 		case 'd':
 			e.PendingKey = 'd'
+		case 'c':
+			e.PendingKey = 'c'
+		case 'y':
+			e.PendingKey = 'y'
+		case 'D':
+			editorDeleteToEndOfLine(e)
+		case 'C':
+			editorChangeToEndOfLine(e)
+		case 'J':
+			editorJoinLines(e)
+		case 'p':
+			editorPaste(e)
 		case 'i':
+			e.Mode = editorModeInsert
+		case 'I':
+			editorMoveToFirstNonBlank(e)
 			e.Mode = editorModeInsert
 		case 'a':
 			editorMoveRight(e)
+			e.Mode = editorModeInsert
+		case 'A':
+			editorMoveToLineEnd(e)
 			e.Mode = editorModeInsert
 		case 'o':
 			editorOpenLineBelow(e)
@@ -144,11 +171,34 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) handleResult {
 
 func (s *Shell) handleEditorTwoKey(first, second rune) handleResult {
 	e := s.editor
-	switch {
-	case first == 'g' && second == 'g':
-		editorMoveToTop(e)
-	case first == 'd' && second == 'd':
-		editorDeleteLine(e)
+	switch first {
+	case 'g':
+		if second == 'g' {
+			editorMoveToTop(e)
+		}
+	case 'd':
+		switch second {
+		case 'd':
+			editorDeleteLine(e)
+		case 'w':
+			editorDeleteWord(e)
+		case '$':
+			editorDeleteToEndOfLine(e)
+		}
+	case 'c':
+		switch second {
+		case 'c':
+			editorChangeLine(e)
+		case 'w':
+			editorChangeWord(e)
+		case '$':
+			editorChangeToEndOfLine(e)
+		}
+	case 'y':
+		if second == 'y' {
+			editorYankLine(e)
+			e.StatusText = "1 line yanked"
+		}
 	}
 	return handleResult{Redraw: true}
 }
@@ -167,6 +217,9 @@ func (s *Shell) handleEditorInsertKey(event *tcell.EventKey) handleResult {
 	case tcell.KeyEsc:
 		e.Mode = editorModeNormal
 		editorClampCursorToLine(e)
+		return handleResult{Redraw: true}
+	case tcell.KeyCtrlA:
+		s.openEditorRefPicker()
 		return handleResult{Redraw: true}
 	case tcell.KeyLeft:
 		editorMoveLeft(e)
@@ -245,6 +298,18 @@ func (s *Shell) handleEditorInsertSession(event *tcell.EventKey) handleResult {
 			e.Dirty = true
 		}
 		return handleResult{Redraw: true}
+	}
+	return handleResult{Redraw: true}
+}
+
+func (s *Shell) handleEditorRefPickerKey(event *tcell.EventKey) handleResult {
+	p := s.editor.refPicker
+	closed, value := handlePickerKey(p, event)
+	if closed {
+		if value != "" {
+			editorInsertString(s.editor, value)
+		}
+		s.editor.refPicker = nil
 	}
 	return handleResult{Redraw: true}
 }

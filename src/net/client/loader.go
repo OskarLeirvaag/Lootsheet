@@ -103,3 +103,25 @@ func remoteSearch(c *Client, req *pb.Request, extract func(*pb.Response) *pb.Sea
 
 	return pb.ListItemsFromProto(sr.Items), nil
 }
+
+// DownloadDatabase fetches the server's SQLite database as raw bytes.
+func DownloadDatabase(ctx context.Context, c *Client) (data []byte, filename string, err error) {
+	req := &pb.Request{
+		Method: pb.Method_DOWNLOAD_DATABASE,
+		Payload: &pb.Request_DownloadDatabase{
+			DownloadDatabase: &pb.DownloadDatabaseRequest{},
+		},
+	}
+
+	resp, err := c.Call(ctx, req)
+	if err != nil {
+		return nil, "", fmt.Errorf("download database: %w", err)
+	}
+
+	dl := resp.GetDownloadDatabase()
+	if dl == nil {
+		return nil, "", fmt.Errorf("download database: empty response")
+	}
+
+	return dl.Data, dl.Filename, nil
+}

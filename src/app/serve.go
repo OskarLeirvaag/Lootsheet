@@ -11,6 +11,7 @@ import (
 
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
+	proto "github.com/OskarLeirvaag/Lootsheet/src/net/proto"
 	"github.com/OskarLeirvaag/Lootsheet/src/net/server"
 	"github.com/spf13/cobra"
 )
@@ -63,19 +64,49 @@ func (a *Application) runServe(ctx context.Context, addr string, noTLS bool) err
 		assets:       assets,
 	}
 
+	fmt.Fprintf(a.stdout, "LootSheet server (protocol v%d, schema v%s)\n", proto.ProtocolVersion, config.SchemaVersion)
+
+	// Database readiness.
+	dbStatus, err := loader.GetDatabaseStatus(ctx)
+	if err != nil {
+		fmt.Fprintf(a.stdout, "Database status: error (%v)\n", err)
+		return err
+	}
+	fmt.Fprintf(a.stdout, "Database: %s\n", a.config.Paths.DatabasePath)
+	fmt.Fprintf(a.stdout, "Database state: %s\n", dbStatus.State)
+	fmt.Fprintf(a.stdout, "Schema version: %s\n", dbStatus.SchemaVersion)
+
 	if err := loader.EnsureReady(ctx); err != nil {
+		fmt.Fprintf(a.stdout, "EnsureReady failed: %v\n", err)
 		return err
 	}
 
-	// Auto-select a campaign without interactive prompts.
-	// Try the previously active campaign, then fall back to the first one.
-	// If no campaigns exist yet, clients can create one via the TUI.
-	if active, err := campaign.GetActive(ctx, a.config.Paths.DatabasePath); err == nil {
-		loader.SetCampaign(active.ID, active.Name)
-	} else if campaigns, listErr := campaign.List(ctx, a.config.Paths.DatabasePath); listErr == nil && len(campaigns) > 0 {
-		loader.SetCampaign(campaigns[0].ID, campaigns[0].Name)
+	// Re-check after migration.
+	dbStatus, _ = loader.GetDatabaseStatus(ctx)
+	fmt.Fprintf(a.stdout, "Database state after migrate: %s\n", dbStatus.State)
+
+	// Campaign selection.
+	campaigns, listErr := campaign.List(ctx, a.config.Paths.DatabasePath)
+	if listErr != nil {
+		fmt.Fprintf(a.stdout, "Campaign list error: %v\n", listErr)
+	} else {
+		fmt.Fprintf(a.stdout, "Campaigns found: %d\n", len(campaigns))
+		for _, c := range campaigns {
+			fmt.Fprintf(a.stdout, "  - %s (%s)\n", c.Name, c.ID)
+		}
 	}
 
+	if active, getErr := campaign.GetActive(ctx, a.config.Paths.DatabasePath); getErr == nil {
+		loader.SetCampaign(active.ID, active.Name)
+		fmt.Fprintf(a.stdout, "Active campaign: %s\n", active.Name)
+	} else if len(campaigns) > 0 {
+		loader.SetCampaign(campaigns[0].ID, campaigns[0].Name)
+		fmt.Fprintf(a.stdout, "Active campaign (fallback): %s\n", campaigns[0].Name)
+	} else {
+		fmt.Fprintf(a.stdout, "No campaigns — clients can create one via the TUI (#)\n")
+	}
+
+	// Server setup.
 	serverDir := filepath.Join(a.config.Paths.DataDir, "server")
 
 	token, err := server.LoadOrGenerateToken(serverDir)
@@ -83,34 +114,28 @@ func (a *Application) runServe(ctx context.Context, addr string, noTLS bool) err
 		return fmt.Errorf("token: %w", err)
 	}
 
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
 	cfg := server.Config{
 		Addr:    addr,
 		Token:   token,
 		Handler: server.NewHandler(&tuiService{loader: loader, databasePath: a.config.Paths.DatabasePath}),
-		Logger:  slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Logger:  logger,
 	}
 
 	if noTLS {
-		if _, err := fmt.Fprintf(a.stdout, "TLS: disabled (use behind a TLS-terminating reverse proxy)\n"); err != nil {
-			return err
-		}
+		fmt.Fprintf(a.stdout, "TLS: disabled (behind reverse proxy)\n")
 	} else {
 		tlsCfg, tlsErr := server.LoadOrGenerateTLS(serverDir)
 		if tlsErr != nil {
 			return fmt.Errorf("tls: %w", tlsErr)
 		}
 		cfg.TLSConfig = tlsCfg
+		fmt.Fprintf(a.stdout, "TLS: self-signed\n")
 	}
 
-	if _, err := fmt.Fprintf(a.stdout, "Server token: %s\n", token); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(a.stdout, "Listening on %s\n", addr); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(a.stdout, "Database: %s\n", a.config.Paths.DatabasePath); err != nil {
-		return err
-	}
+	fmt.Fprintf(a.stdout, "Server token: %s\n", token)
+	fmt.Fprintf(a.stdout, "Listening on %s\n", addr)
 
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

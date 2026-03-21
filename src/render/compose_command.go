@@ -47,7 +47,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 		if s.compose.CommandID == "quest.update" {
 			return []composeField{
 				{ID: "title", Label: "Title", Placeholder: "Clear the Goblin Cave"},
-				{ID: "patron", Label: "Patron", Placeholder: "Mayor Rowan"},
+				{ID: "patron", Label: "Patron", Placeholder: "Mayor Rowan (C-a pick)"},
 				{ID: "description", Label: "Description", Placeholder: "Optional quest notes"},
 				{ID: "reward", Label: "Reward", Placeholder: "25GP"},
 				{ID: "advance", Label: "Advance", Placeholder: "0"},
@@ -58,7 +58,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 		}
 		return []composeField{
 			{ID: "title", Label: "Title", Placeholder: "Clear the Goblin Cave"},
-			{ID: "patron", Label: "Patron", Placeholder: "Mayor Rowan"},
+			{ID: "patron", Label: "Patron", Placeholder: "Mayor Rowan (C-a pick)"},
 			{ID: "description", Label: "Description", Placeholder: "Optional quest notes"},
 			{ID: "reward", Label: "Reward", Placeholder: "25GP"},
 			{ID: "advance", Label: "Advance", Placeholder: "0"},
@@ -70,17 +70,17 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 	case composeModeLoot:
 		return []composeField{
 			{ID: "name", Label: "Name", Placeholder: "Silver Chalice"},
-			{ID: "source", Label: "Source", Placeholder: "Goblin den"},
+			{ID: "source", Label: "Source", Placeholder: "Goblin den (C-a pick)"},
 			{ID: "quantity", Label: "Quantity", Placeholder: "1"},
-			{ID: "holder", Label: "Holder", Placeholder: "Bard"},
+			{ID: "holder", Label: "Holder", Placeholder: "Bard (C-a pick)"},
 			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
 		}
 	case composeModeAsset:
 		return []composeField{
 			{ID: "name", Label: "Name", Placeholder: "Staff of the Magi"},
-			{ID: "source", Label: "Source", Placeholder: "Ancient tomb"},
+			{ID: "source", Label: "Source", Placeholder: "Ancient tomb (C-a pick)"},
 			{ID: "quantity", Label: "Quantity", Placeholder: "1"},
-			{ID: "holder", Label: "Holder", Placeholder: "Wizard"},
+			{ID: "holder", Label: "Holder", Placeholder: "Wizard (C-a pick)"},
 			{ID: "notes", Label: "Notes", Placeholder: "Optional item notes"},
 		}
 	case composeModeCodex:
@@ -96,7 +96,7 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 	case composeModeNotes:
 		return []composeField{
 			{ID: "title", Label: "Title", Placeholder: "Session 5"},
-			{ID: "body", Label: "Body", Placeholder: "Met @person/Mayor Elra near @quest/Clear the Watchtower"},
+			{ID: "body", Label: "Body", Placeholder: "Met @[person/Mayor Elra] near @[quest/Clear the Watchtower]"},
 		}
 	case composeModeAssetTemplate:
 		return nil

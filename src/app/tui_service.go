@@ -15,6 +15,8 @@ type tuiService struct {
 	databasePath string
 }
 
+func (s *tuiService) DatabasePath() string { return s.databasePath }
+
 func (s *tuiService) BuildShellData(ctx context.Context) (model.ShellData, error) {
 	return buildTUIShellData(ctx, s.loader)
 }

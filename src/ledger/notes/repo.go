@@ -153,14 +153,14 @@ func SearchNotes(ctx context.Context, databasePath string, campaignID string, qu
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]NoteRecord, error) {
-		pattern := "%" + query + "%"
 		rows, err := db.QueryContext(ctx, `
-			SELECT id, title, body, created_at, updated_at
-			FROM notes
-			WHERE (title LIKE ? OR body LIKE ?)
-			  AND campaign_id = ?
-			ORDER BY updated_at DESC
-		`, pattern, pattern, campaignID)
+			SELECT n.id, n.title, n.body, n.created_at, n.updated_at
+			FROM notes n
+			JOIN notes_fts f ON f.rowid = n.rowid
+			WHERE notes_fts MATCH ?
+			  AND n.campaign_id = ?
+			ORDER BY n.updated_at DESC
+		`, query, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("search notes: %w", err)
 		}

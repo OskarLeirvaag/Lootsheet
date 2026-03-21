@@ -19,7 +19,10 @@ const testToken = "test-token"
 // testService implements server.TUIService for integration testing.
 type testService struct {
 	campaignID string
+	dbPath     string
 }
+
+func (s *testService) DatabasePath() string { return s.dbPath }
 
 func (s *testService) BuildShellData(_ context.Context) (model.ShellData, error) {
 	return model.ShellData{

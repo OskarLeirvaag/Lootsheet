@@ -638,9 +638,9 @@ func TestEditorOpenFromEditAction(t *testing.T) {
 func TestEditorParseReferences(t *testing.T) {
 	e := &editorState{
 		Lines: []string{
-			"Met @person/Mayor Elra at the gate.",
-			"Related to @quest/Clear the Tower.",
-			"@person/Mayor Elra mentioned again.",
+			"Met @[person/Mayor Elra] at the gate.",
+			"Related to @[quest/Clear the Tower].",
+			"@[person/Mayor Elra] mentioned again.",
 		},
 	}
 
@@ -648,11 +648,11 @@ func TestEditorParseReferences(t *testing.T) {
 	if len(refs) != 2 {
 		t.Fatalf("expected 2 unique refs, got %d: %v", len(refs), refs)
 	}
-	if refs[0] != "@person/Mayor" {
-		t.Fatalf("ref[0] = %q, want @person/Mayor", refs[0])
+	if refs[0] != "@[person/Mayor Elra]" {
+		t.Fatalf("ref[0] = %q, want @[person/Mayor Elra]", refs[0])
 	}
-	if refs[1] != "@quest/Clear" {
-		t.Fatalf("ref[1] = %q, want @quest/Clear", refs[1])
+	if refs[1] != "@[quest/Clear the Tower]" {
+		t.Fatalf("ref[1] = %q, want @[quest/Clear the Tower]", refs[1])
 	}
 }
 
