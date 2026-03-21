@@ -123,18 +123,30 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	clientVersion := authReq.GetAuth().ProtocolVersion
-	serverVersion := pb.ProtocolVersion
-	if clientVersion != serverVersion {
+	clientProtoVersion := authReq.GetAuth().ProtocolVersion
+	serverProtoVersion := pb.ProtocolVersion
+	if clientProtoVersion != serverProtoVersion {
 		msg := fmt.Sprintf(
 			"protocol version mismatch: server=%d, client=%d — upgrade the %s binary",
-			serverVersion, clientVersion, versionUpgradeTarget(serverVersion, clientVersion),
+			serverProtoVersion, clientProtoVersion, versionUpgradeTarget(serverProtoVersion, clientProtoVersion),
 		)
 		s.writeError(conn, msg)
 		s.log.WarnContext(ctx, "version mismatch",
 			slog.String("remote", remote),
-			slog.Uint64("server_version", uint64(serverVersion)),
-			slog.Uint64("client_version", uint64(clientVersion)),
+			slog.Uint64("server_version", uint64(serverProtoVersion)),
+			slog.Uint64("client_version", uint64(clientProtoVersion)),
+		)
+		return
+	}
+
+	clientAppVersion := authReq.GetAuth().AppVersion
+	if !pb.VersionCompatible(clientAppVersion, pb.MinClientVersion) {
+		err := pb.VersionMismatchError("client", clientAppVersion, pb.MinClientVersion)
+		s.writeError(conn, err.Error())
+		s.log.WarnContext(ctx, "client version too old",
+			slog.String("remote", remote),
+			slog.String("client_app_version", clientAppVersion),
+			slog.String("min_client_version", pb.MinClientVersion),
 		)
 		return
 	}
@@ -145,7 +157,8 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 		Payload: &pb.Response_Auth{
 			Auth: &pb.AuthResponse{
 				ServerName:      "LootSheet Server",
-				ProtocolVersion: serverVersion,
+				ProtocolVersion: serverProtoVersion,
+				AppVersion:      pb.AppVersion,
 			},
 		},
 	}

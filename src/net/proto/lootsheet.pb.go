@@ -553,6 +553,7 @@ type AuthRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Token           string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	ProtocolVersion uint32                 `protobuf:"varint,2,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	AppVersion      string                 `protobuf:"bytes,3,opt,name=app_version,json=appVersion,proto3" json:"app_version,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -601,10 +602,18 @@ func (x *AuthRequest) GetProtocolVersion() uint32 {
 	return 0
 }
 
+func (x *AuthRequest) GetAppVersion() string {
+	if x != nil {
+		return x.AppVersion
+	}
+	return ""
+}
+
 type AuthResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ServerName      string                 `protobuf:"bytes,1,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
 	ProtocolVersion uint32                 `protobuf:"varint,2,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	AppVersion      string                 `protobuf:"bytes,3,opt,name=app_version,json=appVersion,proto3" json:"app_version,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -651,6 +660,13 @@ func (x *AuthResponse) GetProtocolVersion() uint32 {
 		return x.ProtocolVersion
 	}
 	return 0
+}
+
+func (x *AuthResponse) GetAppVersion() string {
+	if x != nil {
+		return x.AppVersion
+	}
+	return ""
 }
 
 type BuildShellDataRequest struct {
@@ -1294,6 +1310,7 @@ type ShellDataProto struct {
 	CodexTypes         []*CodexTypeOptionProto `protobuf:"bytes,12,rep,name=codex_types,json=codexTypes,proto3" json:"codex_types,omitempty"`
 	CampaignName       string                  `protobuf:"bytes,13,opt,name=campaign_name,json=campaignName,proto3" json:"campaign_name,omitempty"`
 	Campaigns          []*CampaignOptionProto  `protobuf:"bytes,14,rep,name=campaigns,proto3" json:"campaigns,omitempty"`
+	LedgerReport       *LedgerViewDataProto    `protobuf:"bytes,16,opt,name=ledger_report,json=ledgerReport,proto3" json:"ledger_report,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -1429,6 +1446,13 @@ func (x *ShellDataProto) GetCampaignName() string {
 func (x *ShellDataProto) GetCampaigns() []*CampaignOptionProto {
 	if x != nil {
 		return x.Campaigns
+	}
+	return nil
+}
+
+func (x *ShellDataProto) GetLedgerReport() *LedgerViewDataProto {
+	if x != nil {
+		return x.LedgerReport
 	}
 	return nil
 }
@@ -2113,6 +2137,350 @@ func (x *CodexTypeOptionProto) GetFormId() string {
 	return ""
 }
 
+type LedgerViewDataProto struct {
+	state         protoimpl.MessageState               `protogen:"open.v1"`
+	Rows          []*LedgerViewRowProto                `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
+	AccountDetail map[string]*LedgerAccountDetailProto `protobuf:"bytes,2,rep,name=account_detail,json=accountDetail,proto3" json:"account_detail,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	TotalDebits   string                               `protobuf:"bytes,3,opt,name=total_debits,json=totalDebits,proto3" json:"total_debits,omitempty"`
+	TotalCredits  string                               `protobuf:"bytes,4,opt,name=total_credits,json=totalCredits,proto3" json:"total_credits,omitempty"`
+	Balanced      bool                                 `protobuf:"varint,5,opt,name=balanced,proto3" json:"balanced,omitempty"`
+	Available     bool                                 `protobuf:"varint,6,opt,name=available,proto3" json:"available,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LedgerViewDataProto) Reset() {
+	*x = LedgerViewDataProto{}
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LedgerViewDataProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LedgerViewDataProto) ProtoMessage() {}
+
+func (x *LedgerViewDataProto) ProtoReflect() protoreflect.Message {
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LedgerViewDataProto.ProtoReflect.Descriptor instead.
+func (*LedgerViewDataProto) Descriptor() ([]byte, []int) {
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *LedgerViewDataProto) GetRows() []*LedgerViewRowProto {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *LedgerViewDataProto) GetAccountDetail() map[string]*LedgerAccountDetailProto {
+	if x != nil {
+		return x.AccountDetail
+	}
+	return nil
+}
+
+func (x *LedgerViewDataProto) GetTotalDebits() string {
+	if x != nil {
+		return x.TotalDebits
+	}
+	return ""
+}
+
+func (x *LedgerViewDataProto) GetTotalCredits() string {
+	if x != nil {
+		return x.TotalCredits
+	}
+	return ""
+}
+
+func (x *LedgerViewDataProto) GetBalanced() bool {
+	if x != nil {
+		return x.Balanced
+	}
+	return false
+}
+
+func (x *LedgerViewDataProto) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+type LedgerViewRowProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccountCode   string                 `protobuf:"bytes,1,opt,name=account_code,json=accountCode,proto3" json:"account_code,omitempty"`
+	AccountName   string                 `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	AccountType   string                 `protobuf:"bytes,3,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"`
+	TotalDebits   string                 `protobuf:"bytes,4,opt,name=total_debits,json=totalDebits,proto3" json:"total_debits,omitempty"`
+	TotalCredits  string                 `protobuf:"bytes,5,opt,name=total_credits,json=totalCredits,proto3" json:"total_credits,omitempty"`
+	Balance       string                 `protobuf:"bytes,6,opt,name=balance,proto3" json:"balance,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LedgerViewRowProto) Reset() {
+	*x = LedgerViewRowProto{}
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LedgerViewRowProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LedgerViewRowProto) ProtoMessage() {}
+
+func (x *LedgerViewRowProto) ProtoReflect() protoreflect.Message {
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LedgerViewRowProto.ProtoReflect.Descriptor instead.
+func (*LedgerViewRowProto) Descriptor() ([]byte, []int) {
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *LedgerViewRowProto) GetAccountCode() string {
+	if x != nil {
+		return x.AccountCode
+	}
+	return ""
+}
+
+func (x *LedgerViewRowProto) GetAccountName() string {
+	if x != nil {
+		return x.AccountName
+	}
+	return ""
+}
+
+func (x *LedgerViewRowProto) GetAccountType() string {
+	if x != nil {
+		return x.AccountType
+	}
+	return ""
+}
+
+func (x *LedgerViewRowProto) GetTotalDebits() string {
+	if x != nil {
+		return x.TotalDebits
+	}
+	return ""
+}
+
+func (x *LedgerViewRowProto) GetTotalCredits() string {
+	if x != nil {
+		return x.TotalCredits
+	}
+	return ""
+}
+
+func (x *LedgerViewRowProto) GetBalance() string {
+	if x != nil {
+		return x.Balance
+	}
+	return ""
+}
+
+type LedgerAccountDetailProto struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	AccountCode   string                    `protobuf:"bytes,1,opt,name=account_code,json=accountCode,proto3" json:"account_code,omitempty"`
+	AccountName   string                    `protobuf:"bytes,2,opt,name=account_name,json=accountName,proto3" json:"account_name,omitempty"`
+	AccountType   string                    `protobuf:"bytes,3,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"`
+	Entries       []*LedgerDetailEntryProto `protobuf:"bytes,4,rep,name=entries,proto3" json:"entries,omitempty"`
+	TotalDebits   string                    `protobuf:"bytes,5,opt,name=total_debits,json=totalDebits,proto3" json:"total_debits,omitempty"`
+	TotalCredits  string                    `protobuf:"bytes,6,opt,name=total_credits,json=totalCredits,proto3" json:"total_credits,omitempty"`
+	Balance       string                    `protobuf:"bytes,7,opt,name=balance,proto3" json:"balance,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LedgerAccountDetailProto) Reset() {
+	*x = LedgerAccountDetailProto{}
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LedgerAccountDetailProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LedgerAccountDetailProto) ProtoMessage() {}
+
+func (x *LedgerAccountDetailProto) ProtoReflect() protoreflect.Message {
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LedgerAccountDetailProto.ProtoReflect.Descriptor instead.
+func (*LedgerAccountDetailProto) Descriptor() ([]byte, []int) {
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *LedgerAccountDetailProto) GetAccountCode() string {
+	if x != nil {
+		return x.AccountCode
+	}
+	return ""
+}
+
+func (x *LedgerAccountDetailProto) GetAccountName() string {
+	if x != nil {
+		return x.AccountName
+	}
+	return ""
+}
+
+func (x *LedgerAccountDetailProto) GetAccountType() string {
+	if x != nil {
+		return x.AccountType
+	}
+	return ""
+}
+
+func (x *LedgerAccountDetailProto) GetEntries() []*LedgerDetailEntryProto {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+func (x *LedgerAccountDetailProto) GetTotalDebits() string {
+	if x != nil {
+		return x.TotalDebits
+	}
+	return ""
+}
+
+func (x *LedgerAccountDetailProto) GetTotalCredits() string {
+	if x != nil {
+		return x.TotalCredits
+	}
+	return ""
+}
+
+func (x *LedgerAccountDetailProto) GetBalance() string {
+	if x != nil {
+		return x.Balance
+	}
+	return ""
+}
+
+type LedgerDetailEntryProto struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	EntryNumber    int32                  `protobuf:"varint,1,opt,name=entry_number,json=entryNumber,proto3" json:"entry_number,omitempty"`
+	Date           string                 `protobuf:"bytes,2,opt,name=date,proto3" json:"date,omitempty"`
+	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Debit          string                 `protobuf:"bytes,4,opt,name=debit,proto3" json:"debit,omitempty"`
+	Credit         string                 `protobuf:"bytes,5,opt,name=credit,proto3" json:"credit,omitempty"`
+	RunningBalance string                 `protobuf:"bytes,6,opt,name=running_balance,json=runningBalance,proto3" json:"running_balance,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *LedgerDetailEntryProto) Reset() {
+	*x = LedgerDetailEntryProto{}
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LedgerDetailEntryProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LedgerDetailEntryProto) ProtoMessage() {}
+
+func (x *LedgerDetailEntryProto) ProtoReflect() protoreflect.Message {
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LedgerDetailEntryProto.ProtoReflect.Descriptor instead.
+func (*LedgerDetailEntryProto) Descriptor() ([]byte, []int) {
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *LedgerDetailEntryProto) GetEntryNumber() int32 {
+	if x != nil {
+		return x.EntryNumber
+	}
+	return 0
+}
+
+func (x *LedgerDetailEntryProto) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *LedgerDetailEntryProto) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *LedgerDetailEntryProto) GetDebit() string {
+	if x != nil {
+		return x.Debit
+	}
+	return ""
+}
+
+func (x *LedgerDetailEntryProto) GetCredit() string {
+	if x != nil {
+		return x.Credit
+	}
+	return ""
+}
+
+func (x *LedgerDetailEntryProto) GetRunningBalance() string {
+	if x != nil {
+		return x.RunningBalance
+	}
+	return ""
+}
+
 type CommandProto struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -2126,7 +2494,7 @@ type CommandProto struct {
 
 func (x *CommandProto) Reset() {
 	*x = CommandProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[27]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2138,7 +2506,7 @@ func (x *CommandProto) String() string {
 func (*CommandProto) ProtoMessage() {}
 
 func (x *CommandProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[27]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2151,7 +2519,7 @@ func (x *CommandProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandProto.ProtoReflect.Descriptor instead.
 func (*CommandProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{27}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CommandProto) GetId() string {
@@ -2201,7 +2569,7 @@ type CommandLineProto struct {
 
 func (x *CommandLineProto) Reset() {
 	*x = CommandLineProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[28]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2213,7 +2581,7 @@ func (x *CommandLineProto) String() string {
 func (*CommandLineProto) ProtoMessage() {}
 
 func (x *CommandLineProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[28]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2226,7 +2594,7 @@ func (x *CommandLineProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandLineProto.ProtoReflect.Descriptor instead.
 func (*CommandLineProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{28}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CommandLineProto) GetSide() string {
@@ -2269,7 +2637,7 @@ type CommandResultProto struct {
 
 func (x *CommandResultProto) Reset() {
 	*x = CommandResultProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[29]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2281,7 +2649,7 @@ func (x *CommandResultProto) String() string {
 func (*CommandResultProto) ProtoMessage() {}
 
 func (x *CommandResultProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[29]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2294,7 +2662,7 @@ func (x *CommandResultProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResultProto.ProtoReflect.Descriptor instead.
 func (*CommandResultProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{29}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *CommandResultProto) GetData() *ShellDataProto {
@@ -2335,7 +2703,7 @@ type StatusMessageProto struct {
 
 func (x *StatusMessageProto) Reset() {
 	*x = StatusMessageProto{}
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[30]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2347,7 +2715,7 @@ func (x *StatusMessageProto) String() string {
 func (*StatusMessageProto) ProtoMessage() {}
 
 func (x *StatusMessageProto) ProtoReflect() protoreflect.Message {
-	mi := &file_src_net_proto_lootsheet_proto_msgTypes[30]
+	mi := &file_src_net_proto_lootsheet_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2360,7 +2728,7 @@ func (x *StatusMessageProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusMessageProto.ProtoReflect.Descriptor instead.
 func (*StatusMessageProto) Descriptor() ([]byte, []int) {
-	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{30}
+	return file_src_net_proto_lootsheet_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *StatusMessageProto) GetLevel() string {
@@ -2408,14 +2776,18 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\fsearch_notes\x18\x10 \x01(\v2\x19.lootsheet.SearchResponseH\x00R\vsearchNotes\x12R\n" +
 	"\x11download_database\x18\x11 \x01(\v2#.lootsheet.DownloadDatabaseResponseH\x00R\x10downloadDatabase\x12L\n" +
 	"\x0fupload_campaign\x18\x12 \x01(\v2!.lootsheet.UploadCampaignResponseH\x00R\x0euploadCampaignB\t\n" +
-	"\apayload\"N\n" +
+	"\apayload\"o\n" +
 	"\vAuthRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12)\n" +
-	"\x10protocol_version\x18\x02 \x01(\rR\x0fprotocolVersion\"Z\n" +
+	"\x10protocol_version\x18\x02 \x01(\rR\x0fprotocolVersion\x12\x1f\n" +
+	"\vapp_version\x18\x03 \x01(\tR\n" +
+	"appVersion\"{\n" +
 	"\fAuthResponse\x12\x1f\n" +
 	"\vserver_name\x18\x01 \x01(\tR\n" +
 	"serverName\x12)\n" +
-	"\x10protocol_version\x18\x02 \x01(\rR\x0fprotocolVersion\"\x17\n" +
+	"\x10protocol_version\x18\x02 \x01(\rR\x0fprotocolVersion\x12\x1f\n" +
+	"\vapp_version\x18\x03 \x01(\tR\n" +
+	"appVersion\"\x17\n" +
 	"\x15BuildShellDataRequest\"G\n" +
 	"\x16BuildShellDataResponse\x12-\n" +
 	"\x04data\x18\x01 \x01(\v2\x19.lootsheet.ShellDataProtoR\x04data\"J\n" +
@@ -2447,7 +2819,7 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x16UploadCampaignResponse\x12\x1f\n" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\x12#\n" +
-	"\rcampaign_name\x18\x02 \x01(\tR\fcampaignName\"\xa5\a\n" +
+	"\rcampaign_name\x18\x02 \x01(\tR\fcampaignName\"\xea\a\n" +
 	"\x0eShellDataProto\x12;\n" +
 	"\tdashboard\x18\x01 \x01(\v2\x1d.lootsheet.DashboardDataProtoR\tdashboard\x126\n" +
 	"\x06ledger\x18\x02 \x01(\v2\x1e.lootsheet.ListScreenDataProtoR\x06ledger\x128\n" +
@@ -2465,7 +2837,8 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\vcodex_types\x18\f \x03(\v2\x1f.lootsheet.CodexTypeOptionProtoR\n" +
 	"codexTypes\x12#\n" +
 	"\rcampaign_name\x18\r \x01(\tR\fcampaignName\x12<\n" +
-	"\tcampaigns\x18\x0e \x03(\v2\x1e.lootsheet.CampaignOptionProtoR\tcampaigns\"\xd4\x02\n" +
+	"\tcampaigns\x18\x0e \x03(\v2\x1e.lootsheet.CampaignOptionProtoR\tcampaigns\x12C\n" +
+	"\rledger_report\x18\x10 \x01(\v2\x1e.lootsheet.LedgerViewDataProtoR\fledgerReport\"\xd4\x02\n" +
 	"\x12DashboardDataProto\x12!\n" +
 	"\fheader_lines\x18\x01 \x03(\tR\vheaderLines\x12%\n" +
 	"\x0eaccounts_lines\x18\x02 \x03(\tR\raccountsLines\x12#\n" +
@@ -2534,7 +2907,39 @@ const file_src_net_proto_lootsheet_proto_rawDesc = "" +
 	"\x14CodexTypeOptionProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
-	"\aform_id\x18\x03 \x01(\tR\x06formId\"\xfe\x01\n" +
+	"\aform_id\x18\x03 \x01(\tR\x06formId\"\x8b\x03\n" +
+	"\x13LedgerViewDataProto\x121\n" +
+	"\x04rows\x18\x01 \x03(\v2\x1d.lootsheet.LedgerViewRowProtoR\x04rows\x12X\n" +
+	"\x0eaccount_detail\x18\x02 \x03(\v21.lootsheet.LedgerViewDataProto.AccountDetailEntryR\raccountDetail\x12!\n" +
+	"\ftotal_debits\x18\x03 \x01(\tR\vtotalDebits\x12#\n" +
+	"\rtotal_credits\x18\x04 \x01(\tR\ftotalCredits\x12\x1a\n" +
+	"\bbalanced\x18\x05 \x01(\bR\bbalanced\x12\x1c\n" +
+	"\tavailable\x18\x06 \x01(\bR\tavailable\x1ae\n" +
+	"\x12AccountDetailEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x129\n" +
+	"\x05value\x18\x02 \x01(\v2#.lootsheet.LedgerAccountDetailProtoR\x05value:\x028\x01\"\xdf\x01\n" +
+	"\x12LedgerViewRowProto\x12!\n" +
+	"\faccount_code\x18\x01 \x01(\tR\vaccountCode\x12!\n" +
+	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12!\n" +
+	"\faccount_type\x18\x03 \x01(\tR\vaccountType\x12!\n" +
+	"\ftotal_debits\x18\x04 \x01(\tR\vtotalDebits\x12#\n" +
+	"\rtotal_credits\x18\x05 \x01(\tR\ftotalCredits\x12\x18\n" +
+	"\abalance\x18\x06 \x01(\tR\abalance\"\xa2\x02\n" +
+	"\x18LedgerAccountDetailProto\x12!\n" +
+	"\faccount_code\x18\x01 \x01(\tR\vaccountCode\x12!\n" +
+	"\faccount_name\x18\x02 \x01(\tR\vaccountName\x12!\n" +
+	"\faccount_type\x18\x03 \x01(\tR\vaccountType\x12;\n" +
+	"\aentries\x18\x04 \x03(\v2!.lootsheet.LedgerDetailEntryProtoR\aentries\x12!\n" +
+	"\ftotal_debits\x18\x05 \x01(\tR\vtotalDebits\x12#\n" +
+	"\rtotal_credits\x18\x06 \x01(\tR\ftotalCredits\x12\x18\n" +
+	"\abalance\x18\a \x01(\tR\abalance\"\xc8\x01\n" +
+	"\x16LedgerDetailEntryProto\x12!\n" +
+	"\fentry_number\x18\x01 \x01(\x05R\ventryNumber\x12\x12\n" +
+	"\x04date\x18\x02 \x01(\tR\x04date\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05debit\x18\x04 \x01(\tR\x05debit\x12\x16\n" +
+	"\x06credit\x18\x05 \x01(\tR\x06credit\x12'\n" +
+	"\x0frunning_balance\x18\x06 \x01(\tR\x0erunningBalance\"\xfe\x01\n" +
 	"\fCommandProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\asection\x18\x02 \x01(\x05R\asection\x12\x19\n" +
@@ -2588,7 +2993,7 @@ func file_src_net_proto_lootsheet_proto_rawDescGZIP() []byte {
 }
 
 var file_src_net_proto_lootsheet_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_src_net_proto_lootsheet_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_src_net_proto_lootsheet_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_src_net_proto_lootsheet_proto_goTypes = []any{
 	(Method)(0),                      // 0: lootsheet.Method
 	(UploadMode)(0),                  // 1: lootsheet.UploadMode
@@ -2619,12 +3024,17 @@ var file_src_net_proto_lootsheet_proto_goTypes = []any{
 	(*AccountOptionProto)(nil),       // 26: lootsheet.AccountOptionProto
 	(*CampaignOptionProto)(nil),      // 27: lootsheet.CampaignOptionProto
 	(*CodexTypeOptionProto)(nil),     // 28: lootsheet.CodexTypeOptionProto
-	(*CommandProto)(nil),             // 29: lootsheet.CommandProto
-	(*CommandLineProto)(nil),         // 30: lootsheet.CommandLineProto
-	(*CommandResultProto)(nil),       // 31: lootsheet.CommandResultProto
-	(*StatusMessageProto)(nil),       // 32: lootsheet.StatusMessageProto
-	nil,                              // 33: lootsheet.ItemActionDataProto.ComposeFieldsEntry
-	nil,                              // 34: lootsheet.CommandProto.FieldsEntry
+	(*LedgerViewDataProto)(nil),      // 29: lootsheet.LedgerViewDataProto
+	(*LedgerViewRowProto)(nil),       // 30: lootsheet.LedgerViewRowProto
+	(*LedgerAccountDetailProto)(nil), // 31: lootsheet.LedgerAccountDetailProto
+	(*LedgerDetailEntryProto)(nil),   // 32: lootsheet.LedgerDetailEntryProto
+	(*CommandProto)(nil),             // 33: lootsheet.CommandProto
+	(*CommandLineProto)(nil),         // 34: lootsheet.CommandLineProto
+	(*CommandResultProto)(nil),       // 35: lootsheet.CommandResultProto
+	(*StatusMessageProto)(nil),       // 36: lootsheet.StatusMessageProto
+	nil,                              // 37: lootsheet.ItemActionDataProto.ComposeFieldsEntry
+	nil,                              // 38: lootsheet.LedgerViewDataProto.AccountDetailEntry
+	nil,                              // 39: lootsheet.CommandProto.FieldsEntry
 }
 var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	0,  // 0: lootsheet.Request.method:type_name -> lootsheet.Method
@@ -2647,8 +3057,8 @@ var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	17, // 17: lootsheet.Response.download_database:type_name -> lootsheet.DownloadDatabaseResponse
 	19, // 18: lootsheet.Response.upload_campaign:type_name -> lootsheet.UploadCampaignResponse
 	20, // 19: lootsheet.BuildShellDataResponse.data:type_name -> lootsheet.ShellDataProto
-	29, // 20: lootsheet.ExecuteCommandRequest.command:type_name -> lootsheet.CommandProto
-	31, // 21: lootsheet.ExecuteCommandResponse.result:type_name -> lootsheet.CommandResultProto
+	33, // 20: lootsheet.ExecuteCommandRequest.command:type_name -> lootsheet.CommandProto
+	35, // 21: lootsheet.ExecuteCommandResponse.result:type_name -> lootsheet.CommandResultProto
 	27, // 22: lootsheet.ListCampaignsResponse.campaigns:type_name -> lootsheet.CampaignOptionProto
 	23, // 23: lootsheet.SearchResponse.items:type_name -> lootsheet.ListItemDataProto
 	1,  // 24: lootsheet.UploadCampaignRequest.mode:type_name -> lootsheet.UploadMode
@@ -2666,24 +3076,29 @@ var file_src_net_proto_lootsheet_proto_depIdxs = []int32{
 	22, // 36: lootsheet.ShellDataProto.settings_campaigns:type_name -> lootsheet.ListScreenDataProto
 	28, // 37: lootsheet.ShellDataProto.codex_types:type_name -> lootsheet.CodexTypeOptionProto
 	27, // 38: lootsheet.ShellDataProto.campaigns:type_name -> lootsheet.CampaignOptionProto
-	23, // 39: lootsheet.ListScreenDataProto.items:type_name -> lootsheet.ListItemDataProto
-	24, // 40: lootsheet.ListItemDataProto.actions:type_name -> lootsheet.ItemActionDataProto
-	33, // 41: lootsheet.ItemActionDataProto.compose_fields:type_name -> lootsheet.ItemActionDataProto.ComposeFieldsEntry
-	30, // 42: lootsheet.ItemActionDataProto.compose_lines:type_name -> lootsheet.CommandLineProto
-	26, // 43: lootsheet.EntryCatalogProto.expense_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 44: lootsheet.EntryCatalogProto.income_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 45: lootsheet.EntryCatalogProto.funding_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 46: lootsheet.EntryCatalogProto.deposit_accounts:type_name -> lootsheet.AccountOptionProto
-	26, // 47: lootsheet.EntryCatalogProto.all_accounts:type_name -> lootsheet.AccountOptionProto
-	34, // 48: lootsheet.CommandProto.fields:type_name -> lootsheet.CommandProto.FieldsEntry
-	30, // 49: lootsheet.CommandProto.lines:type_name -> lootsheet.CommandLineProto
-	20, // 50: lootsheet.CommandResultProto.data:type_name -> lootsheet.ShellDataProto
-	32, // 51: lootsheet.CommandResultProto.status:type_name -> lootsheet.StatusMessageProto
-	52, // [52:52] is the sub-list for method output_type
-	52, // [52:52] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	29, // 39: lootsheet.ShellDataProto.ledger_report:type_name -> lootsheet.LedgerViewDataProto
+	23, // 40: lootsheet.ListScreenDataProto.items:type_name -> lootsheet.ListItemDataProto
+	24, // 41: lootsheet.ListItemDataProto.actions:type_name -> lootsheet.ItemActionDataProto
+	37, // 42: lootsheet.ItemActionDataProto.compose_fields:type_name -> lootsheet.ItemActionDataProto.ComposeFieldsEntry
+	34, // 43: lootsheet.ItemActionDataProto.compose_lines:type_name -> lootsheet.CommandLineProto
+	26, // 44: lootsheet.EntryCatalogProto.expense_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 45: lootsheet.EntryCatalogProto.income_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 46: lootsheet.EntryCatalogProto.funding_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 47: lootsheet.EntryCatalogProto.deposit_accounts:type_name -> lootsheet.AccountOptionProto
+	26, // 48: lootsheet.EntryCatalogProto.all_accounts:type_name -> lootsheet.AccountOptionProto
+	30, // 49: lootsheet.LedgerViewDataProto.rows:type_name -> lootsheet.LedgerViewRowProto
+	38, // 50: lootsheet.LedgerViewDataProto.account_detail:type_name -> lootsheet.LedgerViewDataProto.AccountDetailEntry
+	32, // 51: lootsheet.LedgerAccountDetailProto.entries:type_name -> lootsheet.LedgerDetailEntryProto
+	39, // 52: lootsheet.CommandProto.fields:type_name -> lootsheet.CommandProto.FieldsEntry
+	34, // 53: lootsheet.CommandProto.lines:type_name -> lootsheet.CommandLineProto
+	20, // 54: lootsheet.CommandResultProto.data:type_name -> lootsheet.ShellDataProto
+	36, // 55: lootsheet.CommandResultProto.status:type_name -> lootsheet.StatusMessageProto
+	31, // 56: lootsheet.LedgerViewDataProto.AccountDetailEntry.value:type_name -> lootsheet.LedgerAccountDetailProto
+	57, // [57:57] is the sub-list for method output_type
+	57, // [57:57] is the sub-list for method input_type
+	57, // [57:57] is the sub-list for extension type_name
+	57, // [57:57] is the sub-list for extension extendee
+	0,  // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_src_net_proto_lootsheet_proto_init() }
@@ -2719,7 +3134,7 @@ func file_src_net_proto_lootsheet_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_src_net_proto_lootsheet_proto_rawDesc), len(file_src_net_proto_lootsheet_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   33,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

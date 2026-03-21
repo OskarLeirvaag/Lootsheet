@@ -12,6 +12,10 @@ type ListItemData = model.ListItemData
 type ListScreenData = model.ListScreenData
 type ShellData = model.ShellData
 type DashboardData = model.DashboardData
+type LedgerViewData = model.LedgerViewData
+type LedgerViewRow = model.LedgerViewRow
+type LedgerAccountDetail = model.LedgerAccountDetail
+type LedgerDetailEntry = model.LedgerDetailEntry
 
 const (
 	ItemActionModeConfirm = model.ItemActionModeConfirm

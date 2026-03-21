@@ -55,11 +55,13 @@ message Response {
 message AuthRequest {
   string token = 1;
   uint32 protocol_version = 2;
+  string app_version = 3;
 }
 
 message AuthResponse {
   string server_name = 1;
   uint32 protocol_version = 2;
+  string app_version = 3;
 }
 
 // ---------- BuildShellData ----------
@@ -152,6 +154,7 @@ message ShellDataProto {
   repeated CodexTypeOptionProto codex_types = 12;
   string              campaign_name        = 13;
   repeated CampaignOptionProto campaigns   = 14;
+  LedgerViewDataProto ledger_report        = 16;
 }
 
 message DashboardDataProto {
@@ -225,6 +228,43 @@ message CodexTypeOptionProto {
   string id      = 1;
   string name    = 2;
   string form_id = 3;
+}
+
+message LedgerViewDataProto {
+  repeated LedgerViewRowProto rows          = 1;
+  map<string, LedgerAccountDetailProto> account_detail = 2;
+  string total_debits  = 3;
+  string total_credits = 4;
+  bool   balanced      = 5;
+  bool   available     = 6;
+}
+
+message LedgerViewRowProto {
+  string account_code  = 1;
+  string account_name  = 2;
+  string account_type  = 3;
+  string total_debits  = 4;
+  string total_credits = 5;
+  string balance       = 6;
+}
+
+message LedgerAccountDetailProto {
+  string account_code  = 1;
+  string account_name  = 2;
+  string account_type  = 3;
+  repeated LedgerDetailEntryProto entries = 4;
+  string total_debits  = 5;
+  string total_credits = 6;
+  string balance       = 7;
+}
+
+message LedgerDetailEntryProto {
+  int32  entry_number    = 1;
+  string date            = 2;
+  string description     = 3;
+  string debit           = 4;
+  string credit          = 5;
+  string running_balance = 6;
 }
 
 // ---------- Command model mirrors ----------

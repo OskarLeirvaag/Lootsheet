@@ -49,6 +49,9 @@ const (
 	ActionHelp            = model.ActionHelp
 	ActionSearch          = model.ActionSearch
 	ActionSwitchCampaign  = model.ActionSwitchCampaign
+	ActionExportCSV       = model.ActionExportCSV
+	ActionExportExcel     = model.ActionExportExcel
+	ActionExportPDF       = model.ActionExportPDF
 )
 
 // DefaultKeyMap returns the interactive keyboard controls.

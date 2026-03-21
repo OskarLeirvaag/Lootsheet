@@ -60,13 +60,14 @@ func Dial(ctx context.Context, addr, token string, opts *DialOptions) (*Client, 
 
 	c := &Client{conn: conn}
 
-	// Send AUTH request with protocol version.
+	// Send AUTH request with protocol and app version.
 	authReq := &pb.Request{
 		Method: pb.Method_AUTH,
 		Payload: &pb.Request_Auth{
 			Auth: &pb.AuthRequest{
 				Token:           token,
 				ProtocolVersion: pb.ProtocolVersion,
+				AppVersion:      pb.AppVersion,
 			},
 		},
 	}
@@ -105,6 +106,12 @@ func Dial(ctx context.Context, addr, token string, opts *DialOptions) (*Client, 
 			"protocol version mismatch: server=%d, client=%d — upgrade the %s binary",
 			sv, pb.ProtocolVersion, target,
 		)
+	}
+
+	// Check that the server meets this client's minimum version requirement.
+	if !pb.VersionCompatible(authResp.AppVersion, pb.MinServerVersion) {
+		_ = conn.Close()
+		return nil, nil, pb.VersionMismatchError("server", authResp.AppVersion, pb.MinServerVersion)
 	}
 
 	return c, authResp, nil

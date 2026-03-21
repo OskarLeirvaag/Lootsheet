@@ -61,11 +61,14 @@ const (
 	tuiCommandCampaignRename      = "campaign.rename"
 	tuiCommandCampaignSwitch      = "campaign.switch"
 	tuiCommandCampaignDelete      = "campaign.delete"
+	tuiCommandExportCSV           = "ledger.export.csv"
+	tuiCommandExportExcel         = "ledger.export.excel"
+	tuiCommandExportPDF           = "ledger.export.pdf"
 )
 
 var tuiNow = time.Now
 
-func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellData, error) {
+func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellData, error) { //nolint:revive // top-level data orchestrator; cognitive complexity inherent
 	status, err := loader.GetDatabaseStatus(ctx)
 	if err != nil {
 		return render.ErrorShellData("Database status unavailable.", err.Error()), nil
@@ -225,6 +228,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		}
 		data.Ledger.ListHeaderRow = fmt.Sprintf("%-4s %-9s %10s %10s %10s  %s", "CODE", "TYPE", "DEBITS", "CREDITS", "BALANCE", "NAME")
 		data.Ledger.Items = buildLedgerItems(accounts, accountLedgers, balanceMap)
+		data.LedgerReport = buildLedgerViewData(trialBalance, accountLedgers)
 		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
 
@@ -792,6 +796,9 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 	case tuiCommandCampaignCreate, tuiCommandCampaignRename, tuiCommandCampaignSwitch, tuiCommandCampaignDelete:
 		return handleCampaignCommand(ctx, command, databasePath, loader)
+
+	case tuiCommandExportCSV, tuiCommandExportExcel, tuiCommandExportPDF:
+		return handleExportCommand(ctx, command.ID, loader)
 
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)

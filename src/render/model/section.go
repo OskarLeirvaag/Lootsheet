@@ -23,7 +23,7 @@ const (
 )
 
 // SettingsTabs lists the virtual settings sections.
-var SettingsTabs = []Section{SectionLedger, SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
+var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
 
 // SearchableSections lists sections that appear in the search modal.
 var SearchableSections = []Section{
