@@ -20,8 +20,8 @@ func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	for _, token := range []string{
 		"LootSheet TUI",
 		"Section: Dashboard",
-		"Sections: [Dashboard]   Ledger       Journal      Quests       Loot",
-		"1-8 jump",
+		"Sections: [Dashboard]   Journal      Quests       Loot",
+		"1-7 jump",
 		"e/i/a entry",
 		"? terms",
 		"q quit",
@@ -81,6 +81,7 @@ func TestShellRenderShowsScrollableSettingsScreen(t *testing.T) {
 	shell := NewShell(&data)
 
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger to Accounts tab
 	for range 6 {
 		shell.HandleAction(ActionMoveDown)
 	}
@@ -136,6 +137,7 @@ func TestShellRenderKeepsDetailVisibleOnStandardTerminal(t *testing.T) {
 
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger to Accounts tab
 	shell.Render(buffer, &theme, keymap)
 
 	output := buffer.PlainText()
@@ -169,6 +171,7 @@ func TestShellActionOpensConfirmAndEmitsCommand(t *testing.T) {
 	}
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger tab to Accounts
 
 	result := shell.HandleAction(ActionToggle)
 	if !result.Redraw {
@@ -529,6 +532,7 @@ func TestShellReloadPreservesSelectionByKey(t *testing.T) {
 	}
 	shell := NewShell(&data)
 	shell.HandleAction(ActionShowSettings)
+	shell.HandleAction(ActionNextSection) // advance past Ledger tab to Accounts
 	shell.HandleAction(ActionMoveDown)
 
 	if item := shell.currentSelectedItem(settingsTabAccounts); item == nil || item.Key != "1100" {
@@ -708,8 +712,13 @@ func TestShellSectionLaunchersFollowCurrentScreen(t *testing.T) {
 	}
 
 	shell.HandleAction(ActionShowSettings)
+	if help := shell.footerHelpText(DefaultKeyMap()); strings.Contains(help, "a add") {
+		t.Fatalf("ledger tab should have no add action, help = %q", help)
+	}
+
+	shell.HandleAction(ActionNextSection) // advance to Accounts tab
 	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "a add account") || !strings.Contains(help, "d remove") || !strings.Contains(help, "t deactivate") {
-		t.Fatalf("settings help = %q", help)
+		t.Fatalf("settings accounts help = %q", help)
 	}
 
 	shell.HandleAction(ActionShowJournal)
@@ -860,12 +869,12 @@ func TestSearchSectionFilter(t *testing.T) {
 		t.Fatalf("expected at least 2 results in All filter, got %d", len(shell.search.Results))
 	}
 
-	// Cycle Right past Ledger (1) and Journal (2) to Quests (index 3 in searchableSections: Ledger=1, Journal=2, Quests=3).
-	for range 3 {
+	// Cycle Right past Journal (1) to Quests (index 2 in searchableSections: Journal=1, Quests=2).
+	for range 2 {
 		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
 	}
-	if shell.search.FilterIndex != 3 {
-		t.Fatalf("expected filter index 3 (Quests), got %d", shell.search.FilterIndex)
+	if shell.search.FilterIndex != 2 {
+		t.Fatalf("expected filter index 2 (Quests), got %d", shell.search.FilterIndex)
 	}
 	if len(shell.search.Results) != 1 || shell.search.Results[0].ItemKey != "quest-1" {
 		t.Fatalf("expected quest-1 in Quests filter, got %v", shell.search.Results)
@@ -884,8 +893,8 @@ func TestSearchEnterNavigates(t *testing.T) {
 	shell := NewShell(&data)
 	shell.HandleAction(ActionSearch)
 
-	// Cycle filter to Loot (index 4 in searchableSections: Ledger=1, Journal=2, Quests=3, Loot=4).
-	for range 4 {
+	// Cycle filter to Loot (index 3 in searchableSections: Journal=1, Quests=2, Loot=3).
+	for range 3 {
 		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
 	}
 	if len(shell.search.Results) != 1 {
@@ -931,8 +940,8 @@ func TestSearchUsesServerSideHandlerWhenAvailable(t *testing.T) {
 
 	shell.HandleAction(ActionSearch)
 
-	// Cycle filter to Codex (index 6: Ledger=1, Journal=2, Quests=3, Loot=4, Assets=5, Codex=6).
-	for range 6 {
+	// Cycle filter to Codex (index 5: Journal=1, Quests=2, Loot=3, Assets=4, Codex=5).
+	for range 5 {
 		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
 	}
 
@@ -967,8 +976,8 @@ func TestSearchFallsBackToClientSideWhenHandlerReturnsNil(t *testing.T) {
 
 	shell.HandleAction(ActionSearch)
 
-	// Cycle filter to Quests (index 3: Ledger=1, Journal=2, Quests=3).
-	for range 3 {
+	// Cycle filter to Quests (index 2: Journal=1, Quests=2).
+	for range 2 {
 		shell.handleSearchKeyEvent(tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), ActionNone)
 	}
 

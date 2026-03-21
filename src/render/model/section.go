@@ -23,18 +23,17 @@ const (
 )
 
 // SettingsTabs lists the virtual settings sections.
-var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
+var SettingsTabs = []Section{SectionLedger, SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
 
 // SearchableSections lists sections that appear in the search modal.
 var SearchableSections = []Section{
-	SectionLedger, SectionJournal, SectionQuests, SectionLoot,
+	SectionJournal, SectionQuests, SectionLoot,
 	SectionAssets, SectionCodex, SectionNotes,
 }
 
 // OrderedSections lists sections in tab order.
 var OrderedSections = []Section{
 	SectionDashboard,
-	SectionLedger,
 	SectionJournal,
 	SectionQuests,
 	SectionLoot,

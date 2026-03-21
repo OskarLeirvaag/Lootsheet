@@ -131,8 +131,8 @@ func TestRunSwitchesSectionsBeforeExit(t *testing.T) {
 		t.Fatalf("run render app: %v", err)
 	}
 
-	if !strings.Contains(screen.lastFrame, "Section: Ledger") {
-		t.Fatalf("simulation output missing ledger section:\n%s", screen.lastFrame)
+	if !strings.Contains(screen.lastFrame, "Section: Journal") {
+		t.Fatalf("simulation output missing journal section:\n%s", screen.lastFrame)
 	}
 }
 
@@ -144,6 +144,7 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRune, '@', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRight, 0, tcell.ModNone) // advance past Ledger to Accounts tab
 			sim.InjectKey(tcell.KeyRune, 't', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
@@ -204,7 +205,7 @@ func TestRunKeepsLootSaleInputModalOpenOnInputError(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 's', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'b', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'a', tcell.ModNone)
@@ -252,6 +253,7 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRune, '@', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRight, 0, tcell.ModNone) // advance past Ledger to Accounts tab
 			sim.InjectKey(tcell.KeyRune, 't', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
@@ -286,7 +288,7 @@ func TestRunDispatchesJournalReverseAndKeepsOriginalSelection(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '3', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '2', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'r', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
@@ -347,7 +349,7 @@ func TestRunDispatchesLootSellAndRefreshesSelectionFallback(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 's', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, '8', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, ' ', tcell.ModNone)
@@ -417,7 +419,7 @@ func TestRunDispatchesQuestCollectAndRefreshesSelection(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '3', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'c', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
@@ -478,7 +480,7 @@ func TestRunDispatchesLootRecognizeAndRefreshesSelection(t *testing.T) {
 			sim.SetSize(120, 40)
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
-			sim.InjectKey(tcell.KeyRune, '5', tcell.ModNone)
+			sim.InjectKey(tcell.KeyRune, '4', tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'n', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)

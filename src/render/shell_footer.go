@@ -49,10 +49,10 @@ const helpAddEdit = "a add  u edit"
 
 func (s *Shell) sectionLauncherHelpText() string {
 	switch s.Section {
-	case SectionLedger:
-		return ""
 	case SectionSettings:
 		switch s.activeSettingsSection() {
+		case SectionLedger:
+			return ""
 		case settingsTabCodexTypes:
 			return "a add codex type"
 		case settingsTabCampaigns:
@@ -103,8 +103,6 @@ func (s *Shell) headerLines() []string {
 
 func (s *Shell) currentHeaderLines() []string {
 	switch s.Section {
-	case SectionLedger:
-		return append([]string{}, s.Data.Ledger.HeaderLines...)
 	case SectionJournal:
 		return append([]string{}, s.Data.Journal.HeaderLines...)
 	case SectionQuests:
@@ -206,11 +204,11 @@ func (s *Shell) sectionStyle(theme *Theme) tcell.Style {
 }
 
 func (s *Shell) glossaryTitle() string {
-	return s.Section.Title() + " Terms"
+	return s.listSection().Title() + " Terms"
 }
 
 func (s *Shell) glossaryLines() []string {
-	switch s.Section {
+	switch s.listSection() {
 	case SectionLedger:
 		return []string{
 			"Assets: what the party owns or is owed.",

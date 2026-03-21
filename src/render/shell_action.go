@@ -102,8 +102,9 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionShowLedger:
-		s.Section = SectionLedger
-		s.reconcileSelection(s.Section)
+		s.Section = SectionSettings
+		s.settingsTab = 0
+		s.reconcileSelection(s.activeSettingsSection())
 		return HandleResult{Redraw: true}
 	case ActionShowJournal:
 		s.Section = SectionJournal

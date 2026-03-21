@@ -416,10 +416,10 @@ func (s *Shell) openComposeForAction(action Action) bool {
 		return s.openCompose(composeModeIncome)
 	case ActionNewCustom:
 		switch s.Section {
-		case SectionLedger:
-			return s.openCompose(composeModeAccount)
 		case SectionSettings:
 			switch s.activeSettingsSection() {
+			case settingsTabAccounts:
+				return s.openCompose(composeModeAccount)
 			case settingsTabCodexTypes:
 				return s.openCompose(composeModeCodexType)
 			case settingsTabCampaigns:

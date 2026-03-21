@@ -100,7 +100,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 		Dashboard: render.DashboardData{
 			HeaderLines: []string{
 				fmt.Sprintf("Campaign: %s  |  Read-only snapshot from %s.", campaignName, databaseName),
-				"Use arrows, Tab, or 1-8 to move between boxed screens. Use e/i/a for guided entry creation. @ opens settings.",
+				"Use arrows, Tab, or 1-7 to move between boxed screens. Use e/i/a for guided entry creation. @ opens settings.",
 			},
 			HoardLines: []string{
 				"To share now: awaiting ledger snapshot.",
