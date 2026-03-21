@@ -986,7 +986,10 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}, nil
 
 	case tuiCommandCampaignRename:
-		name := command.Fields["name"]
+		name := command.Fields["amount"]
+		if name == "" {
+			name = command.Fields["name"]
+		}
 		campaignID := command.ItemKey
 		if campaignID == "" {
 			campaignID = loader.CampaignID()
