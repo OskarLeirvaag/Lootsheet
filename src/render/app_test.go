@@ -55,6 +55,7 @@ func TestRunExitsCleanlyOnQuitKey(t *testing.T) {
 		},
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
@@ -89,6 +90,7 @@ func TestRunHandlesResizeAndRedrawBeforeExit(t *testing.T) {
 			sim.SetSize(84, 24)
 			_ = sim.PostEvent(tcell.NewEventResize(84, 24))
 			sim.InjectKey(tcell.KeyEsc, 0, tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
@@ -117,6 +119,7 @@ func TestRunSwitchesSectionsBeforeExit(t *testing.T) {
 		afterFirstShow: func(sim tcell.SimulationScreen) {
 			sim.InjectKey(tcell.KeyRight, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
@@ -145,6 +148,7 @@ func TestRunDispatchesCommandAndShowsSuccessStatus(t *testing.T) {
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // quit
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)  // confirm quit
 		},
 	}
 
@@ -252,6 +256,7 @@ func TestRunKeepsCurrentDataAndShowsErrorStatusOnCommandFailure(t *testing.T) {
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // back to dashboard
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // quit
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)  // confirm quit
 		},
 	}
 
@@ -285,6 +290,7 @@ func TestRunDispatchesJournalReverseAndKeepsOriginalSelection(t *testing.T) {
 			sim.InjectKey(tcell.KeyRune, 'r', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
@@ -349,6 +355,7 @@ func TestRunDispatchesLootSellAndRefreshesSelectionFallback(t *testing.T) {
 			sim.InjectKey(tcell.KeyRune, 'p', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
@@ -414,6 +421,7 @@ func TestRunDispatchesQuestCollectAndRefreshesSelection(t *testing.T) {
 			sim.InjectKey(tcell.KeyRune, 'c', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
@@ -474,6 +482,7 @@ func TestRunDispatchesLootRecognizeAndRefreshesSelection(t *testing.T) {
 			sim.InjectKey(tcell.KeyRune, 'n', tcell.ModNone)
 			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone)
 			sim.InjectKey(tcell.KeyRune, 'q', tcell.ModNone)
+			sim.InjectKey(tcell.KeyEnter, 0, tcell.ModNone) // confirm quit
 		},
 	}
 
