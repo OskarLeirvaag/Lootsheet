@@ -15,7 +15,7 @@ func main() {
 	flag.Parse()
 
 	if err := app.GenerateManPages(outputDir); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
