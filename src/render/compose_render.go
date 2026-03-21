@@ -56,6 +56,8 @@ func (s *Shell) composeTitle() string {
 		return "Add Account"
 	case composeModeCodexType:
 		return "Add Codex Type"
+	case composeModeCampaign:
+		return "New Campaign"
 	case composeModeQuest:
 		fallback = "Add Quest"
 	case composeModeLoot:
@@ -226,6 +228,13 @@ func (s *Shell) composePreviewLines() []string {
 			"",
 			"Valid form templates:",
 			"npc  player  settlement",
+		)
+	case composeModeCampaign:
+		lines = append(lines,
+			"Name: "+displayComposeValue(s.compose.Fields["name"], "required"),
+			"",
+			"A new campaign with seed accounts will be created.",
+			"It will be set as the active campaign.",
 		)
 	case composeModeQuest:
 		statusLabel := "Status: " + displayComposeValue(s.compose.Fields["status"], "offered")

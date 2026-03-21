@@ -32,6 +32,7 @@ func DefaultShellData() ShellData {
 		Notes:              defaultListScreenData(SectionNotes),
 		SettingsAccounts:   defaultListScreenData(settingsTabAccounts),
 		SettingsCodexTypes: defaultListScreenData(settingsTabCodexTypes),
+		SettingsCampaigns:  defaultListScreenData(settingsTabCampaigns),
 	}
 }
 
@@ -91,6 +92,11 @@ func ErrorShellData(summary string, detail string) ShellData {
 			SummaryLines: []string{"Codex type settings unavailable.", detail},
 			EmptyLines:   []string{"No codex type rows loaded.", detail},
 		},
+		SettingsCampaigns: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Campaign settings unavailable.", detail},
+			EmptyLines:   []string{"No campaign rows loaded.", detail},
+		},
 	}
 }
 
@@ -131,6 +137,9 @@ func resolveShellData(data *ShellData) ShellData {
 	if listScreenDataEmpty(&resolved.SettingsCodexTypes) {
 		resolved.SettingsCodexTypes = defaultListScreenData(settingsTabCodexTypes)
 	}
+	if listScreenDataEmpty(&resolved.SettingsCampaigns) {
+		resolved.SettingsCampaigns = defaultListScreenData(settingsTabCampaigns)
+	}
 
 	return resolved
 }
@@ -149,7 +158,8 @@ func shellDataEmpty(data *ShellData) bool {
 		listScreenDataEmpty(&data.Codex) &&
 		listScreenDataEmpty(&data.Notes) &&
 		listScreenDataEmpty(&data.SettingsAccounts) &&
-		listScreenDataEmpty(&data.SettingsCodexTypes)
+		listScreenDataEmpty(&data.SettingsCodexTypes) &&
+		listScreenDataEmpty(&data.SettingsCampaigns)
 }
 
 func listScreenDataEmpty(data *ListScreenData) bool {
@@ -301,6 +311,21 @@ func defaultListScreenData(section Section) ListScreenData {
 			EmptyLines: []string{
 				"No codex type rows loaded yet.",
 				"App-side adapters fill this tab with live codex type data.",
+			},
+		}
+	case settingsTabCampaigns:
+		return ListScreenData{
+			HeaderLines: []string{
+				"Campaign settings.",
+				"Manage campaigns. `a` adds, `u` renames, `d` deletes. Enter switches.",
+			},
+			SummaryLines: []string{
+				"Each campaign has its own ledger, quests, loot, and codex.",
+				"The active campaign cannot be deleted.",
+			},
+			EmptyLines: []string{
+				"No campaign rows loaded yet.",
+				"App-side adapters fill this tab with live campaign data.",
 			},
 		}
 	default:

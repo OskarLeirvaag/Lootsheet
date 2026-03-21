@@ -102,6 +102,7 @@ type ShellData struct {
 	Notes              ListScreenData
 	SettingsAccounts   ListScreenData
 	SettingsCodexTypes ListScreenData
+	SettingsCampaigns  ListScreenData
 	EntryCatalog       EntryCatalog
 	CodexTypes         []CodexTypeOption
 	CampaignName       string           // active campaign name for header

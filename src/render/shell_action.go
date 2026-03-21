@@ -34,7 +34,7 @@ func (s *Shell) HandleAction(action Action) handleResult {
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
-			ActionShowNotes, ActionSearch, ActionSwitchCampaign:
+			ActionShowNotes, ActionSearch:
 			return handleResult{}
 		case ActionQuit:
 			s.compose = nil
@@ -50,7 +50,18 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	}
 
 	switch action {
-	case ActionNone, ActionConfirm, ActionSubmitCompose:
+	case ActionNone, ActionSubmitCompose:
+		return handleResult{}
+	case ActionConfirm:
+		if s.Section == SectionSettings && s.activeSettingsSection() == settingsTabCampaigns {
+			item := s.currentSelectedItem(settingsTabCampaigns)
+			if item != nil {
+				return handleResult{Command: &Command{
+					ID:      "campaign.switch",
+					ItemKey: item.Key,
+				}}
+			}
+		}
 		return handleResult{}
 	case ActionQuit:
 		if s.Section == SectionSettings {
@@ -85,10 +96,6 @@ func (s *Shell) HandleAction(action Action) handleResult {
 	case ActionShowDashboard:
 		s.Section = SectionDashboard
 		return handleResult{Redraw: true}
-	case ActionSwitchCampaign:
-		if s.openCampaignPicker() {
-			return handleResult{Redraw: true}
-		}
 	case ActionShowSettings:
 		s.Section = SectionSettings
 		s.reconcileSelection(s.Section)
@@ -179,11 +186,6 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) handleResul
 			return result
 		}
 	}
-	if s.campaignPicker != nil {
-		if result, handled := s.handleCampaignPickerKeyEvent(event, action); handled {
-			return result
-		}
-	}
 	if s.codexPicker != nil {
 		if result, handled := s.handleCodexPickerKeyEvent(event, action); handled {
 			return result
@@ -234,7 +236,7 @@ func (s *Shell) handleInputAction(action Action) handleResult {
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
-		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose, ActionSearch, ActionSwitchCampaign:
+		ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose, ActionSearch:
 		return handleResult{}
 	case ActionQuit:
 		s.input = nil

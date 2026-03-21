@@ -43,6 +43,10 @@ func (s *Shell) composeFieldDefinitions() []composeField {
 			{ID: "name", Label: "Name", Placeholder: "Deity"},
 			{ID: "form_id", Label: "Form", Placeholder: "npc|player|settlement"},
 		}
+	case composeModeCampaign:
+		return []composeField{
+			{ID: "name", Label: "Name", Placeholder: "Curse of Strahd"},
+		}
 	case composeModeQuest:
 		if s.compose.CommandID == "quest.update" {
 			return []composeField{
@@ -185,6 +189,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 			command.ID = "account.create"
 		case composeModeCodexType:
 			command.ID = "codex_type.create"
+		case composeModeCampaign:
+			command.ID = "campaign.create"
 		case composeModeQuest:
 			command.ID = "quest.create"
 		case composeModeLoot:
@@ -218,6 +224,8 @@ func (s *Shell) composeCommand() (*Command, bool) {
 		required = []string{"code", "name", "account_type"}
 	case composeModeCodexType:
 		required = []string{"id", "name", "form_id"}
+	case composeModeCampaign:
+		required = []string{"name"}
 	case composeModeQuest:
 		required = []string{"title", "reward", "advance"}
 		if strings.EqualFold(command.Fields["status"], "accepted") {

@@ -43,7 +43,7 @@ func (s *Shell) pickerOptionsForCurrentField() (string, []pickerOption) {
 		case "source":
 			return "Pick Source", s.sourcePickerOptions()
 		}
-	case composeModeCodex, composeModeCodexType, composeModeNotes:
+	case composeModeCodex, composeModeCodexType, composeModeCampaign, composeModeNotes:
 	}
 	return "", nil
 }

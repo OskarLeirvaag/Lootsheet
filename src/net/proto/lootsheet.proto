@@ -125,6 +125,7 @@ message ShellDataProto {
   ListScreenDataProto settings_accounts    = 9;
   ListScreenDataProto settings_codex_types = 10;
   EntryCatalogProto   entry_catalog        = 11;
+  ListScreenDataProto settings_campaigns   = 15;
   repeated CodexTypeOptionProto codex_types = 12;
   string              campaign_name        = 13;
   repeated CampaignOptionProto campaigns   = 14;
