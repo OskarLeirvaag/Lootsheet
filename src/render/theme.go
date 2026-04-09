@@ -48,7 +48,14 @@ type Theme struct {
 	EditorCursor      tcell.Style
 	EditorStatusBar   tcell.Style
 	EditorCommandLine tcell.Style
-	EditorReference   tcell.Style
+	EditorReference  tcell.Style
+	EditorHeading    tcell.Style
+	EditorBold       tcell.Style
+	EditorBlockquote tcell.Style
+	EditorCode       tcell.Style
+	EditorListMarker    tcell.Style
+	EditorSearchMatch   tcell.Style
+	EditorSearchCurrent tcell.Style
 
 	// Markdown rendering styles.
 	MarkdownHeading    tcell.Style
@@ -134,7 +141,14 @@ func DefaultTheme() Theme {
 		EditorCursor:      tcell.StyleDefault.Foreground(panelBackground).Background(ink),
 		EditorStatusBar:   tcell.StyleDefault.Foreground(ink).Background(footerBackground).Bold(true),
 		EditorCommandLine: tcell.StyleDefault.Foreground(ink).Background(footerBackground).Bold(true),
-		EditorReference:   tcell.StyleDefault.Foreground(lavender).Background(panelBackground),
+		EditorReference:  tcell.StyleDefault.Foreground(lavender).Background(panelBackground),
+		EditorHeading:    tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
+		EditorBold:       tcell.StyleDefault.Foreground(ink).Background(panelBackground).Bold(true),
+		EditorBlockquote: tcell.StyleDefault.Foreground(muted).Background(panelBackground).Italic(true),
+		EditorCode:       tcell.StyleDefault.Foreground(muted).Background(panelBackground),
+		EditorListMarker:    tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground),
+		EditorSearchMatch:   tcell.StyleDefault.Foreground(panelBackground).Background(gold),
+		EditorSearchCurrent: tcell.StyleDefault.Foreground(panelBackground).Background(moss).Bold(true),
 
 		MarkdownHeading:    tcell.StyleDefault.Foreground(sageGreen).Background(panelBackground).Bold(true),
 		MarkdownBold:       tcell.StyleDefault.Foreground(ink).Background(panelBackground).Bold(true),

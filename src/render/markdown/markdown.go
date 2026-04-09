@@ -71,24 +71,33 @@ func ParseMarkdownLines(body string, width int, styles *MarkdownStyles) []Styled
 // plus a continuation indent width.
 func parseBlockLine(line string, styles *MarkdownStyles) ([]StyledSpan, int) {
 	trimmed := strings.TrimLeftFunc(line, unicode.IsSpace)
+	indent := line[:len(line)-len(trimmed)]
+	indentW := len([]rune(indent))
+
+	// Build an indent span to preserve leading whitespace.
+	var indentSpan []StyledSpan
+	if indentW > 0 {
+		indentSpan = []StyledSpan{{Text: indent, Style: styles.Text}}
+	}
 
 	// Headings.
 	if text, ok := strings.CutPrefix(trimmed, "### "); ok {
-		return parseInlineSpans(text, styles.Bold, styles.Reference), 0
+		return append(indentSpan, parseInlineSpans(text, styles.Bold, styles.Reference)...), indentW
 	}
 	if text, ok := strings.CutPrefix(trimmed, "## "); ok {
-		return parseInlineSpans(text, styles.Bold, styles.Reference), 0
+		return append(indentSpan, parseInlineSpans(text, styles.Bold, styles.Reference)...), indentW
 	}
 	if text, ok := strings.CutPrefix(trimmed, "# "); ok {
-		return parseInlineSpans(text, styles.Heading, styles.Reference), 0
+		return append(indentSpan, parseInlineSpans(text, styles.Heading, styles.Reference)...), indentW
 	}
 
 	// List items.
 	if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
 		bullet := string(trimmed[0])
 		text := trimmed[2:]
-		spans := append([]StyledSpan{{Text: bullet + " ", Style: styles.Heading}}, parseInlineSpans(text, styles.Text, styles.Reference)...) //nolint:gocritic // appendAssign: intentional inline append
-		return spans, 2
+		spans := append(indentSpan, StyledSpan{Text: bullet + " ", Style: styles.Heading})                     //nolint:gocritic // appendAssign: intentional inline append
+		spans = append(spans, parseInlineSpans(text, styles.Text, styles.Reference)...)
+		return spans, indentW + 2
 	}
 
 	// Numbered list.
@@ -103,22 +112,24 @@ func parseBlockLine(line string, styles *MarkdownStyles) ([]StyledSpan, int) {
 		}
 		if allDigits {
 			text := trimmed[idx+2:]
-			spans := append([]StyledSpan{{Text: prefix, Style: styles.Heading}}, parseInlineSpans(text, styles.Text, styles.Reference)...) //nolint:gocritic // appendAssign: intentional inline append
-			return spans, len([]rune(prefix))
+			spans := append(indentSpan, StyledSpan{Text: prefix, Style: styles.Heading})                       //nolint:gocritic // appendAssign: intentional inline append
+			spans = append(spans, parseInlineSpans(text, styles.Text, styles.Reference)...)
+			return spans, indentW + len([]rune(prefix))
 		}
 	}
 
 	// Blockquote.
 	if text, ok := strings.CutPrefix(trimmed, "> "); ok {
-		spans := append([]StyledSpan{{Text: "> ", Style: styles.Blockquote}}, parseInlineSpans(text, styles.Blockquote, styles.Reference)...) //nolint:gocritic // appendAssign: intentional inline append
-		return spans, 2
+		spans := append(indentSpan, StyledSpan{Text: "> ", Style: styles.Blockquote})                           //nolint:gocritic // appendAssign: intentional inline append
+		spans = append(spans, parseInlineSpans(text, styles.Blockquote, styles.Reference)...)
+		return spans, indentW + 2
 	}
 
 	// Normal paragraph.
 	if trimmed == "" {
 		return []StyledSpan{{Text: "", Style: styles.Text}}, 0
 	}
-	return parseInlineSpans(trimmed, styles.Text, styles.Reference), 0
+	return append(indentSpan, parseInlineSpans(trimmed, styles.Text, styles.Reference)...), indentW
 }
 
 // parseInlineSpans processes inline markdown formatting within a line.
