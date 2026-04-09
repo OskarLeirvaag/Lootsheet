@@ -142,9 +142,15 @@ type ShellData struct {
 	Assets             ListScreenData
 	Codex              ListScreenData
 	Notes              ListScreenData
-	SettingsAccounts   ListScreenData
-	SettingsCodexTypes ListScreenData
-	SettingsCampaigns  ListScreenData
+	SettingsAccounts      ListScreenData
+	SettingsCodexTypes    ListScreenData
+	SettingsCampaigns     ListScreenData
+	SettingsCompendium    ListScreenData
+	CompendiumMonsters    ListScreenData
+	CompendiumSpells      ListScreenData
+	CompendiumItems       ListScreenData
+	CompendiumRules       ListScreenData
+	CompendiumConditions  ListScreenData
 	EntryCatalog       EntryCatalog
 	CodexTypes         []CodexTypeOption
 	CampaignName       string           // active campaign name for header

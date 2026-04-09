@@ -53,6 +53,8 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 			s.renderNotesSection(buffer, body, theme)
 		case SectionSettings:
 			s.renderSettingsSection(buffer, body, theme)
+		case SectionCompendium:
+			s.renderCompendiumSection(buffer, body, theme)
 		default:
 			drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
 		}
@@ -117,6 +119,37 @@ func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
 	// Render the active tab's list section in the remaining space.
 	bodyRect := Rect{X: rect.X, Y: rect.Y + 1, W: rect.W, H: rect.H - 1}
 	active := s.activeSettingsSection()
+	s.renderListSection(buffer, bodyRect, theme, active, s.listDataForSection(active))
+}
+
+func (s *Shell) renderCompendiumSection(buffer *Buffer, rect Rect, theme *Theme) {
+	if rect.H < 3 {
+		s.renderListSection(buffer, rect, theme, s.activeCompendiumSection(), s.listDataForSection(s.activeCompendiumSection()))
+		return
+	}
+
+	// Draw tab bar in the first row.
+	tabRect := Rect{X: rect.X, Y: rect.Y, W: rect.W, H: 1}
+	buffer.FillRect(tabRect, ' ', theme.Muted)
+
+	x := tabRect.X + 1
+	for i, tab := range compendiumTabs {
+		if i > 0 {
+			x += buffer.WriteString(x, tabRect.Y, theme.Muted, "  ")
+		}
+		label := tab.Title()
+		if i == s.compendiumTab {
+			label = "[" + label + "]"
+			x += buffer.WriteString(x, tabRect.Y, theme.SectionCompendium, label)
+		} else {
+			label = " " + label + " "
+			x += buffer.WriteString(x, tabRect.Y, theme.TabInactive, label)
+		}
+	}
+
+	// Render the active tab's list section in the remaining space.
+	bodyRect := Rect{X: rect.X, Y: rect.Y + 1, W: rect.W, H: rect.H - 1}
+	active := s.activeCompendiumSection()
 	s.renderListSection(buffer, bodyRect, theme, active, s.listDataForSection(active))
 }
 

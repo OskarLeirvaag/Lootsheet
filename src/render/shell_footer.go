@@ -61,6 +61,8 @@ func (s *Shell) sectionLauncherHelpText() string {
 			return "a add codex type"
 		case settingsTabCampaigns:
 			return "a add campaign"
+		case settingsTabCompendium:
+			return "s sync  t toggle"
 		default:
 			return "a add account"
 		}
@@ -68,6 +70,8 @@ func (s *Shell) sectionLauncherHelpText() string {
 		return "e/i entry"
 	case SectionQuests, SectionLoot, SectionAssets, SectionCodex, SectionNotes:
 		return helpAddEdit
+	case SectionCompendium:
+		return "/ search"
 	default:
 		return "e/i/a entry"
 	}
@@ -119,6 +123,12 @@ func (s *Shell) currentHeaderLines() []string {
 		return append([]string{}, s.Data.Codex.HeaderLines...)
 	case SectionNotes:
 		return append([]string{}, s.Data.Notes.HeaderLines...)
+	case SectionCompendium:
+		data := s.listDataForSection(s.activeCompendiumSection())
+		if data != nil {
+			return append([]string{}, data.HeaderLines...)
+		}
+		return nil
 	case SectionSettings:
 		data := s.listDataForSection(s.activeSettingsSection())
 		if data != nil {
@@ -271,6 +281,15 @@ func (s *Shell) glossaryLines() []string {
 			"@type/name: inline cross-reference in body text.",
 			"References: parsed @mentions linking to quests, loot, assets, people, or other notes.",
 		}
+	case SectionCompendium:
+		return []string{
+			"Compendium: cross-campaign D&D reference from D&D Beyond.",
+			"Monsters: creatures with stats, abilities, and challenge ratings.",
+			"Spells: magical abilities with level, school, and components.",
+			"Items: equipment, weapons, and magic items with rarity.",
+			"Rules: general D&D rules, basic actions, and weapon properties.",
+			"Conditions: status effects like Blinded, Charmed, Frightened.",
+		}
 	case SectionSettings:
 		switch s.activeSettingsSection() {
 		case settingsTabCodexTypes:
@@ -285,6 +304,14 @@ func (s *Shell) glossaryLines() []string {
 				"Active campaign: the one currently displayed and edited.",
 				"Enter on a campaign switches to it.",
 				"The active campaign cannot be deleted.",
+			}
+		case settingsTabCompendium:
+			return []string{
+				"Source: a D&D Beyond book (PHB, DMG, etc.) to include in sync.",
+				"Toggle: `t` enables/disables a source for the next sync.",
+				"Sync: `s` fetches content from D&D Beyond for enabled sources.",
+				"Rules and conditions sync without authentication.",
+				"Monsters, spells, and items require a cobalt cookie.",
 			}
 		}
 		return []string{

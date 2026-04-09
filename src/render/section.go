@@ -17,18 +17,27 @@ const (
 	SectionLoot      = model.SectionLoot
 	SectionAssets    = model.SectionAssets
 	SectionCodex     = model.SectionCodex
-	SectionNotes     = model.SectionNotes
-	SectionSettings  = model.SectionSettings
+	SectionNotes      = model.SectionNotes
+	SectionCompendium = model.SectionCompendium
+	SectionSettings   = model.SectionSettings
 )
 
 const (
 	settingsTabAccounts   = model.SettingsTabAccounts
 	settingsTabCodexTypes = model.SettingsTabCodexTypes
-	settingsTabCampaigns  = model.SettingsTabCampaigns
+	settingsTabCampaigns   = model.SettingsTabCampaigns
+	settingsTabCompendium  = model.SettingsTabCompendium
+
+	compendiumTabMonsters   = model.CompendiumTabMonsters
+	compendiumTabSpells     = model.CompendiumTabSpells
+	compendiumTabItems      = model.CompendiumTabItems
+	compendiumTabRules      = model.CompendiumTabRules
+	compendiumTabConditions = model.CompendiumTabConditions
 )
 
 var (
 	settingsTabs       = model.SettingsTabs
+	compendiumTabs     = model.CompendiumTabs
 	searchableSections = model.SearchableSections
 	orderedSections    = model.OrderedSections
 )
@@ -89,7 +98,13 @@ func sectionStyleFor(s Section, theme *Theme) SectionStyle {
 			ScatterGlyphs: scatterNotes,
 			ScatterStyle:  &theme.ScatterNotes,
 		}
-	case SectionSettings, settingsTabAccounts, settingsTabCodexTypes, settingsTabCampaigns:
+	case SectionCompendium, compendiumTabMonsters, compendiumTabSpells, compendiumTabItems, compendiumTabRules, compendiumTabConditions:
+		return SectionStyle{
+			Accent:        theme.SectionCompendium,
+			ScatterGlyphs: scatterCompendium,
+			ScatterStyle:  &theme.ScatterCompendium,
+		}
+	case SectionSettings, settingsTabAccounts, settingsTabCodexTypes, settingsTabCampaigns, settingsTabCompendium:
 		return SectionStyle{
 			Accent:        theme.SectionSettings,
 			ScatterGlyphs: scatterSettings,

@@ -34,9 +34,15 @@ func DefaultShellData() ShellData {
 		Assets:             defaultListScreenData(SectionAssets),
 		Codex:              defaultListScreenData(SectionCodex),
 		Notes:              defaultListScreenData(SectionNotes),
-		SettingsAccounts:   defaultListScreenData(settingsTabAccounts),
-		SettingsCodexTypes: defaultListScreenData(settingsTabCodexTypes),
-		SettingsCampaigns:  defaultListScreenData(settingsTabCampaigns),
+		SettingsAccounts:     defaultListScreenData(settingsTabAccounts),
+		SettingsCodexTypes:   defaultListScreenData(settingsTabCodexTypes),
+		SettingsCampaigns:    defaultListScreenData(settingsTabCampaigns),
+		SettingsCompendium:  defaultListScreenData(settingsTabCompendium),
+		CompendiumMonsters:   defaultListScreenData(compendiumTabMonsters),
+		CompendiumSpells:     defaultListScreenData(compendiumTabSpells),
+		CompendiumItems:      defaultListScreenData(compendiumTabItems),
+		CompendiumRules:      defaultListScreenData(compendiumTabRules),
+		CompendiumConditions: defaultListScreenData(compendiumTabConditions),
 	}
 }
 
@@ -101,6 +107,36 @@ func ErrorShellData(summary string, detail string) ShellData {
 			SummaryLines: []string{"Campaign settings unavailable.", detail},
 			EmptyLines:   []string{"No campaign rows loaded.", detail},
 		},
+		SettingsCompendium: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Compendium settings unavailable.", detail},
+			EmptyLines:   []string{"No source rows loaded.", detail},
+		},
+		CompendiumMonsters: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Monster compendium unavailable.", detail},
+			EmptyLines:   []string{"No monsters loaded.", detail},
+		},
+		CompendiumSpells: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Spell compendium unavailable.", detail},
+			EmptyLines:   []string{"No spells loaded.", detail},
+		},
+		CompendiumItems: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Item compendium unavailable.", detail},
+			EmptyLines:   []string{"No items loaded.", detail},
+		},
+		CompendiumRules: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Rules compendium unavailable.", detail},
+			EmptyLines:   []string{"No rules loaded.", detail},
+		},
+		CompendiumConditions: ListScreenData{
+			HeaderLines:  []string{summary, detail},
+			SummaryLines: []string{"Conditions compendium unavailable.", detail},
+			EmptyLines:   []string{"No conditions loaded.", detail},
+		},
 	}
 }
 
@@ -144,6 +180,24 @@ func resolveShellData(data *ShellData) ShellData {
 	if listScreenDataEmpty(&resolved.SettingsCampaigns) {
 		resolved.SettingsCampaigns = defaultListScreenData(settingsTabCampaigns)
 	}
+	if listScreenDataEmpty(&resolved.SettingsCompendium) {
+		resolved.SettingsCompendium = defaultListScreenData(settingsTabCompendium)
+	}
+	if listScreenDataEmpty(&resolved.CompendiumMonsters) {
+		resolved.CompendiumMonsters = defaultListScreenData(compendiumTabMonsters)
+	}
+	if listScreenDataEmpty(&resolved.CompendiumSpells) {
+		resolved.CompendiumSpells = defaultListScreenData(compendiumTabSpells)
+	}
+	if listScreenDataEmpty(&resolved.CompendiumItems) {
+		resolved.CompendiumItems = defaultListScreenData(compendiumTabItems)
+	}
+	if listScreenDataEmpty(&resolved.CompendiumRules) {
+		resolved.CompendiumRules = defaultListScreenData(compendiumTabRules)
+	}
+	if listScreenDataEmpty(&resolved.CompendiumConditions) {
+		resolved.CompendiumConditions = defaultListScreenData(compendiumTabConditions)
+	}
 
 	return resolved
 }
@@ -163,7 +217,13 @@ func shellDataEmpty(data *ShellData) bool {
 		listScreenDataEmpty(&data.Notes) &&
 		listScreenDataEmpty(&data.SettingsAccounts) &&
 		listScreenDataEmpty(&data.SettingsCodexTypes) &&
-		listScreenDataEmpty(&data.SettingsCampaigns)
+		listScreenDataEmpty(&data.SettingsCampaigns) &&
+		listScreenDataEmpty(&data.SettingsCompendium) &&
+		listScreenDataEmpty(&data.CompendiumMonsters) &&
+		listScreenDataEmpty(&data.CompendiumSpells) &&
+		listScreenDataEmpty(&data.CompendiumItems) &&
+		listScreenDataEmpty(&data.CompendiumRules) &&
+		listScreenDataEmpty(&data.CompendiumConditions)
 }
 
 func listScreenDataEmpty(data *ListScreenData) bool {
@@ -285,6 +345,42 @@ func defaultListScreenData(section Section) ListScreenData {
 				"No notes loaded yet.",
 				"App-side adapters fill this screen with live note data and actions.",
 			},
+		}
+	case settingsTabCompendium:
+		return ListScreenData{
+			HeaderLines:  []string{"Compendium sources.", "Toggle source books with `t`. Press `s` to sync from D&D Beyond."},
+			SummaryLines: []string{"Enable source books to include in compendium sync.", "Rules and conditions sync without authentication."},
+			EmptyLines:   []string{"No sources loaded yet.", "Sources are fetched automatically from D&D Beyond."},
+		}
+	case compendiumTabMonsters:
+		return ListScreenData{
+			HeaderLines:  []string{"Monsters compendium.", "Browse creatures by challenge rating and type."},
+			SummaryLines: []string{"Synced from D&D Beyond.", "Use / to search."},
+			EmptyLines:   []string{"No monsters loaded yet.", "Sync from D&D Beyond to populate."},
+		}
+	case compendiumTabSpells:
+		return ListScreenData{
+			HeaderLines:  []string{"Spells compendium.", "Browse spells by level and school."},
+			SummaryLines: []string{"Synced from D&D Beyond.", "Use / to search."},
+			EmptyLines:   []string{"No spells loaded yet.", "Sync from D&D Beyond to populate."},
+		}
+	case compendiumTabItems:
+		return ListScreenData{
+			HeaderLines:  []string{"Items compendium.", "Browse magic items and equipment by rarity."},
+			SummaryLines: []string{"Synced from D&D Beyond.", "Use / to search."},
+			EmptyLines:   []string{"No items loaded yet.", "Sync from D&D Beyond to populate."},
+		}
+	case compendiumTabRules:
+		return ListScreenData{
+			HeaderLines:  []string{"Rules compendium.", "D&D rules, basic actions, and weapon properties."},
+			SummaryLines: []string{"From D&D Beyond config.", "No authentication required."},
+			EmptyLines:   []string{"No rules loaded yet.", "Sync from D&D Beyond to populate."},
+		}
+	case compendiumTabConditions:
+		return ListScreenData{
+			HeaderLines:  []string{"Conditions compendium.", "Status effects and their mechanical descriptions."},
+			SummaryLines: []string{"From D&D Beyond config.", "No authentication required."},
+			EmptyLines:   []string{"No conditions loaded yet.", "Sync from D&D Beyond to populate."},
 		}
 	case settingsTabAccounts:
 		return ListScreenData{

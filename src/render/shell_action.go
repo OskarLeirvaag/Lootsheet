@@ -34,7 +34,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
-			ActionShowNotes, ActionSearch:
+			ActionShowNotes, ActionShowCompendium, ActionSearch:
 			return HandleResult{}
 		case ActionQuit:
 			s.compose = nil
@@ -64,7 +64,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		}
 		return HandleResult{}
 	case ActionQuit:
-		if s.Section == SectionSettings {
+		if s.Section == SectionSettings || s.Section == SectionCompendium {
 			s.Section = SectionDashboard
 			return HandleResult{Redraw: true}
 		}
@@ -82,6 +82,11 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 			s.reconcileSelection(s.activeSettingsSection())
 			return HandleResult{Redraw: true}
 		}
+		if s.Section == SectionCompendium {
+			s.compendiumTab = (s.compendiumTab + 1) % len(compendiumTabs)
+			s.reconcileSelection(s.activeCompendiumSection())
+			return HandleResult{Redraw: true}
+		}
 		s.Section = s.Section.Next()
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
@@ -89,6 +94,11 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		if s.Section == SectionSettings {
 			s.settingsTab = (s.settingsTab + len(settingsTabs) - 1) % len(settingsTabs)
 			s.reconcileSelection(s.activeSettingsSection())
+			return HandleResult{Redraw: true}
+		}
+		if s.Section == SectionCompendium {
+			s.compendiumTab = (s.compendiumTab + len(compendiumTabs) - 1) % len(compendiumTabs)
+			s.reconcileSelection(s.activeCompendiumSection())
 			return HandleResult{Redraw: true}
 		}
 		s.Section = s.Section.Previous()
@@ -128,6 +138,10 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 	case ActionShowNotes:
 		s.Section = SectionNotes
 		s.reconcileSelection(s.Section)
+		return HandleResult{Redraw: true}
+	case ActionShowCompendium:
+		s.Section = SectionCompendium
+		s.reconcileSelection(s.activeCompendiumSection())
 		return HandleResult{Redraw: true}
 	case ActionMoveUp:
 		if s.moveSelection(-1) {
@@ -259,7 +273,7 @@ func (s *Shell) handleConfirmAction(action Action) HandleResult {
 
 func (s *Shell) handleInputAction(action Action) HandleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes, ActionShowCompendium,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,

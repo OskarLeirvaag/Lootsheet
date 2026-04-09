@@ -52,6 +52,7 @@ type Shell struct {
 	Data            ShellData
 	Section         Section
 	settingsTab     int
+	compendiumTab   int
 	scrolls         map[Section]int
 	selectedKeys    map[Section]string
 	selectedIndexes map[Section]int
@@ -117,11 +118,21 @@ func (s *Shell) activeSettingsSection() Section {
 	return settingsTabs[0]
 }
 
+func (s *Shell) activeCompendiumSection() Section {
+	if s.compendiumTab >= 0 && s.compendiumTab < len(compendiumTabs) {
+		return compendiumTabs[s.compendiumTab]
+	}
+	return compendiumTabs[0]
+}
+
 // listSection returns the effective section for list data operations.
-// For Settings, this returns the active tab's virtual section.
+// For Settings/Compendium, this returns the active tab's virtual section.
 func (s *Shell) listSection() Section {
 	if s.Section == SectionSettings {
 		return s.activeSettingsSection()
+	}
+	if s.Section == SectionCompendium {
+		return s.activeCompendiumSection()
 	}
 	return s.Section
 }
@@ -234,6 +245,18 @@ func (s *Shell) listDataForSection(section Section) *ListScreenData {
 		return &s.Data.SettingsCodexTypes
 	case settingsTabCampaigns:
 		return &s.Data.SettingsCampaigns
+	case settingsTabCompendium:
+		return &s.Data.SettingsCompendium
+	case compendiumTabMonsters:
+		return &s.Data.CompendiumMonsters
+	case compendiumTabSpells:
+		return &s.Data.CompendiumSpells
+	case compendiumTabItems:
+		return &s.Data.CompendiumItems
+	case compendiumTabRules:
+		return &s.Data.CompendiumRules
+	case compendiumTabConditions:
+		return &s.Data.CompendiumConditions
 	default:
 		return nil
 	}

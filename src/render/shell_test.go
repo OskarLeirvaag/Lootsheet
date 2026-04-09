@@ -11,7 +11,7 @@ import (
 func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	theme := DefaultTheme()
 	keymap := DefaultKeyMap()
-	buffer := NewBuffer(100, 28, theme.Base)
+	buffer := NewBuffer(140, 28, theme.Base)
 
 	data := DefaultShellData()
 	NewShell(&data).Render(buffer, &theme, keymap)
@@ -20,8 +20,9 @@ func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	for _, token := range []string{
 		"LootSheet TUI",
 		"Section: Dashboard",
-		"Sections: [Dashboard]   Journal      Quests       Loot",
-		"1-7 jump",
+		"Sections: [Dashboard]",
+		"Compendium",
+		"1-8 jump",
 		"e/i/a entry",
 		"? terms",
 		"q quit",

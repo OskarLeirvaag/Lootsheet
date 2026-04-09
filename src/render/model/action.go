@@ -41,6 +41,8 @@ const (
 	ActionConfirm         Action = "confirm"
 	ActionShowCodex       Action = "show_codex"
 	ActionShowNotes       Action = "show_notes"
+	ActionShowCompendium  Action = "show_compendium"
+	ActionSyncCompendium  Action = "sync_compendium"
 	ActionSwitchCampaign  Action = "switch_campaign"
 	ActionHelp            Action = "help"
 	ActionSearch          Action = "search"
