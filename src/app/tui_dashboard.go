@@ -268,6 +268,8 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 
 	panelErrors = loadShellNotesData(ctx, loader, &data, panelErrors)
 
+	panelErrors = loadShellCompendiumData(ctx, loader, &data, panelErrors)
+
 	// Load and append entity cross-reference links.
 	panelErrors = appendEntityReferenceLinks(ctx, loader, &data, panelErrors)
 
@@ -446,6 +448,46 @@ func loadShellNotesData(ctx context.Context, loader TUIDataLoader, data *render.
 		}
 
 		data.Notes.Items = buildNotesItems(noteRecords, allNotesRefs)
+	}
+
+	return panelErrors
+}
+
+func loadShellCompendiumData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
+	monsters, err := loader.ListCompendiumMonsters(ctx, "")
+	if err == nil {
+		data.CompendiumMonsters.SummaryLines = summarizeCompendiumMonsters(monsters)
+		data.CompendiumMonsters.Items = buildCompendiumMonsterItems(monsters)
+	}
+
+	spells, err := loader.ListCompendiumSpells(ctx, "")
+	if err == nil {
+		data.CompendiumSpells.SummaryLines = summarizeCompendiumSpells(spells)
+		data.CompendiumSpells.Items = buildCompendiumSpellItems(spells)
+	}
+
+	items, err := loader.ListCompendiumItems(ctx, "")
+	if err == nil {
+		data.CompendiumItems.SummaryLines = summarizeCompendiumItems(items)
+		data.CompendiumItems.Items = buildCompendiumItemItems(items)
+	}
+
+	rules, err := loader.ListCompendiumRules(ctx, "")
+	if err == nil {
+		data.CompendiumRules.SummaryLines = summarizeCompendiumRules(rules)
+		data.CompendiumRules.Items = buildCompendiumRuleItems(rules)
+	}
+
+	conditions, err := loader.ListCompendiumConditions(ctx, "")
+	if err == nil {
+		data.CompendiumConditions.SummaryLines = summarizeCompendiumConditions(conditions)
+		data.CompendiumConditions.Items = buildCompendiumConditionItems(conditions)
+	}
+
+	sources, err := loader.ListCompendiumSources(ctx)
+	if err == nil {
+		data.SettingsCompendium.SummaryLines = summarizeCompendiumSources(sources)
+		data.SettingsCompendium.Items = buildCompendiumSourceItems(sources)
 	}
 
 	return panelErrors
