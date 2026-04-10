@@ -846,9 +846,8 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 
 	case tuiCommandCompendiumToggleSource:
 		sourceID := 0
-		key := command.ItemKey
-		if strings.HasPrefix(key, "source-") {
-			fmt.Sscanf(strings.TrimPrefix(key, "source-"), "%d", &sourceID)
+		if after, ok := strings.CutPrefix(command.ItemKey, "source-"); ok {
+			_, _ = fmt.Sscanf(after, "%d", &sourceID)
 		}
 		if sourceID > 0 {
 			if err := compendium.ToggleSource(ctx, databasePath, sourceID); err != nil {
@@ -935,11 +934,11 @@ func syncCompendium(ctx context.Context, databasePath string, cobalt string) (re
 	synced = append(synced, fmt.Sprintf("%d monsters", len(monsters)))
 
 	// Spells.
-	rawSpells, err := client.FetchSpells(ctx, ddb.AllClassIDs())
+	spellResult, err := client.FetchSpells(ctx, ddb.AllClassIDs())
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("fetch spells: %w", err)
 	}
-	spells := convertDDBSpells(rawSpells, cfg)
+	spells := convertDDBSpells(spellResult.Spells, spellResult.SpellClasses, cfg)
 	if err := compendium.UpsertSpells(ctx, databasePath, spells); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert spells: %w", err)
 	}

@@ -23,6 +23,7 @@ type inputState struct {
 	Placeholder     string
 	ErrorText       string
 	RequiredMessage string
+	Optional        bool // when true, empty input is allowed
 	HelpLines       []string
 }
 

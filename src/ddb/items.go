@@ -11,7 +11,7 @@ const itemsURL = "https://character-service.dndbeyond.com/character/v5/game-data
 // FetchItems retrieves all items from DDB. Requires authentication.
 func (c *Client) FetchItems(ctx context.Context) ([]RawItem, error) {
 	if !c.IsAuthenticated() {
-		return nil, fmt.Errorf("ddb items: not authenticated")
+		return nil, ErrNotAuthenticated
 	}
 
 	url := itemsURL + "?sharingSetting=2"

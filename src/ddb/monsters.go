@@ -14,7 +14,7 @@ const monsterURL = "https://monster-service.dndbeyond.com/v1/Monster"
 // those sources are returned.
 func (c *Client) FetchMonsters(ctx context.Context, sourceIDs []int) ([]RawMonster, error) {
 	if !c.IsAuthenticated() {
-		return nil, fmt.Errorf("ddb monsters: not authenticated")
+		return nil, ErrNotAuthenticated
 	}
 
 	var all []RawMonster
@@ -22,12 +22,12 @@ func (c *Client) FetchMonsters(ctx context.Context, sourceIDs []int) ([]RawMonst
 	take := 100
 
 	for {
-		url := fmt.Sprintf("%s?skip=%d&take=%d", monsterURL, skip, take)
-		if len(sourceIDs) > 0 {
-			for _, id := range sourceIDs {
-				url += fmt.Sprintf("&sources=%d", id)
-			}
+		var b strings.Builder
+		fmt.Fprintf(&b, "%s?skip=%d&take=%d", monsterURL, skip, take)
+		for _, id := range sourceIDs {
+			fmt.Fprintf(&b, "&sources=%d", id)
 		}
+		url := b.String()
 
 		body, err := c.doGet(ctx, url)
 		if err != nil {

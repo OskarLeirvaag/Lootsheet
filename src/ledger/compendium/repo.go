@@ -227,7 +227,13 @@ func ToggleSource(ctx context.Context, databasePath string, sourceID int) error 
 // UpsertSources inserts or updates source books (from DDB config).
 func UpsertSources(ctx context.Context, databasePath string, sources []Source) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		stmt, err := db.PrepareContext(ctx,
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+		stmt, err := tx.PrepareContext(ctx,
 			`INSERT INTO compendium_sources (id, name, enabled) VALUES (?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET name = excluded.name`)
 		if err != nil {
@@ -244,14 +250,20 @@ func UpsertSources(ctx context.Context, databasePath string, sources []Source) e
 				return fmt.Errorf("upsert source %d: %w", s.ID, err)
 			}
 		}
-		return nil
+		return tx.Commit()
 	})
 }
 
 // UpsertMonsters inserts or replaces monsters (from DDB sync).
 func UpsertMonsters(ctx context.Context, databasePath string, monsters []Monster) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		stmt, err := db.PrepareContext(ctx,
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+		stmt, err := tx.PrepareContext(ctx,
 			`INSERT INTO compendium_monsters (ddb_id, name, cr, type, size, hp, ac, source_name, detail_json)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(ddb_id) DO UPDATE SET
@@ -263,19 +275,26 @@ func UpsertMonsters(ctx context.Context, databasePath string, monsters []Monster
 		}
 		defer stmt.Close()
 
-		for _, m := range monsters {
+		for i := range monsters {
+			m := &monsters[i]
 			if _, err := stmt.ExecContext(ctx, m.DdbID, m.Name, m.CR, m.Type, m.Size, m.HP, m.AC, m.SourceName, m.DetailJSON); err != nil {
 				return fmt.Errorf("upsert monster %d: %w", m.DdbID, err)
 			}
 		}
-		return nil
+		return tx.Commit()
 	})
 }
 
 // UpsertSpells inserts or replaces spells (from DDB sync).
 func UpsertSpells(ctx context.Context, databasePath string, spells []Spell) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		stmt, err := db.PrepareContext(ctx,
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+		stmt, err := tx.PrepareContext(ctx,
 			`INSERT INTO compendium_spells (ddb_id, name, level, school, casting_time, range, components, duration, classes, source_name, detail_json)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(ddb_id) DO UPDATE SET
@@ -288,19 +307,26 @@ func UpsertSpells(ctx context.Context, databasePath string, spells []Spell) erro
 		}
 		defer stmt.Close()
 
-		for _, s := range spells {
+		for i := range spells {
+			s := &spells[i]
 			if _, err := stmt.ExecContext(ctx, s.DdbID, s.Name, s.Level, s.School, s.CastingTime, s.Range, s.Components, s.Duration, s.Classes, s.SourceName, s.DetailJSON); err != nil {
 				return fmt.Errorf("upsert spell %d: %w", s.DdbID, err)
 			}
 		}
-		return nil
+		return tx.Commit()
 	})
 }
 
 // UpsertItems inserts or replaces items (from DDB sync).
 func UpsertItems(ctx context.Context, databasePath string, items []Item) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		stmt, err := db.PrepareContext(ctx,
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+		stmt, err := tx.PrepareContext(ctx,
 			`INSERT INTO compendium_items (ddb_id, name, type, rarity, attunement, source_name, detail_json)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(ddb_id) DO UPDATE SET
@@ -321,14 +347,20 @@ func UpsertItems(ctx context.Context, databasePath string, items []Item) error {
 				return fmt.Errorf("upsert item %d: %w", i.DdbID, err)
 			}
 		}
-		return nil
+		return tx.Commit()
 	})
 }
 
 // UpsertRules inserts or replaces rules (from DDB config sync).
 func UpsertRules(ctx context.Context, databasePath string, rules []Rule) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		stmt, err := db.PrepareContext(ctx,
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+		stmt, err := tx.PrepareContext(ctx,
 			`INSERT INTO compendium_rules (ddb_id, name, category, description)
 			 VALUES (?, ?, ?, ?)
 			 ON CONFLICT(ddb_id) DO UPDATE SET
@@ -344,14 +376,20 @@ func UpsertRules(ctx context.Context, databasePath string, rules []Rule) error {
 				return fmt.Errorf("upsert rule %d: %w", r.DdbID, err)
 			}
 		}
-		return nil
+		return tx.Commit()
 	})
 }
 
 // UpsertConditions inserts or replaces conditions (from DDB config sync).
 func UpsertConditions(ctx context.Context, databasePath string, conditions []Condition) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		stmt, err := db.PrepareContext(ctx,
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
+
+		stmt, err := tx.PrepareContext(ctx,
 			`INSERT INTO compendium_conditions (ddb_id, name, description)
 			 VALUES (?, ?, ?)
 			 ON CONFLICT(ddb_id) DO UPDATE SET
@@ -366,15 +404,17 @@ func UpsertConditions(ctx context.Context, databasePath string, conditions []Con
 				return fmt.Errorf("upsert condition %d: %w", c.DdbID, err)
 			}
 		}
-		return nil
+		return tx.Commit()
 	})
 }
 
-// ftsQuery converts a user search string into an FTS5 prefix query.
+// ftsQuery converts a user search string into a safe FTS5 prefix query.
+// Each word is quoted to prevent FTS5 operator injection (AND, OR, NOT, NEAR, etc.).
 func ftsQuery(q string) string {
 	words := strings.Fields(q)
 	for i, w := range words {
-		words[i] = w + "*"
+		w = strings.ReplaceAll(w, `"`, `""`)
+		words[i] = `"` + w + `"` + `*`
 	}
 	return strings.Join(words, " ")
 }

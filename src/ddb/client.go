@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,15 @@ import (
 const (
 	authURL   = "https://auth-service.dndbeyond.com/v1/cobalt-token"
 	configURL = "https://www.dndbeyond.com/api/config/json"
+
+	httpTimeout     = 30 * time.Second
+	maxAuthBody     = 1 << 20   // 1 MB
+	maxResponseBody = 100 << 20 // 100 MB
+	truncateLen     = 200
 )
+
+// ErrNotAuthenticated is returned when an API call requires a bearer token.
+var ErrNotAuthenticated = errors.New("ddb: not authenticated")
 
 // Client is an HTTP client for the D&D Beyond API.
 type Client struct {
@@ -24,14 +33,14 @@ type Client struct {
 // NewClient creates a new DDB API client.
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: &http.Client{Timeout: httpTimeout},
 	}
 }
 
 // Authenticate exchanges a cobalt cookie for a bearer token.
 // The bearer token is cached in memory for subsequent requests.
 func (c *Client) Authenticate(ctx context.Context, cobalt string) error {
-	req, err := http.NewRequestWithContext(ctx, "POST", authURL, bytes.NewReader([]byte("{}")))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, bytes.NewReader([]byte("{}")))
 	if err != nil {
 		return fmt.Errorf("ddb auth: build request: %w", err)
 	}
@@ -45,8 +54,8 @@ func (c *Client) Authenticate(ctx context.Context, cobalt string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("ddb auth: status %d: %s", resp.StatusCode, truncate(string(body), 200))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxAuthBody))
+		return fmt.Errorf("ddb auth: status %d: %s", resp.StatusCode, truncate(string(body), truncateLen))
 	}
 
 	var auth AuthResponse
@@ -54,7 +63,7 @@ func (c *Client) Authenticate(ctx context.Context, cobalt string) error {
 		return fmt.Errorf("ddb auth: decode: %w", err)
 	}
 	if auth.Token == "" {
-		return fmt.Errorf("ddb auth: empty token (invalid cobalt cookie?)")
+		return errors.New("ddb auth: empty token (invalid cobalt cookie?)")
 	}
 
 	c.bearerToken = auth.Token
@@ -68,7 +77,7 @@ func (c *Client) IsAuthenticated() bool {
 
 // doGet performs an authenticated GET request.
 func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -83,20 +92,21 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(string(body), truncateLen))
 	}
 
 	return body, nil
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n] + "..."
+	return string(runes[:n]) + "..."
 }

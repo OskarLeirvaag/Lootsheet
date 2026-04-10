@@ -46,7 +46,7 @@ func buildCompendiumMonsterItems(records []compendium.Monster) []render.ListItem
 		m := &records[i]
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("monster-%d", m.DdbID),
-			Row:         fmt.Sprintf("%-5s %-12s %s", m.CR, truncateField(m.Type, 12), m.Name),
+			Row:         fmt.Sprintf("%-5s %-12s %s", m.CR, truncateField(m.Type, colWidthMonsterType), m.Name),
 			DetailTitle: m.Name,
 			DetailLines: []string{
 				fmt.Sprintf("CR: %s  |  Type: %s  |  Size: %s", m.CR, m.Type, m.Size),
@@ -69,7 +69,7 @@ func buildCompendiumSpellItems(records []compendium.Spell) []render.ListItemData
 		}
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("spell-%d", s.DdbID),
-			Row:         fmt.Sprintf("%-5s %-14s %s", lvl, truncateField(s.School, 14), s.Name),
+			Row:         fmt.Sprintf("%-5s %-14s %s", lvl, truncateField(s.School, colWidthSpellSchool), s.Name),
 			DetailTitle: s.Name,
 			DetailLines: []string{
 				fmt.Sprintf("Level: %d  |  School: %s", s.Level, s.School),
@@ -92,7 +92,7 @@ func buildCompendiumItemItems(records []compendium.Item) []render.ListItemData {
 		}
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("item-%d", it.DdbID),
-			Row:         fmt.Sprintf("%-12s %-16s %s", truncateField(it.Rarity, 12), truncateField(it.Type, 16), it.Name),
+			Row:         fmt.Sprintf("%-12s %-16s %s", truncateField(it.Rarity, colWidthItemRarity), truncateField(it.Type, colWidthItemType), it.Name),
 			DetailTitle: it.Name,
 			DetailLines: []string{
 				fmt.Sprintf("Type: %s  |  Rarity: %s%s", it.Type, it.Rarity, attune),
@@ -109,7 +109,7 @@ func buildCompendiumRuleItems(records []compendium.Rule) []render.ListItemData {
 		r := &records[i]
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("rule-%d", r.DdbID),
-			Row:         fmt.Sprintf("%-18s %s", truncateField(r.Category, 18), r.Name),
+			Row:         fmt.Sprintf("%-18s %s", truncateField(r.Category, colWidthRuleCategory), r.Name),
 			DetailTitle: r.Name,
 			DetailLines: []string{
 				fmt.Sprintf("Category: %s", r.Category),
@@ -138,11 +138,9 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 	items := make([]render.ListItemData, 0, len(records))
 	for i := range records {
 		s := &records[i]
-		status := "  "
+		status := "[ ]"
 		if s.Enabled {
 			status = "[x]"
-		} else {
-			status = "[ ]"
 		}
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("source-%d", s.ID),
@@ -169,29 +167,55 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 
 func buildMonsterDetailBody(m *compendium.Monster) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("## %s\n", m.Name))
-	b.WriteString(fmt.Sprintf("*%s %s, CR %s*\n\n", m.Size, m.Type, m.CR))
-	b.WriteString(fmt.Sprintf("**AC** %s  |  **HP** %s\n\n", m.AC, m.HP))
+	fmt.Fprintf(&b, "## %s\n", m.Name)
+	fmt.Fprintf(&b, "*%s %s, CR %s*\n\n", m.Size, m.Type, m.CR)
+	fmt.Fprintf(&b, "**AC** %s  |  **HP** %s\n\n", m.AC, m.HP)
 	if m.SourceName != "" {
-		b.WriteString(fmt.Sprintf("Source: %s\n", m.SourceName))
+		fmt.Fprintf(&b, "Source: %s\n", m.SourceName)
 	}
 	return b.String()
 }
 
 func truncateField(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
+		return string(runes[:maxLen])
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // Command constants for compendium operations.
 const (
 	tuiCommandCompendiumToggleSource = "compendium.toggle_source"
 	tuiCommandCompendiumSync         = "compendium.sync"
+)
+
+// Column widths for list row formatting.
+const (
+	colWidthMonsterType  = 12
+	colWidthSpellSchool  = 14
+	colWidthItemRarity   = 12
+	colWidthItemType     = 16
+	colWidthRuleCategory = 18
+)
+
+// DDB ID offsets to avoid collisions when merging rules, actions, and weapon properties.
+const (
+	ddbIDOffsetBasicActions     = 10000
+	ddbIDOffsetWeaponProperties = 20000
+)
+
+// DDB activation types for spell casting time.
+const (
+	ddbActivationAction      = 1
+	ddbActivationBonusAction = 3
+	ddbActivationReaction    = 4
+	ddbActivationOneMinute   = 6
+	ddbActivationTenMinutes  = 7
+	ddbActivationOneHour     = 8
 )
 
 // --- DDB → domain converters ---
@@ -217,7 +241,7 @@ func convertDDBConditions(entries []ddb.ConfigConditionEntry) []compendium.Condi
 }
 
 func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
-	var result []compendium.Rule
+	result := make([]compendium.Rule, 0, len(cfg.Rules)+len(cfg.BasicActions)+len(cfg.WeaponProperties))
 
 	for _, r := range cfg.Rules {
 		result = append(result, compendium.Rule{
@@ -229,7 +253,7 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 	}
 	for _, a := range cfg.BasicActions {
 		result = append(result, compendium.Rule{
-			DdbID:       10000 + a.ID, // offset to avoid ID collision with rules
+			DdbID:       ddbIDOffsetBasicActions + a.ID,
 			Name:        a.Name,
 			Category:    "Action",
 			Description: ddb.HTMLToMarkdown(a.Description),
@@ -237,7 +261,7 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 	}
 	for _, wp := range cfg.WeaponProperties {
 		result = append(result, compendium.Rule{
-			DdbID:       20000 + wp.ID, // offset to avoid ID collision
+			DdbID:       ddbIDOffsetWeaponProperties + wp.ID,
 			Name:        wp.Name,
 			Category:    "Weapon Property",
 			Description: ddb.HTMLToMarkdown(wp.Description),
@@ -249,7 +273,8 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 
 func convertDDBMonsters(monsters []ddb.RawMonster, cfg *ddb.Config) []compendium.Monster {
 	result := make([]compendium.Monster, len(monsters))
-	for i, m := range monsters {
+	for i := range monsters {
+		m := &monsters[i]
 		sourceName := ""
 		if len(m.Sources) > 0 {
 			sourceName = cfg.SourceName(m.Sources[0].SourceID)
@@ -264,8 +289,8 @@ func convertDDBMonsters(monsters []ddb.RawMonster, cfg *ddb.Config) []compendium
 			CR:         cfg.ChallengeRatingLabel(m.ChallengeRatingID),
 			Type:       cfg.MonsterTypeName(m.TypeID),
 			Size:       cfg.CreatureSizeName(m.SizeID),
-			HP:         ddb.FormatMonsterHP(&m),
-			AC:         ddb.FormatMonsterAC(&m),
+			HP:         ddb.FormatMonsterHP(m),
+			AC:         ddb.FormatMonsterAC(m),
 			SourceName: sourceName,
 			DetailJSON: rawJSON,
 		}
@@ -273,10 +298,10 @@ func convertDDBMonsters(monsters []ddb.RawMonster, cfg *ddb.Config) []compendium
 	return result
 }
 
-func convertDDBSpells(spells []ddb.RawSpellEntry, cfg *ddb.Config) []compendium.Spell {
+func convertDDBSpells(spells []ddb.RawSpellEntry, spellClasses map[int][]string, cfg *ddb.Config) []compendium.Spell {
 	result := make([]compendium.Spell, len(spells))
-	for i, entry := range spells {
-		def := &entry.Definition
+	for i := range spells {
+		def := &spells[i].Definition
 		sourceName := ""
 		if len(def.Sources) > 0 {
 			sourceName = cfg.SourceName(def.Sources[0].SourceID)
@@ -284,6 +309,10 @@ func convertDDBSpells(spells []ddb.RawSpellEntry, cfg *ddb.Config) []compendium.
 		rawJSON := "{}"
 		if def.RawJSON != nil {
 			rawJSON = string(def.RawJSON)
+		}
+		classes := ""
+		if names, ok := spellClasses[def.ID]; ok {
+			classes = strings.Join(names, ", ")
 		}
 		result[i] = compendium.Spell{
 			DdbID:       def.ID,
@@ -294,7 +323,7 @@ func convertDDBSpells(spells []ddb.RawSpellEntry, cfg *ddb.Config) []compendium.
 			Range:       ddb.FormatSpellRange(def),
 			Components:  ddb.FormatSpellComponents(def),
 			Duration:    ddb.FormatSpellDuration(def),
-			Classes:     "", // populated per-class during fetch, but we aggregate
+			Classes:     classes,
 			SourceName:  sourceName,
 			DetailJSON:  rawJSON,
 		}
@@ -304,7 +333,8 @@ func convertDDBSpells(spells []ddb.RawSpellEntry, cfg *ddb.Config) []compendium.
 
 func convertDDBItems(items []ddb.RawItem, cfg *ddb.Config) []compendium.Item {
 	result := make([]compendium.Item, len(items))
-	for i, item := range items {
+	for i := range items {
+		item := &items[i]
 		sourceName := ""
 		if len(item.Sources) > 0 {
 			sourceName = cfg.SourceName(item.Sources[0].SourceID)
@@ -321,7 +351,7 @@ func convertDDBItems(items []ddb.RawItem, cfg *ddb.Config) []compendium.Item {
 		result[i] = compendium.Item{
 			DdbID:      item.ID,
 			Name:       item.Name,
-			Type:       ddb.ItemTypeName(&item),
+			Type:       ddb.ItemTypeName(item),
 			Rarity:     item.Rarity,
 			Attunement: item.CanAttune,
 			SourceName: sourceName,
@@ -332,8 +362,25 @@ func convertDDBItems(items []ddb.RawItem, cfg *ddb.Config) []compendium.Item {
 }
 
 func formatActivation(def *ddb.RawSpellDef) string {
-	if def.Ritual {
-		return "1 action (ritual)"
+	base := "1 action"
+	switch def.Activation.ActivationType {
+	case ddbActivationAction:
+		// default
+	case ddbActivationBonusAction:
+		base = "1 bonus action"
+	case ddbActivationReaction:
+		base = "1 reaction"
+	case ddbActivationOneMinute:
+		base = "1 minute"
+	case ddbActivationTenMinutes:
+		base = "10 minutes"
+	case ddbActivationOneHour:
+		base = "1 hour"
+	default:
+		// unknown activation type, keep default
 	}
-	return "1 action"
+	if def.Ritual {
+		base += " (ritual)"
+	}
+	return base
 }

@@ -3,6 +3,8 @@ package render
 import (
 	"fmt"
 	"strings"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 // Render draws the full shell for the current section.
@@ -92,39 +94,17 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 }
 
 func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
-	if rect.H < 3 {
-		s.renderListSection(buffer, rect, theme, s.activeSettingsSection(), s.listDataForSection(s.activeSettingsSection()))
-		return
-	}
-
-	// Draw tab bar in the first row.
-	tabRect := Rect{X: rect.X, Y: rect.Y, W: rect.W, H: 1}
-	buffer.FillRect(tabRect, ' ', theme.Muted)
-
-	x := tabRect.X + 1
-	for i, tab := range settingsTabs {
-		if i > 0 {
-			x += buffer.WriteString(x, tabRect.Y, theme.Muted, "  ")
-		}
-		label := tab.Title()
-		if i == s.settingsTab {
-			label = "[" + label + "]"
-			x += buffer.WriteString(x, tabRect.Y, theme.SectionSettings, label)
-		} else {
-			label = " " + label + " "
-			x += buffer.WriteString(x, tabRect.Y, theme.TabInactive, label)
-		}
-	}
-
-	// Render the active tab's list section in the remaining space.
-	bodyRect := Rect{X: rect.X, Y: rect.Y + 1, W: rect.W, H: rect.H - 1}
-	active := s.activeSettingsSection()
-	s.renderListSection(buffer, bodyRect, theme, active, s.listDataForSection(active))
+	s.renderTabbedSection(buffer, rect, theme, settingsTabs, s.settingsTab, theme.SectionSettings, s.activeSettingsSection)
 }
 
 func (s *Shell) renderCompendiumSection(buffer *Buffer, rect Rect, theme *Theme) {
+	s.renderTabbedSection(buffer, rect, theme, compendiumTabs, s.compendiumTab, theme.SectionCompendium, s.activeCompendiumSection)
+}
+
+func (s *Shell) renderTabbedSection(buffer *Buffer, rect Rect, theme *Theme, tabs []Section, activeIdx int, accentStyle tcell.Style, activeFn func() Section) {
+	active := activeFn()
 	if rect.H < 3 {
-		s.renderListSection(buffer, rect, theme, s.activeCompendiumSection(), s.listDataForSection(s.activeCompendiumSection()))
+		s.renderListSection(buffer, rect, theme, active, s.listDataForSection(active))
 		return
 	}
 
@@ -133,14 +113,14 @@ func (s *Shell) renderCompendiumSection(buffer *Buffer, rect Rect, theme *Theme)
 	buffer.FillRect(tabRect, ' ', theme.Muted)
 
 	x := tabRect.X + 1
-	for i, tab := range compendiumTabs {
+	for i, tab := range tabs {
 		if i > 0 {
 			x += buffer.WriteString(x, tabRect.Y, theme.Muted, "  ")
 		}
 		label := tab.Title()
-		if i == s.compendiumTab {
+		if i == activeIdx {
 			label = "[" + label + "]"
-			x += buffer.WriteString(x, tabRect.Y, theme.SectionCompendium, label)
+			x += buffer.WriteString(x, tabRect.Y, accentStyle, label)
 		} else {
 			label = " " + label + " "
 			x += buffer.WriteString(x, tabRect.Y, theme.TabInactive, label)
@@ -149,7 +129,6 @@ func (s *Shell) renderCompendiumSection(buffer *Buffer, rect Rect, theme *Theme)
 
 	// Render the active tab's list section in the remaining space.
 	bodyRect := Rect{X: rect.X, Y: rect.Y + 1, W: rect.W, H: rect.H - 1}
-	active := s.activeCompendiumSection()
 	s.renderListSection(buffer, bodyRect, theme, active, s.listDataForSection(active))
 }
 

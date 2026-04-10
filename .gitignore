@@ -51,6 +51,7 @@ Thumbs.db
 
 # DDB API test dumps
 ddb_*.json
+plan.md
 
 # Agents
 .claude/

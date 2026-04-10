@@ -46,8 +46,7 @@ const (
 	ActionConfirm         = model.ActionConfirm
 	ActionShowCodex       = model.ActionShowCodex
 	ActionShowNotes       = model.ActionShowNotes
-	ActionShowCompendium  = model.ActionShowCompendium
-	ActionSyncCompendium  = model.ActionSyncCompendium
+	ActionShowCompendium = model.ActionShowCompendium
 	ActionHelp            = model.ActionHelp
 	ActionSearch          = model.ActionSearch
 	ActionSwitchCampaign  = model.ActionSwitchCampaign

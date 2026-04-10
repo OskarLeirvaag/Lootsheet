@@ -12,19 +12,32 @@ const spellsURL = "https://character-service.dndbeyond.com/character/v5/game-dat
 // SpellComponentNames maps component IDs to display strings.
 var SpellComponentNames = map[int]string{1: "V", 2: "S", 3: "M"}
 
+// ClassNames maps standard class IDs to display names.
+var ClassNames = map[int]string{
+	1: "Barbarian", 2: "Bard", 3: "Cleric", 4: "Druid", 5: "Fighter",
+	6: "Monk", 7: "Paladin", 8: "Wizard", 9: "Sorcerer", 10: "Warlock",
+	11: "Ranger", 12: "Artificer",
+}
+
+// FetchSpellsResult contains spells and their class associations.
+type FetchSpellsResult struct {
+	Spells       []RawSpellEntry
+	SpellClasses map[int][]string // spell definition ID → class names
+}
+
 // FetchSpells retrieves all spells from DDB by iterating over class IDs.
-// Requires authentication. classIDs should come from the config's classConfigurations.
-// Common class IDs: 1=Barbarian, 2=Bard, 3=Cleric, 4=Druid, 5=Fighter,
-// 6=Monk, 7=Paladin, 8=Wizard, 9=Sorcerer, 10=Warlock, 11=Ranger, 12=Artificer.
-func (c *Client) FetchSpells(ctx context.Context, classIDs []int) ([]RawSpellEntry, error) {
+// Requires authentication. Tracks which classes each spell belongs to.
+func (c *Client) FetchSpells(ctx context.Context, classIDs []int) (*FetchSpellsResult, error) {
 	if !c.IsAuthenticated() {
-		return nil, fmt.Errorf("ddb spells: not authenticated")
+		return nil, ErrNotAuthenticated
 	}
 
 	seen := make(map[int]bool)
+	spellClasses := make(map[int][]string)
 	var all []RawSpellEntry
 
 	for _, classID := range classIDs {
+		className := ClassNames[classID]
 		url := fmt.Sprintf("%s?classId=%d&classLevel=20&sharingSetting=2", spellsURL, classID)
 
 		body, err := c.doGet(ctx, url)
@@ -43,8 +56,11 @@ func (c *Client) FetchSpells(ctx context.Context, classIDs []int) ([]RawSpellEnt
 		}
 		_ = json.Unmarshal(body, &rawResp)
 
-		for i, entry := range resp.Data {
-			defID := entry.Definition.ID
+		for i := range resp.Data {
+			defID := resp.Data[i].Definition.ID
+			if className != "" {
+				spellClasses[defID] = append(spellClasses[defID], className)
+			}
 			if seen[defID] {
 				continue // deduplicate across classes
 			}
@@ -56,7 +72,7 @@ func (c *Client) FetchSpells(ctx context.Context, classIDs []int) ([]RawSpellEnt
 		}
 	}
 
-	return all, nil
+	return &FetchSpellsResult{Spells: all, SpellClasses: spellClasses}, nil
 }
 
 // AllClassIDs returns the standard D&D class IDs for spell fetching.

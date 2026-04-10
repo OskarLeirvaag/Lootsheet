@@ -195,6 +195,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 				Title:       "Sync Compendium",
 				Prompt:      "Cobalt cookie (Enter to sync rules only):",
 				Placeholder: "paste cookie or leave empty",
+				Optional:    true,
 				HelpLines: []string{
 					"Rules and conditions sync without a cookie.",
 					"Monsters, spells, and items require a DDB cobalt cookie.",
@@ -353,7 +354,7 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (Handl
 	case ActionQuit, ActionRedraw:
 		return s.handleInputAction(action), true
 	case ActionConfirm:
-		if strings.TrimSpace(s.input.Value) == "" {
+		if !s.input.Optional && strings.TrimSpace(s.input.Value) == "" {
 			msg := s.input.RequiredMessage
 			if msg == "" {
 				msg = "Value is required."

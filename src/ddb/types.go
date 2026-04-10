@@ -141,6 +141,7 @@ type RawSpellDef struct {
 	Name                  string          `json:"name"`
 	Level                 int             `json:"level"`
 	School                string          `json:"school"`
+	Activation            SpellActivation `json:"activation"`
 	Components            []int           `json:"components"`
 	ComponentsDescription string          `json:"componentsDescription"`
 	Concentration         bool            `json:"concentration"`
@@ -152,6 +153,11 @@ type RawSpellDef struct {
 	IsHomebrew            bool            `json:"isHomebrew"`
 	Tags                  []string        `json:"tags"`
 	RawJSON               json.RawMessage `json:"-"`
+}
+
+type SpellActivation struct {
+	ActivationTime *int `json:"activationTime"`
+	ActivationType int  `json:"activationType"`
 }
 
 type SpellDuration struct {

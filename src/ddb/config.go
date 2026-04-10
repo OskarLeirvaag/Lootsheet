@@ -62,13 +62,20 @@ func (cfg *Config) SourceName(id int) string {
 	return ""
 }
 
+// CR fractional values used by DDB.
+const (
+	crOneEighth = 0.125
+	crOneQuarter = 0.25
+	crOneHalf   = 0.5
+)
+
 func formatCR(v float64) string {
 	switch v {
-	case 0.125:
+	case crOneEighth:
 		return "1/8"
-	case 0.25:
+	case crOneQuarter:
 		return "1/4"
-	case 0.5:
+	case crOneHalf:
 		return "1/2"
 	default:
 		if v == float64(int(v)) {
