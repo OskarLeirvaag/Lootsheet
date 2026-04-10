@@ -1,9 +1,11 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/OskarLeirvaag/Lootsheet/src/ddb"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/compendium"
 	"github.com/OskarLeirvaag/Lootsheet/src/render"
 )
@@ -191,3 +193,147 @@ const (
 	tuiCommandCompendiumToggleSource = "compendium.toggle_source"
 	tuiCommandCompendiumSync         = "compendium.sync"
 )
+
+// --- DDB → domain converters ---
+
+func convertDDBSources(sources []ddb.ConfigSource) []compendium.Source {
+	result := make([]compendium.Source, len(sources))
+	for i, s := range sources {
+		result[i] = compendium.Source{ID: s.ID, Name: s.Description}
+	}
+	return result
+}
+
+func convertDDBConditions(entries []ddb.ConfigConditionEntry) []compendium.Condition {
+	result := make([]compendium.Condition, len(entries))
+	for i, e := range entries {
+		result[i] = compendium.Condition{
+			DdbID:       e.Definition.ID,
+			Name:        e.Definition.Name,
+			Description: e.Definition.Description,
+		}
+	}
+	return result
+}
+
+func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
+	var result []compendium.Rule
+
+	for _, r := range cfg.Rules {
+		result = append(result, compendium.Rule{
+			DdbID:       r.ID,
+			Name:        r.Name,
+			Category:    "Rule",
+			Description: r.Description,
+		})
+	}
+	for _, a := range cfg.BasicActions {
+		result = append(result, compendium.Rule{
+			DdbID:       10000 + a.ID, // offset to avoid ID collision with rules
+			Name:        a.Name,
+			Category:    "Action",
+			Description: a.Description,
+		})
+	}
+	for _, wp := range cfg.WeaponProperties {
+		result = append(result, compendium.Rule{
+			DdbID:       20000 + wp.ID, // offset to avoid ID collision
+			Name:        wp.Name,
+			Category:    "Weapon Property",
+			Description: wp.Description,
+		})
+	}
+
+	return result
+}
+
+func convertDDBMonsters(monsters []ddb.RawMonster, cfg *ddb.Config) []compendium.Monster {
+	result := make([]compendium.Monster, len(monsters))
+	for i, m := range monsters {
+		sourceName := ""
+		if len(m.Sources) > 0 {
+			sourceName = cfg.SourceName(m.Sources[0].SourceID)
+		}
+		rawJSON := "{}"
+		if m.RawJSON != nil {
+			rawJSON = string(m.RawJSON)
+		}
+		result[i] = compendium.Monster{
+			DdbID:      m.ID,
+			Name:       m.Name,
+			CR:         cfg.ChallengeRatingLabel(m.ChallengeRatingID),
+			Type:       cfg.MonsterTypeName(m.TypeID),
+			Size:       cfg.CreatureSizeName(m.SizeID),
+			HP:         ddb.FormatMonsterHP(&m),
+			AC:         ddb.FormatMonsterAC(&m),
+			SourceName: sourceName,
+			DetailJSON: rawJSON,
+		}
+	}
+	return result
+}
+
+func convertDDBSpells(spells []ddb.RawSpellEntry, cfg *ddb.Config) []compendium.Spell {
+	result := make([]compendium.Spell, len(spells))
+	for i, entry := range spells {
+		def := &entry.Definition
+		sourceName := ""
+		if len(def.Sources) > 0 {
+			sourceName = cfg.SourceName(def.Sources[0].SourceID)
+		}
+		rawJSON := "{}"
+		if def.RawJSON != nil {
+			rawJSON = string(def.RawJSON)
+		}
+		result[i] = compendium.Spell{
+			DdbID:       def.ID,
+			Name:        def.Name,
+			Level:       def.Level,
+			School:      def.School,
+			CastingTime: formatActivation(def),
+			Range:       ddb.FormatSpellRange(def),
+			Components:  ddb.FormatSpellComponents(def),
+			Duration:    ddb.FormatSpellDuration(def),
+			Classes:     "", // populated per-class during fetch, but we aggregate
+			SourceName:  sourceName,
+			DetailJSON:  rawJSON,
+		}
+	}
+	return result
+}
+
+func convertDDBItems(items []ddb.RawItem, cfg *ddb.Config) []compendium.Item {
+	result := make([]compendium.Item, len(items))
+	for i, item := range items {
+		sourceName := ""
+		if len(item.Sources) > 0 {
+			sourceName = cfg.SourceName(item.Sources[0].SourceID)
+		}
+		rawJSON := "{}"
+		if item.RawJSON != nil {
+			rawJSON = string(item.RawJSON)
+		} else {
+			// Fallback: marshal the parsed struct
+			if b, err := json.Marshal(item); err == nil {
+				rawJSON = string(b)
+			}
+		}
+		result[i] = compendium.Item{
+			DdbID:      item.ID,
+			Name:       item.Name,
+			Type:       ddb.ItemTypeName(&item),
+			Rarity:     item.Rarity,
+			Attunement: item.CanAttune,
+			SourceName: sourceName,
+			DetailJSON: rawJSON,
+		}
+	}
+	return result
+}
+
+func formatActivation(def *ddb.RawSpellDef) string {
+	if def.Ritual {
+		return "1 action (ritual)"
+	}
+	return "1 action"
+}

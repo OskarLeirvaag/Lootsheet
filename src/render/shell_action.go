@@ -183,7 +183,30 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		if s.openSearch() {
 			return HandleResult{Redraw: true}
 		}
-	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
+	case ActionSell:
+		// On Settings Compendium tab, 's' triggers sync instead of sell.
+		if s.Section == SectionSettings && s.activeSettingsSection() == settingsTabCompendium {
+			s.input = &inputState{
+				Section: SectionSettings,
+				Action: ItemActionData{
+					ID:   "compendium.sync",
+					Mode: ItemActionModeInput,
+				},
+				Title:       "Sync Compendium",
+				Prompt:      "Cobalt cookie (Enter to sync rules only):",
+				Placeholder: "paste cookie or leave empty",
+				HelpLines: []string{
+					"Rules and conditions sync without a cookie.",
+					"Monsters, spells, and items require a DDB cobalt cookie.",
+					"The cookie is not stored.",
+				},
+			}
+			return HandleResult{Redraw: true}
+		}
+		if s.openAction(action) {
+			return HandleResult{Redraw: true}
+		}
+	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
 		if s.openAction(action) {
 			return HandleResult{Redraw: true}
 		}

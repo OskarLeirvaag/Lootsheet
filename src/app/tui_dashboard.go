@@ -12,7 +12,9 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
+	"github.com/OskarLeirvaag/Lootsheet/src/ddb"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/compendium"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/loot"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/notes"
@@ -842,6 +844,27 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 	case tuiCommandExportCSV, tuiCommandExportExcel, tuiCommandExportPDF:
 		return handleExportCommand(ctx, command.ID, loader)
 
+	case tuiCommandCompendiumToggleSource:
+		sourceID := 0
+		key := command.ItemKey
+		if strings.HasPrefix(key, "source-") {
+			fmt.Sscanf(strings.TrimPrefix(key, "source-"), "%d", &sourceID)
+		}
+		if sourceID > 0 {
+			if err := compendium.ToggleSource(ctx, databasePath, sourceID); err != nil {
+				return render.CommandResult{}, err
+			}
+			message = render.StatusMessage{Level: render.StatusSuccess, Text: "Source toggled."}
+		}
+
+	case tuiCommandCompendiumSync:
+		cobalt := strings.TrimSpace(command.Fields["amount"])
+		result, err := syncCompendium(ctx, databasePath, cobalt)
+		if err != nil {
+			return render.CommandResult{}, err
+		}
+		message = result
+
 	default:
 		return render.CommandResult{}, fmt.Errorf("unsupported TUI command %q", command.ID)
 	}
@@ -856,6 +879,86 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		Status:        message,
 		NavigateTo:    navigateTo,
 		SelectItemKey: selectItemKey,
+	}, nil
+}
+
+func syncCompendium(ctx context.Context, databasePath string, cobalt string) (render.StatusMessage, error) {
+	client := ddb.NewClient()
+	var synced []string
+
+	// Always fetch config (no auth needed) for sources, conditions, rules.
+	cfg, err := client.FetchConfig(ctx)
+	if err != nil {
+		return render.StatusMessage{}, fmt.Errorf("fetch DDB config: %w", err)
+	}
+
+	if err := compendium.UpsertSources(ctx, databasePath, convertDDBSources(cfg.Sources)); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("upsert sources: %w", err)
+	}
+	synced = append(synced, fmt.Sprintf("%d sources", len(cfg.Sources)))
+
+	conditions := convertDDBConditions(cfg.Conditions)
+	if err := compendium.UpsertConditions(ctx, databasePath, conditions); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("upsert conditions: %w", err)
+	}
+	synced = append(synced, fmt.Sprintf("%d conditions", len(conditions)))
+
+	rules := convertDDBRules(cfg)
+	if err := compendium.UpsertRules(ctx, databasePath, rules); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("upsert rules: %w", err)
+	}
+	synced = append(synced, fmt.Sprintf("%d rules", len(rules)))
+
+	// Authenticated content requires cobalt cookie.
+	if cobalt == "" {
+		return render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  "Synced: " + strings.Join(synced, ", ") + ". (No cookie — skipped monsters/spells/items.)",
+		}, nil
+	}
+
+	if err := client.Authenticate(ctx, cobalt); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("DDB auth failed: %w", err)
+	}
+
+	enabledSources, _ := compendium.EnabledSourceIDs(ctx, databasePath)
+
+	// Monsters.
+	rawMonsters, err := client.FetchMonsters(ctx, enabledSources)
+	if err != nil {
+		return render.StatusMessage{}, fmt.Errorf("fetch monsters: %w", err)
+	}
+	monsters := convertDDBMonsters(rawMonsters, cfg)
+	if err := compendium.UpsertMonsters(ctx, databasePath, monsters); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("upsert monsters: %w", err)
+	}
+	synced = append(synced, fmt.Sprintf("%d monsters", len(monsters)))
+
+	// Spells.
+	rawSpells, err := client.FetchSpells(ctx, ddb.AllClassIDs())
+	if err != nil {
+		return render.StatusMessage{}, fmt.Errorf("fetch spells: %w", err)
+	}
+	spells := convertDDBSpells(rawSpells, cfg)
+	if err := compendium.UpsertSpells(ctx, databasePath, spells); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("upsert spells: %w", err)
+	}
+	synced = append(synced, fmt.Sprintf("%d spells", len(spells)))
+
+	// Items.
+	rawItems, err := client.FetchItems(ctx)
+	if err != nil {
+		return render.StatusMessage{}, fmt.Errorf("fetch items: %w", err)
+	}
+	items := convertDDBItems(rawItems, cfg)
+	if err := compendium.UpsertItems(ctx, databasePath, items); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("upsert items: %w", err)
+	}
+	synced = append(synced, fmt.Sprintf("%d items", len(items)))
+
+	return render.StatusMessage{
+		Level: render.StatusSuccess,
+		Text:  "Synced: " + strings.Join(synced, ", ") + ".",
 	}, nil
 }
 
