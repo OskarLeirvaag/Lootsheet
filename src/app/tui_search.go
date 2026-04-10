@@ -29,6 +29,41 @@ func buildSearchHandler(ctx context.Context, loader TUIDataLoader) render.Search
 			}
 			return buildNotesItems(records, nil), nil
 
+		case render.CompendiumTabMonsters:
+			records, err := loader.ListCompendiumMonsters(ctx, query)
+			if err != nil {
+				return nil, err
+			}
+			return buildCompendiumMonsterItems(records), nil
+
+		case render.CompendiumTabSpells:
+			records, err := loader.ListCompendiumSpells(ctx, query)
+			if err != nil {
+				return nil, err
+			}
+			return buildCompendiumSpellItems(records), nil
+
+		case render.CompendiumTabItems:
+			records, err := loader.ListCompendiumItems(ctx, query)
+			if err != nil {
+				return nil, err
+			}
+			return buildCompendiumItemItems(records), nil
+
+		case render.CompendiumTabRules:
+			records, err := loader.ListCompendiumRules(ctx, query)
+			if err != nil {
+				return nil, err
+			}
+			return buildCompendiumRuleItems(records), nil
+
+		case render.CompendiumTabConditions:
+			records, err := loader.ListCompendiumConditions(ctx, query)
+			if err != nil {
+				return nil, err
+			}
+			return buildCompendiumConditionItems(records), nil
+
 		default:
 			return nil, nil
 		}

@@ -33,6 +33,13 @@ const (
 	compendiumTabItems      = model.CompendiumTabItems
 	compendiumTabRules      = model.CompendiumTabRules
 	compendiumTabConditions = model.CompendiumTabConditions
+
+	// Exported for use by the app package (search handler).
+	CompendiumTabMonsters   = model.CompendiumTabMonsters
+	CompendiumTabSpells     = model.CompendiumTabSpells
+	CompendiumTabItems      = model.CompendiumTabItems
+	CompendiumTabRules      = model.CompendiumTabRules
+	CompendiumTabConditions = model.CompendiumTabConditions
 )
 
 var (

@@ -147,6 +147,37 @@ func TestParseItemResponse(t *testing.T) {
 	}
 }
 
+func TestHTMLToMarkdown(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"empty", "", ""},
+		{"plain text", "hello world", "hello world"},
+		{"paragraphs", "<p>First.</p><p>Second.</p>", "First.\n\nSecond."},
+		{"bold and italic", "<p><strong>Bold</strong> and <em>italic</em></p>", "**Bold** and *italic*"},
+		{"heading", "<h3>Title</h3><p>Text.</p>", "### Title\n\nText."},
+		{"list", "<ul><li>One</li><li>Two</li></ul>", "- One\n- Two"},
+		{"hr", "<p>Above</p><hr><p>Below</p>", "Above\n\n---\n\nBelow"},
+		{"entities", "&amp; &lt; &gt; &ndash;", "& < > –"},
+		{"strips unknown tags", "<div><span>text</span></div>", "text"},
+		{
+			"ddb condition",
+			"<p><strong><em>Can't See.</em></strong> You fail checks.</p>",
+			"***Can't See.*** You fail checks.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := HTMLToMarkdown(tt.input)
+			if got != tt.want {
+				t.Errorf("HTMLToMarkdown:\n  input: %q\n  got:   %q\n  want:  %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseConfigConditions(t *testing.T) {
 	raw := `{"sources":[],"conditions":[{"definition":{"id":1,"name":"Blinded","description":"<p>Can't see.</p>","slug":"blinded","type":1}}],"basicActions":[{"id":1,"name":"Attack","description":"<p>Make an attack.</p>"}],"rules":[{"id":34,"name":"Race","description":"Affects your character."}],"weaponProperties":[{"id":1,"name":"Ammunition","description":"<p>Requires ammo.</p>"}],"challengeRatings":[{"id":1,"value":0}],"creatureSizes":[{"id":2,"name":"Tiny"}],"monsterTypes":[{"id":11,"name":"Humanoid"}]}`
 

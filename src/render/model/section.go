@@ -45,6 +45,8 @@ var CompendiumTabs = []Section{CompendiumTabMonsters, CompendiumTabSpells, Compe
 var SearchableSections = []Section{
 	SectionJournal, SectionQuests, SectionLoot,
 	SectionAssets, SectionCodex, SectionNotes,
+	CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems,
+	CompendiumTabRules, CompendiumTabConditions,
 }
 
 // OrderedSections lists sections in tab order.

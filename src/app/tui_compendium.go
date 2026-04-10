@@ -210,7 +210,7 @@ func convertDDBConditions(entries []ddb.ConfigConditionEntry) []compendium.Condi
 		result[i] = compendium.Condition{
 			DdbID:       e.Definition.ID,
 			Name:        e.Definition.Name,
-			Description: e.Definition.Description,
+			Description: ddb.HTMLToMarkdown(e.Definition.Description),
 		}
 	}
 	return result
@@ -224,7 +224,7 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 			DdbID:       r.ID,
 			Name:        r.Name,
 			Category:    "Rule",
-			Description: r.Description,
+			Description: ddb.HTMLToMarkdown(r.Description),
 		})
 	}
 	for _, a := range cfg.BasicActions {
@@ -232,7 +232,7 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 			DdbID:       10000 + a.ID, // offset to avoid ID collision with rules
 			Name:        a.Name,
 			Category:    "Action",
-			Description: a.Description,
+			Description: ddb.HTMLToMarkdown(a.Description),
 		})
 	}
 	for _, wp := range cfg.WeaponProperties {
@@ -240,7 +240,7 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 			DdbID:       20000 + wp.ID, // offset to avoid ID collision
 			Name:        wp.Name,
 			Category:    "Weapon Property",
-			Description: wp.Description,
+			Description: ddb.HTMLToMarkdown(wp.Description),
 		})
 	}
 
