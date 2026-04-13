@@ -621,11 +621,10 @@ func editorFixHeadingSpace(line string) string {
 
 	level := 0
 	for _, r := range trimmed {
-		if r == '#' {
-			level++
-		} else {
+		if r != '#' {
 			break
 		}
+		level++
 	}
 
 	if level == 0 || level > 3 {

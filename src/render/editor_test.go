@@ -7,6 +7,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const testHello = "hello"
+
 func newTestEditor() *editorState {
 	return &editorState{
 		CommandID: "notes.create",
@@ -109,7 +111,7 @@ func TestEditorSplitLine(t *testing.T) {
 	if len(e.Lines) != 4 {
 		t.Fatalf("expected 4 lines after split, got %d", len(e.Lines))
 	}
-	if e.Lines[0] != "hello" || e.Lines[1] != " world" {
+	if e.Lines[0] != testHello || e.Lines[1] != " world" {
 		t.Fatalf("split result: %q, %q", e.Lines[0], e.Lines[1])
 	}
 	if e.CurRow != 1 || e.CurCol != 0 {
@@ -960,7 +962,7 @@ func TestEditorSplitLineNoPrefixUnchanged(t *testing.T) {
 	if len(e.Lines) != 2 {
 		t.Fatalf("expected 2 lines, got %d", len(e.Lines))
 	}
-	if e.Lines[0] != "hello" || e.Lines[1] != " world" {
+	if e.Lines[0] != testHello || e.Lines[1] != " world" {
 		t.Fatalf("split = %q, %q; want 'hello', ' world'", e.Lines[0], e.Lines[1])
 	}
 	if e.CurCol != 0 {
@@ -1050,14 +1052,14 @@ func TestEditorLineStylesNumberedMarker(t *testing.T) {
 	line := []rune("12. item")
 	styles := editorLineStyles(line, false, &theme)
 	// "12." (3 chars) should be list marker.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if styles[i] != theme.EditorListMarker {
 			t.Fatalf("style[%d] should be EditorListMarker for '12.'", i)
 		}
 	}
 	// Space and text should be default.
 	if styles[3] != theme.Text {
-		t.Fatalf("style[3] should be Text, got something else")
+		t.Fatal("style[3] should be Text, got something else")
 	}
 }
 
@@ -1276,7 +1278,7 @@ func TestEditorFormatCommandDispatch(t *testing.T) {
 
 func TestEditorTabInsertsTwoSpaces(t *testing.T) {
 	e := &editorState{
-		Lines:  []string{"hello"},
+		Lines:  []string{testHello},
 		Mode:   editorModeInsert,
 		Focus:  editorFocusBody,
 		CurRow: 0,
@@ -1293,7 +1295,7 @@ func TestEditorTabInsertsTwoSpaces(t *testing.T) {
 	if !editorUndo(e) {
 		t.Fatal("undo should succeed")
 	}
-	if e.Lines[0] != "hello" {
+	if e.Lines[0] != testHello {
 		t.Fatalf("after undo: got %q, want 'hello'", e.Lines[0])
 	}
 }
@@ -1342,7 +1344,7 @@ func TestEditorExecuteSearch(t *testing.T) {
 		Lines: []string{"hello world", "hello again", "goodbye"},
 		Focus: editorFocusBody,
 	}
-	e.SearchQuery = "hello"
+	e.SearchQuery = testHello
 	editorExecuteSearch(e)
 
 	if len(e.SearchMatches) != 2 {
@@ -1368,7 +1370,7 @@ func TestEditorSearchCaseInsensitive(t *testing.T) {
 		Lines: []string{"Hello HELLO hello"},
 		Focus: editorFocusBody,
 	}
-	e.SearchQuery = "hello"
+	e.SearchQuery = testHello
 	editorExecuteSearch(e)
 
 	if len(e.SearchMatches) != 3 {
@@ -1466,10 +1468,10 @@ func TestEditorSearchKeyDispatch(t *testing.T) {
 	}
 
 	// Type "hello" and Enter.
-	for _, r := range "hello" {
+	for _, r := range testHello {
 		shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), ActionNone)
 	}
-	if shell.editor.SearchBuffer != "hello" {
+	if shell.editor.SearchBuffer != testHello {
 		t.Fatalf("search buffer = %q, want 'hello'", shell.editor.SearchBuffer)
 	}
 
@@ -1506,7 +1508,7 @@ func TestEditorSearchEscCancels(t *testing.T) {
 	shell.editor = &editorState{
 		CommandID: "notes.create",
 		Section:   SectionNotes,
-		Lines:     []string{"hello"},
+		Lines:     []string{testHello},
 		Mode:      editorModeNormal,
 		Focus:     editorFocusBody,
 	}
