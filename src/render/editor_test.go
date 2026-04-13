@@ -7,6 +7,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+const testHello = "hello"
+
 func newTestEditor() *editorState {
 	return &editorState{
 		CommandID: "notes.create",
@@ -109,7 +111,7 @@ func TestEditorSplitLine(t *testing.T) {
 	if len(e.Lines) != 4 {
 		t.Fatalf("expected 4 lines after split, got %d", len(e.Lines))
 	}
-	if e.Lines[0] != "hello" || e.Lines[1] != " world" {
+	if e.Lines[0] != testHello || e.Lines[1] != " world" {
 		t.Fatalf("split result: %q, %q", e.Lines[0], e.Lines[1])
 	}
 	if e.CurRow != 1 || e.CurCol != 0 {
@@ -820,5 +822,727 @@ func TestEditorSessionInsertMode(t *testing.T) {
 	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone), ActionNone)
 	if shell.editor.SessionNum != 1 {
 		t.Fatalf("session after backspace: got %d, want 1", shell.editor.SessionNum)
+	}
+}
+
+// --- List continuation tests ---
+
+func TestEditorListPrefix(t *testing.T) {
+	tests := []struct {
+		line string
+		want string
+	}{
+		{"- item", "- "},
+		{"* item", "* "},
+		{"1. item", "1. "},
+		{"12. item", "12. "},
+		{"123. item", "123. "},
+		{"> quote", "> "},
+		{"  - indented", "  - "},
+		{"  1. indented", "  1. "},
+		{"plain text", ""},
+		{"", ""},
+		{"- ", "- "},
+		{"1234. too many digits", ""},
+		{"hello. world", ""},
+	}
+	for _, tt := range tests {
+		got := editorListPrefix(tt.line)
+		if got != tt.want {
+			t.Errorf("editorListPrefix(%q) = %q, want %q", tt.line, got, tt.want)
+		}
+	}
+}
+
+func TestEditorNextListPrefix(t *testing.T) {
+	tests := []struct {
+		prefix string
+		want   string
+	}{
+		{"- ", "- "},
+		{"* ", "* "},
+		{"> ", "> "},
+		{"1. ", "2. "},
+		{"9. ", "10. "},
+		{"  1. ", "  2. "},
+		{"99. ", "100. "},
+	}
+	for _, tt := range tests {
+		got := editorNextListPrefix(tt.prefix)
+		if got != tt.want {
+			t.Errorf("editorNextListPrefix(%q) = %q, want %q", tt.prefix, got, tt.want)
+		}
+	}
+}
+
+func TestEditorSplitLineContinuesBullet(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"- hello"},
+		Mode:   editorModeInsert,
+		CurRow: 0,
+		CurCol: 7,
+	}
+	editorSplitLine(e)
+	if len(e.Lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(e.Lines))
+	}
+	if e.Lines[0] != "- hello" {
+		t.Fatalf("line[0] = %q, want '- hello'", e.Lines[0])
+	}
+	if e.Lines[1] != "- " {
+		t.Fatalf("line[1] = %q, want '- '", e.Lines[1])
+	}
+	if e.CurCol != 2 {
+		t.Fatalf("cursor col = %d, want 2", e.CurCol)
+	}
+}
+
+func TestEditorSplitLineContinuesNumber(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"1. first"},
+		Mode:   editorModeInsert,
+		CurRow: 0,
+		CurCol: 8,
+	}
+	editorSplitLine(e)
+	if len(e.Lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(e.Lines))
+	}
+	if e.Lines[1] != "2. " {
+		t.Fatalf("line[1] = %q, want '2. '", e.Lines[1])
+	}
+	if e.CurCol != 3 {
+		t.Fatalf("cursor col = %d, want 3", e.CurCol)
+	}
+}
+
+func TestEditorSplitLineExitsEmptyBullet(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"- previous", "- "},
+		Mode:   editorModeInsert,
+		CurRow: 1,
+		CurCol: 2,
+	}
+	editorSplitLine(e)
+	if len(e.Lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %v", len(e.Lines), e.Lines)
+	}
+	if e.Lines[1] != "" {
+		t.Fatalf("line[1] = %q, want empty", e.Lines[1])
+	}
+	if e.CurCol != 0 {
+		t.Fatalf("cursor col = %d, want 0", e.CurCol)
+	}
+}
+
+func TestEditorSplitLineContinuesBlockquote(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"> some text"},
+		Mode:   editorModeInsert,
+		CurRow: 0,
+		CurCol: 11,
+	}
+	editorSplitLine(e)
+	if len(e.Lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(e.Lines))
+	}
+	if e.Lines[1] != "> " {
+		t.Fatalf("line[1] = %q, want '> '", e.Lines[1])
+	}
+}
+
+func TestEditorSplitLineNoPrefixUnchanged(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"hello world"},
+		Mode:   editorModeInsert,
+		CurRow: 0,
+		CurCol: 5,
+	}
+	editorSplitLine(e)
+	if len(e.Lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(e.Lines))
+	}
+	if e.Lines[0] != testHello || e.Lines[1] != " world" {
+		t.Fatalf("split = %q, %q; want 'hello', ' world'", e.Lines[0], e.Lines[1])
+	}
+	if e.CurCol != 0 {
+		t.Fatalf("cursor col = %d, want 0", e.CurCol)
+	}
+}
+
+func TestEditorOpenBelowContinuesList(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"- item one"},
+		Mode:   editorModeNormal,
+		CurRow: 0,
+	}
+	editorOpenLineBelow(e)
+	if len(e.Lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d", len(e.Lines))
+	}
+	if e.Lines[1] != "- " {
+		t.Fatalf("line[1] = %q, want '- '", e.Lines[1])
+	}
+	if e.CurCol != 2 {
+		t.Fatalf("cursor col = %d, want 2", e.CurCol)
+	}
+	if e.Mode != editorModeInsert {
+		t.Fatal("expected insert mode")
+	}
+}
+
+func TestEditorOpenBelowNumberedList(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"3. third item"},
+		Mode:   editorModeNormal,
+		CurRow: 0,
+	}
+	editorOpenLineBelow(e)
+	if e.Lines[1] != "4. " {
+		t.Fatalf("line[1] = %q, want '4. '", e.Lines[1])
+	}
+	if e.CurCol != 3 {
+		t.Fatalf("cursor col = %d, want 3", e.CurCol)
+	}
+}
+
+func TestEditorOpenBelowEmptyBulletNoPrefix(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"- "},
+		Mode:   editorModeNormal,
+		CurRow: 0,
+	}
+	editorOpenLineBelow(e)
+	if e.Lines[1] != "" {
+		t.Fatalf("line[1] = %q, want empty (no continuation for empty bullet)", e.Lines[1])
+	}
+}
+
+// --- Syntax highlighting tests ---
+
+func TestEditorLineStylesHeading(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("# My Heading")
+	styles := editorLineStyles(line, false, &theme)
+	if len(styles) != len(line) {
+		t.Fatalf("styles len = %d, want %d", len(styles), len(line))
+	}
+	for i, s := range styles {
+		if s != theme.EditorHeading {
+			t.Fatalf("style[%d] should be EditorHeading", i)
+		}
+	}
+}
+
+func TestEditorLineStylesBulletMarker(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("- item text")
+	styles := editorLineStyles(line, false, &theme)
+	if styles[0] != theme.EditorListMarker {
+		t.Fatal("bullet '-' should use EditorListMarker style")
+	}
+	// Text after bullet should be default text.
+	if styles[2] != theme.Text {
+		t.Fatal("item text should use Text style")
+	}
+}
+
+func TestEditorLineStylesNumberedMarker(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("12. item")
+	styles := editorLineStyles(line, false, &theme)
+	// "12." (3 chars) should be list marker.
+	for i := range 3 {
+		if styles[i] != theme.EditorListMarker {
+			t.Fatalf("style[%d] should be EditorListMarker for '12.'", i)
+		}
+	}
+	// Space and text should be default.
+	if styles[3] != theme.Text {
+		t.Fatal("style[3] should be Text, got something else")
+	}
+}
+
+func TestEditorLineStylesCodeFence(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("some code here")
+	styles := editorLineStyles(line, true, &theme)
+	for i, s := range styles {
+		if s != theme.EditorCode {
+			t.Fatalf("style[%d] should be EditorCode inside code fence", i)
+		}
+	}
+}
+
+func TestEditorLineStylesBlockquote(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("> quoted text")
+	styles := editorLineStyles(line, false, &theme)
+	for i, s := range styles {
+		if s != theme.EditorBlockquote {
+			t.Fatalf("style[%d] should be EditorBlockquote", i)
+		}
+	}
+}
+
+func TestEditorLineStylesBold(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("normal **bold** normal")
+	styles := editorLineStyles(line, false, &theme)
+	// "normal " = indices 0-6 (Text)
+	if styles[0] != theme.Text {
+		t.Fatal("leading text should be Text style")
+	}
+	// "**bold**" = indices 7-14 (Bold)
+	for i := 7; i <= 14; i++ {
+		if styles[i] != theme.EditorBold {
+			t.Fatalf("style[%d] should be EditorBold", i)
+		}
+	}
+	// " normal" = indices 15-21 (Text)
+	if styles[15] != theme.Text {
+		t.Fatal("trailing text should be Text style")
+	}
+}
+
+func TestEditorLineStylesInlineCode(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("use `code` here")
+	styles := editorLineStyles(line, false, &theme)
+	// "`code`" = indices 4-9
+	for i := 4; i <= 9; i++ {
+		if styles[i] != theme.EditorCode {
+			t.Fatalf("style[%d] should be EditorCode", i)
+		}
+	}
+}
+
+func TestEditorLineStylesReference(t *testing.T) {
+	theme := DefaultTheme()
+	line := []rune("see @[quest/Goblin Cave] here")
+	styles := editorLineStyles(line, false, &theme)
+	// "@[quest/Goblin Cave]" = indices 4-23
+	for i := 4; i <= 23; i++ {
+		if styles[i] != theme.EditorReference {
+			t.Fatalf("style[%d] should be EditorReference", i)
+		}
+	}
+}
+
+// --- :fmt command tests ---
+
+func TestEditorFixHeadingSpace(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"# heading", "# heading"},       // already correct
+		{"#heading", "# heading"},         // missing space
+		{"##heading", "## heading"},       // level 2
+		{"###heading", "### heading"},     // level 3
+		{"####heading", "####heading"},    // level 4+ ignored
+		{"# ", "# "},                      // just prefix, no change
+		{"#", "#"},                         // bare hash, no change
+		{"normal text", "normal text"},    // no heading
+		{"  #indented", "  # indented"},   // indented heading
+	}
+	for _, tt := range tests {
+		got := editorFixHeadingSpace(tt.input)
+		if got != tt.want {
+			t.Errorf("editorFixHeadingSpace(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestEditorRenumberLists(t *testing.T) {
+	e := &editorState{
+		Lines: []string{
+			"1. first",
+			"5. second",
+			"3. third",
+		},
+	}
+	editorRenumberLists(e)
+	want := []string{"1. first", "2. second", "3. third"}
+	for i, line := range e.Lines {
+		if line != want[i] {
+			t.Errorf("line[%d] = %q, want %q", i, line, want[i])
+		}
+	}
+}
+
+func TestEditorRenumberListsSeparatedByBlank(t *testing.T) {
+	e := &editorState{
+		Lines: []string{
+			"1. alpha",
+			"1. beta",
+			"",
+			"5. gamma",
+			"5. delta",
+		},
+	}
+	editorRenumberLists(e)
+	want := []string{"1. alpha", "2. beta", "", "1. gamma", "2. delta"}
+	for i, line := range e.Lines {
+		if line != want[i] {
+			t.Errorf("line[%d] = %q, want %q", i, line, want[i])
+		}
+	}
+}
+
+func TestEditorRenumberNestedLists(t *testing.T) {
+	e := &editorState{
+		Lines: []string{
+			"1. first",
+			"  1. nested a",
+			"  5. nested b",
+			"3. second",
+		},
+	}
+	editorRenumberLists(e)
+	want := []string{"1. first", "  1. nested a", "  2. nested b", "2. second"}
+	for i, line := range e.Lines {
+		if line != want[i] {
+			t.Errorf("line[%d] = %q, want %q", i, line, want[i])
+		}
+	}
+}
+
+func TestEditorFormatDocument(t *testing.T) {
+	e := &editorState{
+		Lines: []string{
+			"#heading without space",
+			"\t- tab indented item",
+			"trailing spaces   ",
+			"1. first",
+			"1. second",
+			"1. third",
+			"```",
+			"\tcode with tabs preserved",
+			"```",
+			"##also needs space",
+		},
+	}
+	editorFormatDocument(e)
+
+	want := []string{
+		"# heading without space",
+		"  - tab indented item",
+		"trailing spaces",
+		"1. first",
+		"2. second",
+		"3. third",
+		"```",
+		"\tcode with tabs preserved",
+		"```",
+		"## also needs space",
+	}
+	for i, line := range e.Lines {
+		if line != want[i] {
+			t.Errorf("line[%d] = %q, want %q", i, line, want[i])
+		}
+	}
+	if !e.Dirty {
+		t.Fatal("expected dirty flag after format")
+	}
+}
+
+func TestEditorFormatCommandDispatch(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+	shell.editor = &editorState{
+		CommandID: "notes.create",
+		Section:   SectionNotes,
+		Lines:     []string{"#hello", "1. a", "1. b"},
+		Mode:      editorModeNormal,
+		Focus:     editorFocusBody,
+	}
+
+	// :fmt
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, ':', tcell.ModNone), ActionNone)
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'f', tcell.ModNone), ActionNone)
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'm', tcell.ModNone), ActionNone)
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, 't', tcell.ModNone), ActionNone)
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionNone)
+
+	if shell.editor.Lines[0] != "# hello" {
+		t.Fatalf("heading = %q, want '# hello'", shell.editor.Lines[0])
+	}
+	if shell.editor.Lines[2] != "2. b" {
+		t.Fatalf("list item = %q, want '2. b'", shell.editor.Lines[2])
+	}
+	if shell.editor.StatusText != "Formatted." {
+		t.Fatalf("status = %q, want 'Formatted.'", shell.editor.StatusText)
+	}
+}
+
+func TestEditorTabInsertsTwoSpaces(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{testHello},
+		Mode:   editorModeInsert,
+		Focus:  editorFocusBody,
+		CurRow: 0,
+		CurCol: 0,
+	}
+	editorInsertTab(e)
+	if e.Lines[0] != "  hello" {
+		t.Fatalf("after tab: got %q, want '  hello'", e.Lines[0])
+	}
+	if e.CurCol != 2 {
+		t.Fatalf("cursor col = %d, want 2", e.CurCol)
+	}
+	// Should be undoable as single action.
+	if !editorUndo(e) {
+		t.Fatal("undo should succeed")
+	}
+	if e.Lines[0] != testHello {
+		t.Fatalf("after undo: got %q, want 'hello'", e.Lines[0])
+	}
+}
+
+func TestEditorTabKeyDispatch(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+	shell.editor = &editorState{
+		CommandID: "notes.create",
+		Section:   SectionNotes,
+		Lines:     []string{"text"},
+		Mode:      editorModeInsert,
+		Focus:     editorFocusBody,
+		CurRow:    0,
+		CurCol:    0,
+	}
+
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone), ActionNone)
+	if shell.editor.Lines[0] != "  text" {
+		t.Fatalf("tab in insert body: got %q, want '  text'", shell.editor.Lines[0])
+	}
+}
+
+func TestEditorFormatUndoable(t *testing.T) {
+	e := &editorState{
+		Lines: []string{"#heading", "trailing  "},
+		Focus: editorFocusBody,
+	}
+	editorFormatDocument(e)
+	if e.Lines[0] != "# heading" {
+		t.Fatalf("after fmt: %q", e.Lines[0])
+	}
+
+	if !editorUndo(e) {
+		t.Fatal("undo should succeed after format")
+	}
+	if e.Lines[0] != "#heading" {
+		t.Fatalf("after undo: %q, want '#heading'", e.Lines[0])
+	}
+}
+
+// --- Search tests ---
+
+func TestEditorExecuteSearch(t *testing.T) {
+	e := &editorState{
+		Lines: []string{"hello world", "hello again", "goodbye"},
+		Focus: editorFocusBody,
+	}
+	e.SearchQuery = testHello
+	editorExecuteSearch(e)
+
+	if len(e.SearchMatches) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(e.SearchMatches))
+	}
+	if !e.SearchActive {
+		t.Fatal("expected SearchActive")
+	}
+	if e.SearchMatches[0].Row != 0 || e.SearchMatches[0].ColStart != 0 {
+		t.Fatalf("match[0] = (%d,%d), want (0,0)", e.SearchMatches[0].Row, e.SearchMatches[0].ColStart)
+	}
+	if e.SearchMatches[1].Row != 1 || e.SearchMatches[1].ColStart != 0 {
+		t.Fatalf("match[1] = (%d,%d), want (1,0)", e.SearchMatches[1].Row, e.SearchMatches[1].ColStart)
+	}
+	// Cursor should jump to first match.
+	if e.CurRow != 0 || e.CurCol != 0 {
+		t.Fatalf("cursor = (%d,%d), want (0,0)", e.CurRow, e.CurCol)
+	}
+}
+
+func TestEditorSearchCaseInsensitive(t *testing.T) {
+	e := &editorState{
+		Lines: []string{"Hello HELLO hello"},
+		Focus: editorFocusBody,
+	}
+	e.SearchQuery = testHello
+	editorExecuteSearch(e)
+
+	if len(e.SearchMatches) != 3 {
+		t.Fatalf("expected 3 case-insensitive matches, got %d", len(e.SearchMatches))
+	}
+}
+
+func TestEditorSearchNoMatches(t *testing.T) {
+	e := &editorState{
+		Lines: []string{"hello world"},
+		Focus: editorFocusBody,
+	}
+	e.SearchQuery = "xyz"
+	editorExecuteSearch(e)
+
+	if len(e.SearchMatches) != 0 {
+		t.Fatalf("expected 0 matches, got %d", len(e.SearchMatches))
+	}
+	if e.SearchActive {
+		t.Fatal("SearchActive should be false when no matches")
+	}
+}
+
+func TestEditorSearchNext(t *testing.T) {
+	e := &editorState{
+		Lines: []string{"aa bb aa"},
+		Focus: editorFocusBody,
+	}
+	e.SearchQuery = "aa"
+	editorExecuteSearch(e)
+
+	if len(e.SearchMatches) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(e.SearchMatches))
+	}
+	if e.SearchIndex != 0 {
+		t.Fatalf("initial index = %d, want 0", e.SearchIndex)
+	}
+
+	// n → next match.
+	editorSearchNext(e, 1)
+	if e.SearchIndex != 1 {
+		t.Fatalf("after n: index = %d, want 1", e.SearchIndex)
+	}
+	if e.CurCol != 6 {
+		t.Fatalf("after n: col = %d, want 6", e.CurCol)
+	}
+
+	// n → wrap to first.
+	editorSearchNext(e, 1)
+	if e.SearchIndex != 0 {
+		t.Fatalf("after wrap: index = %d, want 0", e.SearchIndex)
+	}
+
+	// N → wrap to last.
+	editorSearchNext(e, -1)
+	if e.SearchIndex != 1 {
+		t.Fatalf("after N wrap: index = %d, want 1", e.SearchIndex)
+	}
+}
+
+func TestEditorSearchJumpsToNearestMatch(t *testing.T) {
+	e := &editorState{
+		Lines:  []string{"first match", "second match", "third match"},
+		Focus:  editorFocusBody,
+		CurRow: 1,
+		CurCol: 5,
+	}
+	e.SearchQuery = "match"
+	editorExecuteSearch(e)
+
+	// Should jump to "match" on line 1 (col 7), since cursor is at (1,5).
+	if e.SearchIndex != 1 {
+		t.Fatalf("index = %d, want 1 (nearest at or after cursor)", e.SearchIndex)
+	}
+	if e.CurRow != 1 || e.CurCol != 7 {
+		t.Fatalf("cursor = (%d,%d), want (1,7)", e.CurRow, e.CurCol)
+	}
+}
+
+func TestEditorSearchKeyDispatch(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+	shell.editor = &editorState{
+		CommandID: "notes.create",
+		Section:   SectionNotes,
+		Lines:     []string{"hello world", "hello again"},
+		Mode:      editorModeNormal,
+		Focus:     editorFocusBody,
+	}
+
+	// / enters search mode.
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, '/', tcell.ModNone), ActionNone)
+	if shell.editor.Mode != editorModeSearch {
+		t.Fatal("expected search mode after /")
+	}
+
+	// Type "hello" and Enter.
+	for _, r := range testHello {
+		shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), ActionNone)
+	}
+	if shell.editor.SearchBuffer != testHello {
+		t.Fatalf("search buffer = %q, want 'hello'", shell.editor.SearchBuffer)
+	}
+
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionNone)
+	if shell.editor.Mode != editorModeNormal {
+		t.Fatal("expected normal mode after search Enter")
+	}
+	if len(shell.editor.SearchMatches) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(shell.editor.SearchMatches))
+	}
+	if !shell.editor.SearchActive {
+		t.Fatal("expected SearchActive after search")
+	}
+
+	// n goes to next match.
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'n', tcell.ModNone), ActionNone)
+	if shell.editor.SearchIndex != 1 {
+		t.Fatalf("after n: index = %d, want 1", shell.editor.SearchIndex)
+	}
+	if shell.editor.CurRow != 1 {
+		t.Fatalf("after n: row = %d, want 1", shell.editor.CurRow)
+	}
+
+	// N goes back.
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'N', tcell.ModNone), ActionNone)
+	if shell.editor.SearchIndex != 0 {
+		t.Fatalf("after N: index = %d, want 0", shell.editor.SearchIndex)
+	}
+}
+
+func TestEditorSearchEscCancels(t *testing.T) {
+	data := DefaultShellData()
+	shell := NewShell(&data)
+	shell.editor = &editorState{
+		CommandID: "notes.create",
+		Section:   SectionNotes,
+		Lines:     []string{testHello},
+		Mode:      editorModeNormal,
+		Focus:     editorFocusBody,
+	}
+
+	// / then Esc should cancel.
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, '/', tcell.ModNone), ActionNone)
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyRune, 'h', tcell.ModNone), ActionNone)
+	shell.handleEditorKeyEvent(tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone), ActionNone)
+
+	if shell.editor.Mode != editorModeNormal {
+		t.Fatal("expected normal mode after Esc")
+	}
+	if shell.editor.SearchActive {
+		t.Fatal("SearchActive should be false after Esc")
+	}
+}
+
+func TestEditorMatchAt(t *testing.T) {
+	e := &editorState{
+		SearchActive: true,
+		SearchMatches: []editorMatch{
+			{Row: 0, ColStart: 0, ColEnd: 5},
+			{Row: 1, ColStart: 3, ColEnd: 8},
+		},
+		SearchIndex: 1,
+	}
+
+	if idx := editorMatchAt(e, 0, 2); idx != 0 {
+		t.Fatalf("matchAt(0,2) = %d, want 0", idx)
+	}
+	if idx := editorMatchAt(e, 1, 5); idx != 1 {
+		t.Fatalf("matchAt(1,5) = %d, want 1", idx)
+	}
+	if idx := editorMatchAt(e, 2, 0); idx != -1 {
+		t.Fatalf("matchAt(2,0) = %d, want -1", idx)
 	}
 }

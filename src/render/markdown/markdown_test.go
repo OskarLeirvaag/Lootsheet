@@ -179,6 +179,33 @@ func TestParseMarkdownLinesNumberedList(t *testing.T) {
 	}
 }
 
+func TestParseMarkdownLinesIndentedList(t *testing.T) {
+	styles := testStyles()
+	lines := ParseMarkdownLines("  - Nested item", 40, styles)
+	if len(lines) == 0 {
+		t.Fatal("expected at least one line")
+	}
+	// First span should be the 2-space indent.
+	if lines[0].Spans[0].Text != "  " {
+		t.Fatalf("indent span = %q, want '  '", lines[0].Spans[0].Text)
+	}
+	// Second span should be the bullet.
+	if lines[0].Spans[1].Text != "- " {
+		t.Fatalf("bullet span = %q, want '- '", lines[0].Spans[1].Text)
+	}
+}
+
+func TestParseMarkdownLinesIndentedParagraph(t *testing.T) {
+	styles := testStyles()
+	lines := ParseMarkdownLines("    indented text", 40, styles)
+	if len(lines) == 0 {
+		t.Fatal("expected at least one line")
+	}
+	if lines[0].Spans[0].Text != "    " {
+		t.Fatalf("indent span = %q, want 4 spaces", lines[0].Spans[0].Text)
+	}
+}
+
 func TestParseMarkdownLinesMultipleBlocks(t *testing.T) {
 	styles := testStyles()
 	body := "# Title\n\n- Item one\n- Item two\n\n> A quote"

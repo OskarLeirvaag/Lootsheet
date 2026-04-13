@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 
@@ -25,6 +26,8 @@ func (s *Shell) handleEditorKeyEvent(event *tcell.EventKey, _ Action) (HandleRes
 	switch e.Mode {
 	case editorModeCommand:
 		return s.handleEditorCommandKey(event), true
+	case editorModeSearch:
+		return s.handleEditorSearchKey(event), true
 	case editorModeInsert:
 		return s.handleEditorInsertKey(event), true
 	default:
@@ -45,7 +48,7 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) HandleResult { //no
 			editorAdvanceFocus(e, -1)
 			return HandleResult{Redraw: true}
 		case tcell.KeyEsc:
-			return s.editorTryQuit(false)
+			return HandleResult{Redraw: true}
 		case tcell.KeyRune:
 			switch event.Rune() {
 			case 'j':
@@ -74,7 +77,9 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) HandleResult { //no
 	// Body focus — full vim normal mode.
 	switch event.Key() { //nolint:exhaustive // only handle relevant keys
 	case tcell.KeyEsc:
-		return s.editorTryQuit(false)
+		e.SearchActive = false
+		e.SearchMatches = nil
+		return HandleResult{Redraw: true}
 	case tcell.KeyTab:
 		editorAdvanceFocus(e, 1)
 		return HandleResult{Redraw: true}
@@ -164,6 +169,13 @@ func (s *Shell) handleEditorNormalKey(event *tcell.EventKey) HandleResult { //no
 		case ':':
 			e.Mode = editorModeCommand
 			e.CmdBuffer = ""
+		case '/':
+			e.Mode = editorModeSearch
+			e.SearchBuffer = ""
+		case 'n':
+			editorSearchNext(e, 1)
+		case 'N':
+			editorSearchNext(e, -1)
 		default:
 		}
 		return HandleResult{Redraw: true}
@@ -239,6 +251,9 @@ func (s *Shell) handleEditorInsertKey(event *tcell.EventKey) HandleResult {
 		return HandleResult{Redraw: true}
 	case tcell.KeyDown:
 		editorMoveDown(e)
+		return HandleResult{Redraw: true}
+	case tcell.KeyTab:
+		editorInsertTab(e)
 		return HandleResult{Redraw: true}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		editorBackspace(e)
@@ -321,6 +336,42 @@ func (s *Shell) handleEditorRefPickerKey(event *tcell.EventKey) HandleResult {
 	return HandleResult{Redraw: true}
 }
 
+func (s *Shell) handleEditorSearchKey(event *tcell.EventKey) HandleResult {
+	e := s.editor
+	switch event.Key() { //nolint:exhaustive // only handle relevant keys
+	case tcell.KeyEsc:
+		e.Mode = editorModeNormal
+		e.SearchBuffer = ""
+		e.SearchActive = false
+		e.SearchMatches = nil
+		return HandleResult{Redraw: true}
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		if len(e.SearchBuffer) > 0 {
+			runes := []rune(e.SearchBuffer)
+			e.SearchBuffer = string(runes[:len(runes)-1])
+		} else {
+			e.Mode = editorModeNormal
+		}
+		return HandleResult{Redraw: true}
+	case tcell.KeyEnter:
+		e.Mode = editorModeNormal
+		e.SearchQuery = e.SearchBuffer
+		e.SearchBuffer = ""
+		editorExecuteSearch(e)
+		if len(e.SearchMatches) == 0 {
+			e.StatusText = "Pattern not found: " + e.SearchQuery
+			e.SearchActive = false
+		} else {
+			e.StatusText = fmt.Sprintf("[%d/%d]", e.SearchIndex+1, len(e.SearchMatches))
+		}
+		return HandleResult{Redraw: true}
+	case tcell.KeyRune:
+		e.SearchBuffer += string(event.Rune())
+		return HandleResult{Redraw: true}
+	}
+	return HandleResult{Redraw: true}
+}
+
 func (s *Shell) handleEditorCommandKey(event *tcell.EventKey) HandleResult {
 	e := s.editor
 	switch event.Key() { //nolint:exhaustive // only handle relevant keys
@@ -360,6 +411,10 @@ func (s *Shell) executeEditorCommand() HandleResult {
 		return s.editorForceQuit()
 	case "wq", "x":
 		return s.editorSave(true)
+	case "fmt":
+		editorFormatDocument(e)
+		e.StatusText = "Formatted."
+		return HandleResult{Redraw: true}
 	default:
 		e.StatusText = "Unknown command: :" + cmd
 		return HandleResult{Redraw: true}

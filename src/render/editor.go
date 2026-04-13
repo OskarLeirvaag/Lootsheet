@@ -11,6 +11,7 @@ const (
 	editorModeNormal  editorVimMode = iota
 	editorModeInsert                // typing text
 	editorModeCommand               // after typing ':'
+	editorModeSearch                // after typing '/'
 )
 
 type editorFocus int
@@ -63,8 +64,22 @@ type editorState struct {
 	// Status line message.
 	StatusText string
 
+	// Search (/ in normal mode).
+	SearchQuery   string          // current search term
+	SearchBuffer  string          // input buffer while typing search
+	SearchMatches []editorMatch   // all matches in document
+	SearchIndex   int             // index of current match in SearchMatches
+	SearchActive  bool            // true while matches are highlighted
+
 	// Reference picker (Ctrl+A in insert mode).
 	refPicker *pickerState
+}
+
+// editorMatch is a single search hit location.
+type editorMatch struct {
+	Row      int
+	ColStart int
+	ColEnd   int // exclusive
 }
 
 // --- Open editor ---
