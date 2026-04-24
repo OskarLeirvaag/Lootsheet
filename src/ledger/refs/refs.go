@@ -135,6 +135,35 @@ func ListBySource(ctx context.Context, db *sql.DB, sourceType string, campaignID
 	return result, nil
 }
 
+// FindSourcesReferencingTarget returns distinct source_ids for a given source_type
+// whose references have a target_name matching the LIKE pattern. Used by search
+// to find entries that reference a matching target — e.g. searching "Bryn"
+// returns notes that contain @[person/Bryn Sander] even if the note's title
+// or own body text doesn't contain "Bryn" literally.
+func FindSourcesReferencingTarget(ctx context.Context, db *sql.DB, campaignID, sourceType, likePattern string) ([]string, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT DISTINCT source_id FROM entity_references
+		 WHERE campaign_id = ? AND source_type = ? AND target_name LIKE ? ESCAPE '\'`,
+		campaignID, sourceType, likePattern)
+	if err != nil {
+		return nil, fmt.Errorf("find sources referencing target: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan source_id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate source_ids: %w", err)
+	}
+	return ids, nil
+}
+
 // DeleteBySource removes all references for a given source entity.
 func DeleteBySource(ctx context.Context, db *sql.DB, sourceType, sourceID string) error {
 	if _, err := db.ExecContext(ctx,
