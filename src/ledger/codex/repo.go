@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -305,7 +306,10 @@ func ListEntries(ctx context.Context, databasePath string, campaignID string) ([
 	})
 }
 
-// SearchEntries returns codex entries matching a LIKE query.
+// SearchEntries returns codex entries matching the query.
+// First tries an FTS5 prefix search; if that yields no results, falls back to
+// a case-insensitive LIKE substring match across all searchable fields. The
+// LIKE fallback catches cases where the FTS tokenizer misses the term.
 func SearchEntries(ctx context.Context, databasePath string, campaignID string, query string) ([]CodexEntry, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -313,45 +317,160 @@ func SearchEntries(ctx context.Context, databasePath string, campaignID string, 
 	}
 
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]CodexEntry, error) {
-		rows, err := db.QueryContext(ctx, `
-			SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
-			       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
-			       e.created_at, e.updated_at
-			FROM codex_entries e
-			JOIN codex_types t ON t.id = e.type_id
-			JOIN codex_fts f ON f.rowid = e.rowid
-			WHERE codex_fts MATCH ?
-			   AND e.campaign_id = ?
-			ORDER BY e.party_member DESC, t.name ASC, e.name ASC
-		`, query, campaignID)
-		if err != nil {
-			return nil, fmt.Errorf("search codex entries: %w", err)
-		}
-		defer rows.Close()
-
-		entries := []CodexEntry{}
-		for rows.Next() {
-			var e CodexEntry
-			var partyMember int
-
-			if err := rows.Scan(
-				&e.ID, &e.TypeID, &e.TypeName, &e.Name, &e.Title, &e.Location, &e.Faction,
-				&e.Disposition, &partyMember, &e.PlayerName, &e.Class, &e.Race, &e.Background,
-				&e.Description, &e.Notes, &e.CreatedAt, &e.UpdatedAt,
-			); err != nil {
-				return nil, fmt.Errorf("scan codex entry row: %w", err)
+		direct, err := searchEntriesFTS(ctx, db, campaignID, query)
+		if err != nil || len(direct) == 0 {
+			// Fall back to LIKE so the user still gets results on FTS tokenizer
+			// quirks or FTS index inconsistencies.
+			direct, err = searchEntriesLIKE(ctx, db, campaignID, query)
+			if err != nil {
+				return nil, err
 			}
-
-			e.PartyMember = partyMember != 0
-			entries = append(entries, e)
 		}
 
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("iterate codex entry rows: %w", err)
+		// Also include codex entries whose refs have a target_name matching
+		// the query — so "Bryn" returns codex entries that reference Bryn.
+		indirect, err := searchEntriesByReference(ctx, db, campaignID, query)
+		if err != nil {
+			return direct, nil //nolint:nilerr // reference expansion is best-effort
 		}
 
-		return entries, nil
+		return mergeCodexEntries(direct, indirect), nil
 	})
+}
+
+// searchEntriesByReference returns codex entries that have a ref whose
+// target_name matches the query.
+func searchEntriesByReference(ctx context.Context, db *sql.DB, campaignID, query string) ([]CodexEntry, error) {
+	ids, err := refs.FindSourcesReferencingTarget(ctx, db, campaignID, "codex", ledger.LIKEPattern(query))
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]any, 0, len(ids)+1)
+	args = append(args, campaignID)
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+
+	// Only '?' placeholders are concatenated; actual IDs are bound via args.
+	//nolint:gosec // G202: only '?' placeholders are concatenated, never user input
+	sqlStr := `
+		SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
+		       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
+		       e.created_at, e.updated_at
+		FROM codex_entries e
+		JOIN codex_types t ON t.id = e.type_id
+		WHERE e.campaign_id = ? AND e.id IN (` + strings.Join(placeholders, ",") + `)
+		ORDER BY e.party_member DESC, t.name ASC, e.name ASC`
+
+	rows, err := db.QueryContext(ctx, sqlStr, args...)
+	if err != nil {
+		return nil, fmt.Errorf("search codex entries (refs): %w", err)
+	}
+	defer rows.Close()
+	return scanCodexEntries(rows)
+}
+
+// mergeCodexEntries combines two entry slices, deduplicating by ID.
+func mergeCodexEntries(a, b []CodexEntry) []CodexEntry {
+	if len(b) == 0 {
+		return a
+	}
+	seen := make(map[string]bool, len(a))
+	for i := range a {
+		seen[a[i].ID] = true
+	}
+	result := slices.Clone(a)
+	for i := range b {
+		if !seen[b[i].ID] {
+			seen[b[i].ID] = true
+			result = append(result, b[i])
+		}
+	}
+	return result
+}
+
+// searchEntriesFTS runs an FTS5 prefix query across all indexed codex columns.
+func searchEntriesFTS(ctx context.Context, db *sql.DB, campaignID, query string) ([]CodexEntry, error) {
+	ftsQuery := ledger.FTSQuery(query)
+	if ftsQuery == "" {
+		return nil, nil
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
+		       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
+		       e.created_at, e.updated_at
+		FROM codex_entries e
+		JOIN codex_types t ON t.id = e.type_id
+		JOIN codex_fts f ON f.rowid = e.rowid
+		WHERE codex_fts MATCH ?
+		   AND e.campaign_id = ?
+		ORDER BY e.party_member DESC, t.name ASC, e.name ASC
+	`, ftsQuery, campaignID)
+	if err != nil {
+		return nil, fmt.Errorf("search codex entries (fts): %w", err)
+	}
+	defer rows.Close()
+
+	return scanCodexEntries(rows)
+}
+
+// searchEntriesLIKE runs a substring LIKE match across searchable fields.
+func searchEntriesLIKE(ctx context.Context, db *sql.DB, campaignID, query string) ([]CodexEntry, error) {
+	pattern := ledger.LIKEPattern(query)
+	rows, err := db.QueryContext(ctx, `
+		SELECT e.id, e.type_id, t.name, e.name, e.title, e.location, e.faction, e.disposition,
+		       e.party_member, e.player_name, e.class, e.race, e.background, e.description, e.notes,
+		       e.created_at, e.updated_at
+		FROM codex_entries e
+		JOIN codex_types t ON t.id = e.type_id
+		WHERE e.campaign_id = ?
+		  AND (e.name LIKE ? ESCAPE '\'
+		    OR e.title LIKE ? ESCAPE '\'
+		    OR e.location LIKE ? ESCAPE '\'
+		    OR e.faction LIKE ? ESCAPE '\'
+		    OR e.player_name LIKE ? ESCAPE '\'
+		    OR e.class LIKE ? ESCAPE '\'
+		    OR e.race LIKE ? ESCAPE '\'
+		    OR e.background LIKE ? ESCAPE '\'
+		    OR e.description LIKE ? ESCAPE '\'
+		    OR e.notes LIKE ? ESCAPE '\')
+		ORDER BY e.party_member DESC, t.name ASC, e.name ASC
+	`, campaignID, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("search codex entries (like): %w", err)
+	}
+	defer rows.Close()
+
+	return scanCodexEntries(rows)
+}
+
+// scanCodexEntries decodes rows shared by FTS and LIKE search paths.
+func scanCodexEntries(rows *sql.Rows) ([]CodexEntry, error) {
+	entries := []CodexEntry{}
+	for rows.Next() {
+		var e CodexEntry
+		var partyMember int
+
+		if err := rows.Scan(
+			&e.ID, &e.TypeID, &e.TypeName, &e.Name, &e.Title, &e.Location, &e.Faction,
+			&e.Disposition, &partyMember, &e.PlayerName, &e.Class, &e.Race, &e.Background,
+			&e.Description, &e.Notes, &e.CreatedAt, &e.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan codex entry row: %w", err)
+		}
+
+		e.PartyMember = partyMember != 0
+		entries = append(entries, e)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate codex entry rows: %w", err)
+	}
+	return entries, nil
 }
 
 // ListAllReferences returns all entity_references rows for codex source type, grouped by source_id.
