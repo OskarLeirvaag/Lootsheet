@@ -23,9 +23,10 @@ func (c *Client) FetchMonsters(ctx context.Context, sourceIDs []int) ([]RawMonst
 
 	for {
 		var b strings.Builder
-		fmt.Fprintf(&b, "%s?skip=%d&take=%d", monsterURL, skip, take)
+		// strings.Builder.Write never errors; discard Fprintf return values.
+		_, _ = fmt.Fprintf(&b, "%s?skip=%d&take=%d", monsterURL, skip, take)
 		for _, id := range sourceIDs {
-			fmt.Fprintf(&b, "&sources=%d", id)
+			_, _ = fmt.Fprintf(&b, "&sources=%d", id)
 		}
 		url := b.String()
 

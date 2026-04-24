@@ -167,11 +167,12 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 
 func buildMonsterDetailBody(m *compendium.Monster) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "## %s\n", m.Name)
-	fmt.Fprintf(&b, "*%s %s, CR %s*\n\n", m.Size, m.Type, m.CR)
-	fmt.Fprintf(&b, "**AC** %s  |  **HP** %s\n\n", m.AC, m.HP)
+	// strings.Builder.Write never errors; discard Fprintf return values.
+	_, _ = fmt.Fprintf(&b, "## %s\n", m.Name)
+	_, _ = fmt.Fprintf(&b, "*%s %s, CR %s*\n\n", m.Size, m.Type, m.CR)
+	_, _ = fmt.Fprintf(&b, "**AC** %s  |  **HP** %s\n\n", m.AC, m.HP)
 	if m.SourceName != "" {
-		fmt.Fprintf(&b, "Source: %s\n", m.SourceName)
+		_, _ = fmt.Fprintf(&b, "Source: %s\n", m.SourceName)
 	}
 	return b.String()
 }
