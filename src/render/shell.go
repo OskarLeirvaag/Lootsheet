@@ -72,6 +72,7 @@ type Shell struct {
 
 	editorSaveInFlight  bool
 	editorQuitAfterSave bool
+	pasteActive         bool
 	quitConfirm         bool
 	disconnected        bool
 }

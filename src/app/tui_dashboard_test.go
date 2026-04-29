@@ -39,6 +39,32 @@ func TestBuildTUIShellDataForUninitializedDatabase(t *testing.T) {
 	}
 }
 
+func TestBuildTUIShellDataRemoteDoesNotEagerLoadCompendiumRows(t *testing.T) {
+	databasePath := testutil.InitTestDB(t)
+	campaignID := testutil.DefaultCampaignID(t, databasePath)
+	assets, err := config.LoadInitAssets()
+	if err != nil {
+		t.Fatalf("load init assets: %v", err)
+	}
+	loader := &sqliteDataLoader{
+		databasePath: databasePath,
+		campaignID:   campaignID,
+		assets:       assets,
+	}
+
+	data, err := buildTUIShellDataWithOptions(context.Background(), loader, tuiShellDataOptions{Remote: true})
+	if err != nil {
+		t.Fatalf("build remote shell data: %v", err)
+	}
+
+	if len(data.CompendiumMonsters.Items) != 0 {
+		t.Fatalf("remote compendium monsters items = %d, want 0", len(data.CompendiumMonsters.Items))
+	}
+	if !strings.Contains(strings.Join(data.CompendiumMonsters.EmptyLines, "\n"), "server-side monsters") {
+		t.Fatalf("remote compendium empty lines = %#v", data.CompendiumMonsters.EmptyLines)
+	}
+}
+
 func TestBuildTUIShellDataDashboardUsesReadOnlySummaries(t *testing.T) {
 	assets, err := config.LoadInitAssets()
 	if err != nil {

@@ -228,7 +228,10 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 		return HandleResult{Quit: true}
 	}
 
-	action := keymap.Resolve(event)
+	action := ActionNone
+	if !s.pasteActive {
+		action = keymap.Resolve(event)
+	}
 
 	if s.quitConfirm {
 		switch action {
@@ -273,6 +276,25 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 	}
 
 	return s.HandleAction(action)
+}
+
+// HandlePasteEvent tracks bracketed paste so pasted text is not interpreted as
+// global shortcuts and redraws only once after the paste completes.
+func (s *Shell) HandlePasteEvent(event *tcell.EventPaste) HandleResult {
+	if s == nil || event == nil {
+		return HandleResult{}
+	}
+	if event.Start() {
+		s.pasteActive = true
+		return HandleResult{}
+	}
+
+	wasActive := s.pasteActive
+	s.pasteActive = false
+	if wasActive && s.input != nil {
+		return HandleResult{Redraw: true}
+	}
+	return HandleResult{}
 }
 
 func (s *Shell) handleConfirmAction(action Action) HandleResult {
@@ -350,6 +372,15 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (Handl
 		return HandleResult{}, false
 	}
 
+	if event.Key() == tcell.KeyRune {
+		s.input.Value += string(event.Rune())
+		s.input.ErrorText = ""
+		return HandleResult{Redraw: !s.pasteActive}, true
+	}
+	if s.pasteActive {
+		return HandleResult{}, true
+	}
+
 	switch action {
 	case ActionQuit, ActionRedraw:
 		return s.handleInputAction(action), true
@@ -386,10 +417,6 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (Handl
 			return HandleResult{}, true
 		}
 		s.input.Value = ""
-		s.input.ErrorText = ""
-		return HandleResult{Redraw: true}, true
-	case tcell.KeyRune:
-		s.input.Value += string(event.Rune())
 		s.input.ErrorText = ""
 		return HandleResult{Redraw: true}, true
 	default:

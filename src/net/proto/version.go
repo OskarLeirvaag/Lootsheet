@@ -14,12 +14,12 @@ const ProtocolVersion uint32 = 1
 
 // AppVersion is the current application version, exchanged during AUTH so
 // each side can check compatibility against its minimum requirement.
-const AppVersion = "0.6.0"
+const AppVersion = "0.6.2"
 
 // MinServerVersion is the oldest server version this client can work with.
 // Bump this when the client starts relying on a server feature that older
 // servers don't have.
-const MinServerVersion = "0.6.0"
+const MinServerVersion = "0.6.2"
 
 // MinClientVersion is the oldest client version this server will accept.
 // Bump this when the server changes behaviour that older clients can't handle.

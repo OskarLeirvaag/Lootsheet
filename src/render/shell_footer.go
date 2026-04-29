@@ -14,7 +14,7 @@ func (s *Shell) footerHelpText(keymap KeyMap) string {
 		return ":w save  :q quit  :wq save+quit  i insert  Esc normal/close  Tab title/body"
 	}
 	if s.input != nil {
-		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel  q cancel"
+		return "Enter submit  Backspace delete  Ctrl+U clear  Esc cancel"
 	}
 	if s.glossary != nil {
 		return "? close  Esc cancel  q cancel"

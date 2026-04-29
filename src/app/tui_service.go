@@ -18,7 +18,7 @@ type tuiService struct {
 func (s *tuiService) DatabasePath() string { return s.databasePath }
 
 func (s *tuiService) BuildShellData(ctx context.Context) (model.ShellData, error) {
-	return buildTUIShellData(ctx, s.loader)
+	return buildTUIShellDataWithOptions(ctx, s.loader, tuiShellDataOptions{Remote: true})
 }
 
 func (s *tuiService) HandleCommand(ctx context.Context, cmd model.Command) (model.CommandResult, error) {
@@ -68,4 +68,8 @@ func (s *tuiService) SearchNotes(ctx context.Context, query string) ([]model.Lis
 		return nil, err
 	}
 	return buildNotesItems(records, nil), nil
+}
+
+func (s *tuiService) SearchCompendium(ctx context.Context, section model.Section, query string) ([]model.ListItemData, error) {
+	return searchCompendium(ctx, s.loader, section, query)
 }

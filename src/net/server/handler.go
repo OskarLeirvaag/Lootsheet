@@ -21,6 +21,7 @@ type TUIService interface {
 	ListCampaigns(ctx context.Context) ([]model.CampaignOption, error)
 	SearchCodexEntries(ctx context.Context, query string) ([]model.ListItemData, error)
 	SearchNotes(ctx context.Context, query string) ([]model.ListItemData, error)
+	SearchCompendium(ctx context.Context, section model.Section, query string) ([]model.ListItemData, error)
 	DatabasePath() string
 }
 
@@ -46,6 +47,8 @@ func dispatch(ctx context.Context, req *pb.Request, svc TUIService) *pb.Response
 		return handleSearchCodex(ctx, req.GetSearchCodex(), svc)
 	case pb.Method_SEARCH_NOTES:
 		return handleSearchNotes(ctx, req.GetSearchNotes(), svc)
+	case pb.Method_SEARCH_COMPENDIUM:
+		return handleSearchCompendium(ctx, req.GetSearchCompendium(), svc)
 	case pb.Method_DOWNLOAD_DATABASE:
 		return handleDownloadDatabase(svc)
 	case pb.Method_UPLOAD_CAMPAIGN:
@@ -167,6 +170,26 @@ func handleSearchNotes(ctx context.Context, req *pb.SearchRequest, svc TUIServic
 		Ok: true,
 		Payload: &pb.Response_SearchNotes{
 			SearchNotes: &pb.SearchResponse{
+				Items: pb.ListItemsToProto(items),
+			},
+		},
+	}
+}
+
+func handleSearchCompendium(ctx context.Context, req *pb.SearchRequest, svc TUIService) *pb.Response {
+	if req == nil {
+		return errorResponse("search_compendium: missing request")
+	}
+
+	items, err := svc.SearchCompendium(ctx, model.Section(req.Section), req.Query)
+	if err != nil {
+		return errorResponse(err.Error())
+	}
+
+	return &pb.Response{
+		Ok: true,
+		Payload: &pb.Response_SearchCompendium{
+			SearchCompendium: &pb.SearchResponse{
 				Items: pb.ListItemsToProto(items),
 			},
 		},

@@ -14,6 +14,10 @@ import (
 // timeouts should be added here when the data source moves to a remote server.
 func buildSearchHandler(ctx context.Context, loader TUIDataLoader) render.SearchHandler {
 	return func(section render.Section, query string) ([]render.ListItemData, error) {
+		if items, handled, err := searchCompendiumIfApplicable(ctx, loader, section, query); handled {
+			return items, err
+		}
+
 		switch section {
 		case render.SectionCodex:
 			entries, err := loader.SearchCodexEntries(ctx, query)
@@ -29,43 +33,58 @@ func buildSearchHandler(ctx context.Context, loader TUIDataLoader) render.Search
 			}
 			return buildNotesItems(records, nil), nil
 
-		case render.CompendiumTabMonsters:
-			records, err := loader.ListCompendiumMonsters(ctx, query)
-			if err != nil {
-				return nil, err
-			}
-			return buildCompendiumMonsterItems(records), nil
-
-		case render.CompendiumTabSpells:
-			records, err := loader.ListCompendiumSpells(ctx, query)
-			if err != nil {
-				return nil, err
-			}
-			return buildCompendiumSpellItems(records), nil
-
-		case render.CompendiumTabItems:
-			records, err := loader.ListCompendiumItems(ctx, query)
-			if err != nil {
-				return nil, err
-			}
-			return buildCompendiumItemItems(records), nil
-
-		case render.CompendiumTabRules:
-			records, err := loader.ListCompendiumRules(ctx, query)
-			if err != nil {
-				return nil, err
-			}
-			return buildCompendiumRuleItems(records), nil
-
-		case render.CompendiumTabConditions:
-			records, err := loader.ListCompendiumConditions(ctx, query)
-			if err != nil {
-				return nil, err
-			}
-			return buildCompendiumConditionItems(records), nil
-
 		default:
 			return nil, nil
 		}
+	}
+}
+
+func searchCompendium(ctx context.Context, loader TUIDataLoader, section render.Section, query string) ([]render.ListItemData, error) {
+	items, handled, err := searchCompendiumIfApplicable(ctx, loader, section, query)
+	if !handled {
+		return nil, nil
+	}
+	return items, err
+}
+
+func searchCompendiumIfApplicable(ctx context.Context, loader TUIDataLoader, section render.Section, query string) ([]render.ListItemData, bool, error) {
+	switch section {
+	case render.CompendiumTabMonsters:
+		records, err := loader.ListCompendiumMonsters(ctx, query)
+		if err != nil {
+			return nil, true, err
+		}
+		return buildCompendiumMonsterItems(records), true, nil
+
+	case render.CompendiumTabSpells:
+		records, err := loader.ListCompendiumSpells(ctx, query)
+		if err != nil {
+			return nil, true, err
+		}
+		return buildCompendiumSpellItems(records), true, nil
+
+	case render.CompendiumTabItems:
+		records, err := loader.ListCompendiumItems(ctx, query)
+		if err != nil {
+			return nil, true, err
+		}
+		return buildCompendiumItemItems(records), true, nil
+
+	case render.CompendiumTabRules:
+		records, err := loader.ListCompendiumRules(ctx, query)
+		if err != nil {
+			return nil, true, err
+		}
+		return buildCompendiumRuleItems(records), true, nil
+
+	case render.CompendiumTabConditions:
+		records, err := loader.ListCompendiumConditions(ctx, query)
+		if err != nil {
+			return nil, true, err
+		}
+		return buildCompendiumConditionItems(records), true, nil
+
+	default:
+		return nil, false, nil
 	}
 }

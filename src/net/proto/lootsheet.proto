@@ -17,6 +17,7 @@ enum Method {
   DOWNLOAD_DATABASE  = 7;
   UPLOAD_CAMPAIGN    = 8;
   PING               = 9;
+  SEARCH_COMPENDIUM  = 10;
 }
 
 message Request {
@@ -31,6 +32,7 @@ message Request {
     SearchRequest          search_notes        = 16;
     DownloadDatabaseRequest download_database   = 17;
     UploadCampaignRequest  upload_campaign      = 18;
+    SearchRequest          search_compendium   = 19;
   }
 }
 
@@ -47,6 +49,7 @@ message Response {
     SearchResponse          search_notes        = 16;
     DownloadDatabaseResponse download_database  = 17;
     UploadCampaignResponse  upload_campaign     = 18;
+    SearchResponse          search_compendium   = 19;
   }
 }
 
@@ -102,6 +105,7 @@ message ListCampaignsResponse {
 
 message SearchRequest {
   string query = 1;
+  int32  section = 2;
 }
 
 message SearchResponse {
@@ -155,6 +159,12 @@ message ShellDataProto {
   string              campaign_name        = 13;
   repeated CampaignOptionProto campaigns   = 14;
   LedgerViewDataProto ledger_report        = 16;
+  ListScreenDataProto settings_compendium  = 17;
+  ListScreenDataProto compendium_monsters  = 18;
+  ListScreenDataProto compendium_spells    = 19;
+  ListScreenDataProto compendium_items     = 20;
+  ListScreenDataProto compendium_rules     = 21;
+  ListScreenDataProto compendium_conditions = 22;
 }
 
 message DashboardDataProto {

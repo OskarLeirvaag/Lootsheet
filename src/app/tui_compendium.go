@@ -362,6 +362,75 @@ func convertDDBItems(items []ddb.RawItem, cfg *ddb.Config) []compendium.Item {
 	return result
 }
 
+func filterDDBSpellsBySource(spells []ddb.RawSpellEntry, sourceIDs []int) []ddb.RawSpellEntry {
+	if len(sourceIDs) == 0 {
+		return nil
+	}
+	enabled := sourceIDSet(sourceIDs)
+	filtered := make([]ddb.RawSpellEntry, 0, len(spells))
+	for i := range spells {
+		if hasEnabledSource(spells[i].Definition.Sources, enabled) {
+			filtered = append(filtered, spells[i])
+		}
+	}
+	return filtered
+}
+
+func filterDDBItemsBySource(items []ddb.RawItem, sourceIDs []int) []ddb.RawItem {
+	if len(sourceIDs) == 0 {
+		return nil
+	}
+	enabled := sourceIDSet(sourceIDs)
+	filtered := make([]ddb.RawItem, 0, len(items))
+	for i := range items {
+		if hasEnabledSource(items[i].Sources, enabled) {
+			filtered = append(filtered, items[i])
+		}
+	}
+	return filtered
+}
+
+func monsterDDBIDs(monsters []compendium.Monster) []int {
+	ids := make([]int, len(monsters))
+	for i := range monsters {
+		ids[i] = monsters[i].DdbID
+	}
+	return ids
+}
+
+func spellDDBIDs(spells []compendium.Spell) []int {
+	ids := make([]int, len(spells))
+	for i := range spells {
+		ids[i] = spells[i].DdbID
+	}
+	return ids
+}
+
+func itemDDBIDs(items []compendium.Item) []int {
+	ids := make([]int, len(items))
+	for i := range items {
+		ids[i] = items[i].DdbID
+	}
+	return ids
+}
+
+func sourceIDSet(sourceIDs []int) map[int]struct{} {
+	set := make(map[int]struct{}, len(sourceIDs))
+	for _, id := range sourceIDs {
+		set[id] = struct{}{}
+	}
+	return set
+}
+
+func hasEnabledSource(sources []ddb.SourceRef, enabled map[int]struct{}) bool {
+	for _, source := range sources {
+		if _, ok := enabled[source.SourceID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func formatActivation(def *ddb.RawSpellDef) string {
 	base := "1 action"
 	switch def.Activation.ActivationType {

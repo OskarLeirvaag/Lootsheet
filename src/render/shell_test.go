@@ -515,6 +515,90 @@ func TestShellInputModalShowsBlankSubmitErrorAndClearHelp(t *testing.T) {
 	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "Ctrl+U clear") {
 		t.Fatalf("input footer help = %q, want clear help", help)
 	}
+	if help := shell.footerHelpText(DefaultKeyMap()); strings.Contains(help, "q cancel") {
+		t.Fatalf("input footer help = %q, should not advertise q cancel for text input", help)
+	}
+}
+
+func TestShellCompendiumSyncInputAcceptsCobaltLikeToken(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.HandleAction(ActionShowSettings)
+	shell.settingsTab = len(settingsTabs) - 1
+
+	result := shell.HandleAction(ActionSell)
+	if !result.Redraw || shell.input == nil {
+		t.Fatalf("expected compendium sync input to open: %#v", result)
+	}
+
+	sample := "header.q-s-123.tail9"
+	for _, r := range sample {
+		event := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
+		result, handled := shell.handleInputKeyEvent(event, DefaultKeyMap().Resolve(event))
+		if !handled || !result.Redraw {
+			t.Fatalf("typing rune %q did not update input: %#v handled=%v", r, result, handled)
+		}
+	}
+
+	result, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || result.Command == nil {
+		t.Fatalf("enter did not emit sync command: %#v handled=%v", result, handled)
+	}
+	if result.Command.ID != "compendium.sync" {
+		t.Fatalf("command id = %q, want compendium.sync", result.Command.ID)
+	}
+	if result.Command.Fields["amount"] != sample {
+		t.Fatalf("command amount = %q, want %q", result.Command.Fields["amount"], sample)
+	}
+}
+
+func TestShellInputBracketedPasteDefersRedrawAndAcceptsShortcutRunes(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.input = &inputState{
+		Section: SectionSettings,
+		Action:  ItemActionData{ID: "compendium.sync"},
+	}
+
+	if result := shell.HandlePasteEvent(tcell.NewEventPaste(true)); result.Redraw {
+		t.Fatalf("paste start should not redraw: %#v", result)
+	}
+
+	sample := "abc.qrs-123"
+	for _, r := range sample {
+		result := shell.HandleKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), DefaultKeyMap())
+		if result.Redraw || result.Command != nil || result.Quit || result.Reload {
+			t.Fatalf("pasted rune %q should be buffered without side effects: %#v", r, result)
+		}
+	}
+
+	if result := shell.HandlePasteEvent(tcell.NewEventPaste(false)); !result.Redraw {
+		t.Fatalf("paste end should redraw once: %#v", result)
+	}
+	if shell.input.Value != sample {
+		t.Fatalf("input value = %q, want %q", shell.input.Value, sample)
+	}
+}
+
+func TestInputStateDisplayLinesWrapLongCobaltLikeValue(t *testing.T) {
+	s := &inputState{
+		Prompt: "Cobalt cookie (Enter to sync rules only):",
+		Value:  strings.Repeat("abc.qrs-123-", 18),
+	}
+
+	lines := s.displayLines(68)
+	if len(lines) < 4 {
+		t.Fatalf("display lines = %#v, want wrapped value", lines)
+	}
+	if lines[0] != "Cobalt cookie (Enter to sync rules only):" {
+		t.Fatalf("first line = %q, want prompt", lines[0])
+	}
+	for _, line := range lines {
+		if len([]rune(line)) > 68 {
+			t.Fatalf("line %q has width %d, want <= 68", line, len([]rune(line)))
+		}
+	}
+	if got := strings.Join(lines[1:], ""); got != s.Value {
+		t.Fatalf("wrapped value changed:\n got %q\nwant %q", got, s.Value)
+	}
 }
 
 func TestShellReloadPreservesSelectionByKey(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -40,6 +41,8 @@ func NewClient() *Client {
 // Authenticate exchanges a cobalt cookie for a bearer token.
 // The bearer token is cached in memory for subsequent requests.
 func (c *Client) Authenticate(ctx context.Context, cobalt string) error {
+	startedAt := time.Now()
+	slog.InfoContext(ctx, "ddb auth started")
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, bytes.NewReader([]byte("{}")))
 	if err != nil {
 		return fmt.Errorf("ddb auth: build request: %w", err)
@@ -49,12 +52,17 @@ func (c *Client) Authenticate(ctx context.Context, cobalt string) error {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		slog.ErrorContext(ctx, "ddb auth failed", slog.String("error", err.Error()), slog.Duration("duration", time.Since(startedAt)))
 		return fmt.Errorf("ddb auth: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxAuthBody))
+		slog.ErrorContext(ctx, "ddb auth failed",
+			slog.Int("status", resp.StatusCode),
+			slog.Duration("duration", time.Since(startedAt)),
+		)
 		return fmt.Errorf("ddb auth: status %d: %s", resp.StatusCode, truncate(string(body), truncateLen))
 	}
 
@@ -67,6 +75,7 @@ func (c *Client) Authenticate(ctx context.Context, cobalt string) error {
 	}
 
 	c.bearerToken = auth.Token
+	slog.InfoContext(ctx, "ddb auth completed", slog.Duration("duration", time.Since(startedAt)))
 	return nil
 }
 
@@ -77,6 +86,8 @@ func (c *Client) IsAuthenticated() bool {
 
 // doGet performs an authenticated GET request.
 func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
+	startedAt := time.Now()
+	slog.InfoContext(ctx, "ddb get started", slog.String("url", url))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -88,18 +99,41 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		slog.ErrorContext(ctx, "ddb get failed",
+			slog.String("url", url),
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startedAt)),
+		)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 	if err != nil {
+		slog.ErrorContext(ctx, "ddb get failed",
+			slog.String("url", url),
+			slog.Int("status", resp.StatusCode),
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startedAt)),
+		)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
+		slog.ErrorContext(ctx, "ddb get failed",
+			slog.String("url", url),
+			slog.Int("status", resp.StatusCode),
+			slog.Int("bytes", len(body)),
+			slog.Duration("duration", time.Since(startedAt)),
+		)
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(string(body), truncateLen))
 	}
 
+	slog.InfoContext(ctx, "ddb get completed",
+		slog.String("url", url),
+		slog.Int("status", resp.StatusCode),
+		slog.Int("bytes", len(body)),
+		slog.Duration("duration", time.Since(startedAt)),
+	)
 	return body, nil
 }
 

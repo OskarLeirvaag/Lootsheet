@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/currency"
+	"github.com/OskarLeirvaag/Lootsheet/src/ddb"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
-	"github.com/OskarLeirvaag/Lootsheet/src/ddb"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/compendium"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
@@ -70,7 +71,15 @@ const (
 
 var tuiNow = time.Now
 
+type tuiShellDataOptions struct {
+	Remote bool
+}
+
 func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellData, error) { //nolint:revive // top-level data orchestrator; cognitive complexity inherent
+	return buildTUIShellDataWithOptions(ctx, loader, tuiShellDataOptions{})
+}
+
+func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, options tuiShellDataOptions) (render.ShellData, error) { //nolint:revive // top-level data orchestrator; cognitive complexity inherent
 	status, err := loader.GetDatabaseStatus(ctx)
 	if err != nil {
 		return render.ErrorShellData("Database status unavailable.", err.Error()), nil
@@ -270,7 +279,7 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 
 	panelErrors = loadShellNotesData(ctx, loader, &data, panelErrors)
 
-	panelErrors = loadShellCompendiumData(ctx, loader, &data, panelErrors)
+	panelErrors = loadShellCompendiumData(ctx, loader, &data, panelErrors, options.Remote)
 
 	// Load and append entity cross-reference links.
 	panelErrors = appendEntityReferenceLinks(ctx, loader, &data, panelErrors)
@@ -455,7 +464,27 @@ func loadShellNotesData(ctx context.Context, loader TUIDataLoader, data *render.
 	return panelErrors
 }
 
-func loadShellCompendiumData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
+func loadShellCompendiumData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string, remote bool) []string {
+	if remote {
+		data.CompendiumMonsters.SummaryLines = []string{"Remote compendium: use / search to fetch monsters."}
+		data.CompendiumMonsters.EmptyLines = []string{"Use / search to query server-side monsters."}
+		data.CompendiumSpells.SummaryLines = []string{"Remote compendium: use / search to fetch spells."}
+		data.CompendiumSpells.EmptyLines = []string{"Use / search to query server-side spells."}
+		data.CompendiumItems.SummaryLines = []string{"Remote compendium: use / search to fetch items."}
+		data.CompendiumItems.EmptyLines = []string{"Use / search to query server-side items."}
+		data.CompendiumRules.SummaryLines = []string{"Remote compendium: use / search to fetch rules."}
+		data.CompendiumRules.EmptyLines = []string{"Use / search to query server-side rules."}
+		data.CompendiumConditions.SummaryLines = []string{"Remote compendium: use / search to fetch conditions."}
+		data.CompendiumConditions.EmptyLines = []string{"Use / search to query server-side conditions."}
+
+		sources, err := loader.ListCompendiumSources(ctx)
+		if err == nil {
+			data.SettingsCompendium.SummaryLines = summarizeCompendiumSources(sources)
+			data.SettingsCompendium.Items = buildCompendiumSourceItems(sources)
+		}
+		return panelErrors
+	}
+
 	monsters, err := loader.ListCompendiumMonsters(ctx, "")
 	if err == nil {
 		data.CompendiumMonsters.SummaryLines = summarizeCompendiumMonsters(monsters)
@@ -882,78 +911,140 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 }
 
 func syncCompendium(ctx context.Context, databasePath string, cobalt string) (render.StatusMessage, error) {
+	startedAt := time.Now()
+	slog.InfoContext(ctx, "compendium sync started", slog.Bool("cobalt_present", strings.TrimSpace(cobalt) != ""))
+	defer func() {
+		slog.InfoContext(ctx, "compendium sync finished", slog.Duration("duration", time.Since(startedAt)))
+	}()
+
 	client := ddb.NewClient()
 	var synced []string
 
 	// Always fetch config (no auth needed) for sources, conditions, rules.
+	slog.InfoContext(ctx, "compendium sync fetch config started")
 	cfg, err := client.FetchConfig(ctx)
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("fetch DDB config: %w", err)
 	}
+	slog.InfoContext(ctx, "compendium sync fetch config completed",
+		slog.Int("sources", len(cfg.Sources)),
+		slog.Int("conditions", len(cfg.Conditions)),
+	)
 
+	slog.InfoContext(ctx, "compendium sync upsert sources started", slog.Int("sources", len(cfg.Sources)))
 	if err := compendium.UpsertSources(ctx, databasePath, convertDDBSources(cfg.Sources)); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert sources: %w", err)
 	}
 	synced = append(synced, fmt.Sprintf("%d sources", len(cfg.Sources)))
+	slog.InfoContext(ctx, "compendium sync upsert sources completed", slog.Int("sources", len(cfg.Sources)))
 
 	conditions := convertDDBConditions(cfg.Conditions)
+	slog.InfoContext(ctx, "compendium sync upsert conditions started", slog.Int("conditions", len(conditions)))
 	if err := compendium.UpsertConditions(ctx, databasePath, conditions); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert conditions: %w", err)
 	}
 	synced = append(synced, fmt.Sprintf("%d conditions", len(conditions)))
+	slog.InfoContext(ctx, "compendium sync upsert conditions completed", slog.Int("conditions", len(conditions)))
 
 	rules := convertDDBRules(cfg)
+	slog.InfoContext(ctx, "compendium sync upsert rules started", slog.Int("rules", len(rules)))
 	if err := compendium.UpsertRules(ctx, databasePath, rules); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert rules: %w", err)
 	}
 	synced = append(synced, fmt.Sprintf("%d rules", len(rules)))
+	slog.InfoContext(ctx, "compendium sync upsert rules completed", slog.Int("rules", len(rules)))
 
 	// Authenticated content requires cobalt cookie.
 	if cobalt == "" {
+		slog.InfoContext(ctx, "compendium sync skipping authenticated content")
 		return render.StatusMessage{
 			Level: render.StatusSuccess,
 			Text:  "Synced: " + strings.Join(synced, ", ") + ". (No cookie — skipped monsters/spells/items.)",
 		}, nil
 	}
 
+	slog.InfoContext(ctx, "compendium sync authenticate started")
 	if err := client.Authenticate(ctx, cobalt); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("DDB auth failed: %w", err)
 	}
+	slog.InfoContext(ctx, "compendium sync authenticate completed")
 
 	enabledSources, _ := compendium.EnabledSourceIDs(ctx, databasePath)
+	slog.InfoContext(ctx, "compendium sync enabled sources loaded", slog.Int("enabled_sources", len(enabledSources)))
+	if len(enabledSources) == 0 {
+		if err := compendium.PruneMonsters(ctx, databasePath, nil); err != nil {
+			return render.StatusMessage{}, fmt.Errorf("prune monsters: %w", err)
+		}
+		if err := compendium.PruneSpells(ctx, databasePath, nil); err != nil {
+			return render.StatusMessage{}, fmt.Errorf("prune spells: %w", err)
+		}
+		if err := compendium.PruneItems(ctx, databasePath, nil); err != nil {
+			return render.StatusMessage{}, fmt.Errorf("prune items: %w", err)
+		}
+		slog.InfoContext(ctx, "compendium sync skipping authenticated content because no sources are enabled")
+		return render.StatusMessage{
+			Level: render.StatusSuccess,
+			Text:  "Synced: " + strings.Join(synced, ", ") + ". (No enabled sources — skipped monsters/spells/items.)",
+		}, nil
+	}
 
 	// Monsters.
+	slog.InfoContext(ctx, "compendium sync fetch monsters started", slog.Int("enabled_sources", len(enabledSources)))
 	rawMonsters, err := client.FetchMonsters(ctx, enabledSources)
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("fetch monsters: %w", err)
 	}
+	slog.InfoContext(ctx, "compendium sync fetch monsters completed", slog.Int("monsters", len(rawMonsters)))
 	monsters := convertDDBMonsters(rawMonsters, cfg)
+	slog.InfoContext(ctx, "compendium sync upsert monsters started", slog.Int("monsters", len(monsters)))
 	if err := compendium.UpsertMonsters(ctx, databasePath, monsters); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert monsters: %w", err)
 	}
+	if err := compendium.PruneMonsters(ctx, databasePath, monsterDDBIDs(monsters)); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("prune monsters: %w", err)
+	}
 	synced = append(synced, fmt.Sprintf("%d monsters", len(monsters)))
+	slog.InfoContext(ctx, "compendium sync upsert monsters completed", slog.Int("monsters", len(monsters)))
 
 	// Spells.
+	slog.InfoContext(ctx, "compendium sync fetch spells started")
 	spellResult, err := client.FetchSpells(ctx, ddb.AllClassIDs())
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("fetch spells: %w", err)
 	}
+	slog.InfoContext(ctx, "compendium sync fetch spells completed", slog.Int("spells", len(spellResult.Spells)))
+	spellResult.Spells = filterDDBSpellsBySource(spellResult.Spells, enabledSources)
+	slog.InfoContext(ctx, "compendium sync filtered spells by enabled sources", slog.Int("spells", len(spellResult.Spells)))
 	spells := convertDDBSpells(spellResult.Spells, spellResult.SpellClasses, cfg)
+	slog.InfoContext(ctx, "compendium sync upsert spells started", slog.Int("spells", len(spells)))
 	if err := compendium.UpsertSpells(ctx, databasePath, spells); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert spells: %w", err)
 	}
+	if err := compendium.PruneSpells(ctx, databasePath, spellDDBIDs(spells)); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("prune spells: %w", err)
+	}
 	synced = append(synced, fmt.Sprintf("%d spells", len(spells)))
+	slog.InfoContext(ctx, "compendium sync upsert spells completed", slog.Int("spells", len(spells)))
 
 	// Items.
+	slog.InfoContext(ctx, "compendium sync fetch items started")
 	rawItems, err := client.FetchItems(ctx)
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("fetch items: %w", err)
 	}
+	slog.InfoContext(ctx, "compendium sync fetch items completed", slog.Int("items", len(rawItems)))
+	rawItems = filterDDBItemsBySource(rawItems, enabledSources)
+	slog.InfoContext(ctx, "compendium sync filtered items by enabled sources", slog.Int("items", len(rawItems)))
 	items := convertDDBItems(rawItems, cfg)
+	slog.InfoContext(ctx, "compendium sync upsert items started", slog.Int("items", len(items)))
 	if err := compendium.UpsertItems(ctx, databasePath, items); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert items: %w", err)
 	}
+	if err := compendium.PruneItems(ctx, databasePath, itemDDBIDs(items)); err != nil {
+		return render.StatusMessage{}, fmt.Errorf("prune items: %w", err)
+	}
 	synced = append(synced, fmt.Sprintf("%d items", len(items)))
+	slog.InfoContext(ctx, "compendium sync upsert items completed", slog.Int("items", len(items)))
 
 	return render.StatusMessage{
 		Level: render.StatusSuccess,

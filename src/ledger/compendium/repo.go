@@ -12,11 +12,11 @@ import (
 // ListMonsters returns all monsters, optionally filtered by a search query (FTS).
 func ListMonsters(ctx context.Context, databasePath string, query string) ([]Monster, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Monster, error) {
-		q := `SELECT id, ddb_id, name, cr, type, size, hp, ac, source_name, detail_json, synced_at
+		q := `SELECT id, ddb_id, name, cr, type, size, hp, ac, source_name, '', synced_at
 		      FROM compendium_monsters ORDER BY name`
 		args := []any{}
 		if query != "" {
-			q = `SELECT m.id, m.ddb_id, m.name, m.cr, m.type, m.size, m.hp, m.ac, m.source_name, m.detail_json, m.synced_at
+			q = `SELECT m.id, m.ddb_id, m.name, m.cr, m.type, m.size, m.hp, m.ac, m.source_name, '', m.synced_at
 			     FROM compendium_monsters m
 			     JOIN compendium_monsters_fts f ON f.rowid = m.id
 			     WHERE compendium_monsters_fts MATCH ?
@@ -45,11 +45,11 @@ func ListMonsters(ctx context.Context, databasePath string, query string) ([]Mon
 // ListSpells returns all spells, optionally filtered by a search query (FTS).
 func ListSpells(ctx context.Context, databasePath string, query string) ([]Spell, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Spell, error) {
-		q := `SELECT id, ddb_id, name, level, school, casting_time, range, components, duration, classes, source_name, detail_json, synced_at
+		q := `SELECT id, ddb_id, name, level, school, casting_time, range, components, duration, classes, source_name, '', synced_at
 		      FROM compendium_spells ORDER BY level, name`
 		args := []any{}
 		if query != "" {
-			q = `SELECT s.id, s.ddb_id, s.name, s.level, s.school, s.casting_time, s.range, s.components, s.duration, s.classes, s.source_name, s.detail_json, s.synced_at
+			q = `SELECT s.id, s.ddb_id, s.name, s.level, s.school, s.casting_time, s.range, s.components, s.duration, s.classes, s.source_name, '', s.synced_at
 			     FROM compendium_spells s
 			     JOIN compendium_spells_fts f ON f.rowid = s.id
 			     WHERE compendium_spells_fts MATCH ?
@@ -78,11 +78,11 @@ func ListSpells(ctx context.Context, databasePath string, query string) ([]Spell
 // ListItems returns all items, optionally filtered by a search query (FTS).
 func ListItems(ctx context.Context, databasePath string, query string) ([]Item, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Item, error) {
-		q := `SELECT id, ddb_id, name, type, rarity, attunement, source_name, detail_json, synced_at
+		q := `SELECT id, ddb_id, name, type, rarity, attunement, source_name, '', synced_at
 		      FROM compendium_items ORDER BY name`
 		args := []any{}
 		if query != "" {
-			q = `SELECT i.id, i.ddb_id, i.name, i.type, i.rarity, i.attunement, i.source_name, i.detail_json, i.synced_at
+			q = `SELECT i.id, i.ddb_id, i.name, i.type, i.rarity, i.attunement, i.source_name, '', i.synced_at
 			     FROM compendium_items i
 			     JOIN compendium_items_fts f ON f.rowid = i.id
 			     WHERE compendium_items_fts MATCH ?
@@ -285,6 +285,10 @@ func UpsertMonsters(ctx context.Context, databasePath string, monsters []Monster
 	})
 }
 
+func PruneMonsters(ctx context.Context, databasePath string, keepDDBIDs []int) error {
+	return pruneByDDBID(ctx, databasePath, "compendium_monsters", keepDDBIDs)
+}
+
 // UpsertSpells inserts or replaces spells (from DDB sync).
 func UpsertSpells(ctx context.Context, databasePath string, spells []Spell) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -315,6 +319,10 @@ func UpsertSpells(ctx context.Context, databasePath string, spells []Spell) erro
 		}
 		return tx.Commit()
 	})
+}
+
+func PruneSpells(ctx context.Context, databasePath string, keepDDBIDs []int) error {
+	return pruneByDDBID(ctx, databasePath, "compendium_spells", keepDDBIDs)
 }
 
 // UpsertItems inserts or replaces items (from DDB sync).
@@ -351,6 +359,10 @@ func UpsertItems(ctx context.Context, databasePath string, items []Item) error {
 	})
 }
 
+func PruneItems(ctx context.Context, databasePath string, keepDDBIDs []int) error {
+	return pruneByDDBID(ctx, databasePath, "compendium_items", keepDDBIDs)
+}
+
 // UpsertRules inserts or replaces rules (from DDB config sync).
 func UpsertRules(ctx context.Context, databasePath string, rules []Rule) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
@@ -377,6 +389,29 @@ func UpsertRules(ctx context.Context, databasePath string, rules []Rule) error {
 			}
 		}
 		return tx.Commit()
+	})
+}
+
+func pruneByDDBID(ctx context.Context, databasePath string, table string, keepDDBIDs []int) error {
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		if len(keepDDBIDs) == 0 {
+			if _, err := db.ExecContext(ctx, "DELETE FROM "+table); err != nil { //nolint:gosec // table is internal constant from typed wrappers.
+				return fmt.Errorf("prune %s: %w", table, err)
+			}
+			return nil
+		}
+
+		placeholders := make([]string, len(keepDDBIDs))
+		args := make([]any, len(keepDDBIDs))
+		for i, id := range keepDDBIDs {
+			placeholders[i] = "?"
+			args[i] = id
+		}
+		query := "DELETE FROM " + table + " WHERE ddb_id NOT IN (" + strings.Join(placeholders, ", ") + ")" //nolint:gosec // table is internal constant from typed wrappers; placeholders are ?.
+		if _, err := db.ExecContext(ctx, query, args...); err != nil {
+			return fmt.Errorf("prune %s: %w", table, err)
+		}
+		return nil
 	})
 }
 

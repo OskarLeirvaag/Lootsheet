@@ -444,24 +444,24 @@ func (s *Shell) renderInputModal(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
-	lines := make([]string, 0, len(s.input.HelpLines)+5)
-	if prompt := strings.TrimSpace(s.input.Prompt); prompt != "" {
-		lines = append(lines, prompt+": "+s.input.displayValue())
-	} else {
-		lines = append(lines, s.input.displayValue())
-	}
+	modalW := clampInt(70, 40, min(90, rect.W))
+	contentW := max(1, modalW-2)
+	lines := make([]string, 0, len(s.input.HelpLines)+8)
+	lines = append(lines, s.input.displayLines(contentW)...)
 
 	if strings.TrimSpace(s.input.ErrorText) != "" {
-		lines = append(lines, "Error: "+s.input.ErrorText)
+		lines = append(lines, wrapPlainText("Error: "+s.input.ErrorText, contentW)...)
 	}
 	if len(s.input.HelpLines) > 0 {
 		lines = append(lines, "")
-		lines = append(lines, s.input.HelpLines...)
+		for _, line := range s.input.HelpLines {
+			lines = append(lines, wrapPlainText(line, contentW)...)
+		}
 	}
-	lines = append(lines, "", "Enter submit  Esc/q cancel")
+	lines = append(lines, "", "Enter submit  Esc cancel")
 
 	accent := s.sectionStyle(theme)
-	DrawPanel(buffer, modalBounds(rect, lines, 60, 40, 70, 6), theme, Panel{
+	DrawPanel(buffer, modalBounds(rect, lines, modalW, 40, modalW, 6), theme, Panel{
 		Title:       s.input.Title,
 		Lines:       lines,
 		BorderStyle: &accent,
@@ -569,4 +569,34 @@ func (s *inputState) displayValue() string {
 		return "[" + s.Placeholder + "]"
 	}
 	return ""
+}
+
+func (s *inputState) displayLines(width int) []string {
+	if s == nil {
+		return []string{""}
+	}
+	if width <= 0 {
+		width = 1
+	}
+
+	value := s.displayValue()
+	prompt := strings.TrimSpace(s.Prompt)
+	if prompt == "" {
+		return wrapPlainText(value, width)
+	}
+
+	promptLine := prompt
+	if !strings.HasSuffix(promptLine, ":") {
+		promptLine += ":"
+	}
+	if value == "" {
+		return wrapPlainText(promptLine, width)
+	}
+	if len([]rune(promptLine))+1+len([]rune(value)) <= width {
+		return []string{promptLine + " " + value}
+	}
+
+	lines := wrapPlainText(promptLine, width)
+	lines = append(lines, wrapPlainText(value, width)...)
+	return lines
 }

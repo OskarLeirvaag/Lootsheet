@@ -1,8 +1,11 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
+	"log/slog"
 	"net"
 	"strings"
 	"testing"
@@ -20,6 +23,7 @@ const testToken = "test-token"
 type testService struct {
 	campaignID string
 	dbPath     string
+	commandErr error
 }
 
 func (s *testService) DatabasePath() string { return s.dbPath }
@@ -33,7 +37,10 @@ func (*testService) BuildShellData(_ context.Context) (model.ShellData, error) {
 	}, nil
 }
 
-func (*testService) HandleCommand(_ context.Context, cmd model.Command) (model.CommandResult, error) {
+func (s *testService) HandleCommand(_ context.Context, cmd model.Command) (model.CommandResult, error) {
+	if s.commandErr != nil {
+		return model.CommandResult{}, s.commandErr
+	}
 	return model.CommandResult{
 		Status: model.StatusMessage{
 			Level: model.StatusSuccess,
@@ -66,7 +73,18 @@ func (*testService) SearchNotes(_ context.Context, query string) ([]model.ListIt
 	}, nil
 }
 
+func (*testService) SearchCompendium(_ context.Context, section model.Section, query string) ([]model.ListItemData, error) {
+	return []model.ListItemData{
+		{Key: "compendium-1", Row: section.Title() + ": " + query},
+	}, nil
+}
+
 func startTestServer(t *testing.T, token string) (string, context.CancelFunc) {
+	t.Helper()
+	return startTestServerWithService(t, token, &testService{}, nil)
+}
+
+func startTestServerWithService(t *testing.T, token string, svc server.TUIService, logger *slog.Logger) (string, context.CancelFunc) {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -93,7 +111,8 @@ func startTestServer(t *testing.T, token string) (string, context.CancelFunc) {
 				Addr:      "127.0.0.1:17547",
 				TLSConfig: tlsCfg,
 				Token:     token,
-				Handler:   server.NewHandler(&testService{}),
+				Handler:   server.NewHandler(svc),
+				Logger:    logger,
 			})
 			return
 		}
@@ -104,7 +123,8 @@ func startTestServer(t *testing.T, token string) (string, context.CancelFunc) {
 			Addr:      boundAddr,
 			TLSConfig: tlsCfg,
 			Token:     token,
-			Handler:   server.NewHandler(&testService{}),
+			Handler:   server.NewHandler(svc),
+			Logger:    logger,
 		})
 	}()
 
@@ -282,6 +302,63 @@ func TestIntegrationExecuteCommand(t *testing.T) {
 
 	if ec.Result.Status.Text != "executed: test.command" {
 		t.Errorf("status = %q, want %q", ec.Result.Status.Text, "executed: test.command")
+	}
+}
+
+func TestIntegrationExecuteCommandFailureIsLogged(t *testing.T) {
+	token := testToken
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	addr, cancel := startTestServerWithService(t, token, &testService{
+		commandErr: errors.New("fetch DDB config: tls: failed to verify certificate"),
+	}, logger)
+	defer cancel()
+
+	conn := dialTLS(t, addr)
+	defer conn.Close()
+
+	authenticate(t, conn, token)
+
+	req := &pb.Request{
+		Method: pb.Method_EXECUTE_COMMAND,
+		Payload: &pb.Request_ExecuteCommand{
+			ExecuteCommand: &pb.ExecuteCommandRequest{
+				Command: &pb.CommandProto{
+					Id:      "compendium.sync",
+					Section: int32(model.SectionSettings),
+					ItemKey: "source-1",
+					Fields:  map[string]string{"amount": "secret-cookie-value"},
+				},
+			},
+		},
+	}
+
+	if err := wire.WriteMessage(conn, req); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	resp := new(pb.Response)
+	if err := wire.ReadMessage(conn, resp); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if resp.Ok {
+		t.Fatal("expected execute command failure")
+	}
+
+	logText := logs.String()
+	for _, want := range []string{
+		"request failed",
+		"fetch DDB config: tls: failed to verify certificate",
+		"method=EXECUTE_COMMAND",
+		"command_id=compendium.sync",
+		"item_key=source-1",
+	} {
+		if !strings.Contains(logText, want) {
+			t.Fatalf("server log missing %q:\n%s", want, logText)
+		}
+	}
+	if strings.Contains(logText, "secret-cookie-value") {
+		t.Fatalf("server log leaked command field value:\n%s", logText)
 	}
 }
 
