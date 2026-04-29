@@ -80,6 +80,10 @@ func buildTUIShellData(ctx context.Context, loader TUIDataLoader) (render.ShellD
 }
 
 func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, options tuiShellDataOptions) (render.ShellData, error) { //nolint:revive // top-level data orchestrator; cognitive complexity inherent
+	totalStart := time.Now()
+	defer func() {
+		slog.InfoContext(ctx, "buildTUIShellData total", slog.Duration("duration", time.Since(totalStart)), slog.Bool("remote", options.Remote))
+	}()
 	status, err := loader.GetDatabaseStatus(ctx)
 	if err != nil {
 		return render.ErrorShellData("Database status unavailable.", err.Error()), nil
@@ -267,22 +271,51 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 		data.Journal.Items = buildJournalItems(journalEntries)
 	}
 
-	panelErrors = loadShellQuestData(ctx, loader, &data, panelErrors)
+	panelErrors = timeShellStep(ctx, "quests", func() []string {
+		return loadShellQuestData(ctx, loader, &data, panelErrors)
+	})
 
-	lootRows, lootSummaryAvailable, panelErrors := loadShellLootData(ctx, loader, &data, panelErrors)
-	panelErrors = loadShellAssetData(ctx, loader, &data, panelErrors)
+	var (
+		lootRows             []report.LootSummaryRow
+		lootSummaryAvailable bool
+	)
+	panelErrors = timeShellStep(ctx, "loot", func() []string {
+		var rows []report.LootSummaryRow
+		var avail bool
+		var errs []string
+		rows, avail, errs = loadShellLootData(ctx, loader, &data, panelErrors)
+		lootRows = rows
+		lootSummaryAvailable = avail
+		return errs
+	})
+	panelErrors = timeShellStep(ctx, "assets", func() []string {
+		return loadShellAssetData(ctx, loader, &data, panelErrors)
+	})
 
-	codexTypes, panelErrors := loadShellCodexData(ctx, loader, &data, panelErrors)
+	var codexTypes []codex.CodexType
+	panelErrors = timeShellStep(ctx, "codex", func() []string {
+		var pe []string
+		codexTypes, pe = loadShellCodexData(ctx, loader, &data, panelErrors)
+		return pe
+	})
 
 	// Build Settings tabs from accounts, codex types, and campaigns.
-	buildShellSettingsData(&data, databaseName, accounts, codexTypes, campaignRecords, campaignListErr, loader)
+	timeShellVoid(ctx, "settings", func() {
+		buildShellSettingsData(&data, databaseName, accounts, codexTypes, campaignRecords, campaignListErr, loader)
+	})
 
-	panelErrors = loadShellNotesData(ctx, loader, &data, panelErrors)
+	panelErrors = timeShellStep(ctx, "notes", func() []string {
+		return loadShellNotesData(ctx, loader, &data, panelErrors)
+	})
 
-	panelErrors = loadShellCompendiumData(ctx, loader, &data, panelErrors, options.Remote)
+	panelErrors = timeShellStep(ctx, "compendium", func() []string {
+		return loadShellCompendiumData(ctx, loader, &data, panelErrors, options.Remote)
+	})
 
 	// Load and append entity cross-reference links.
-	panelErrors = appendEntityReferenceLinks(ctx, loader, &data, panelErrors)
+	panelErrors = timeShellStep(ctx, "entity-refs", func() []string {
+		return appendEntityReferenceLinks(ctx, loader, &data, panelErrors)
+	})
 
 	if trialBalanceAvailable {
 		data.Dashboard.HoardLines = summarizeShareableGold(trialBalance, lootRows, lootSummaryAvailable)
@@ -298,6 +331,22 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 	}
 
 	return data, nil
+}
+
+// timeShellStep wraps a buildTUIShellData substep so we can see which panel
+// is the bottleneck on slow command rebuilds (especially for remote toggles
+// where the round-trip is otherwise opaque).
+func timeShellStep(ctx context.Context, name string, fn func() []string) []string {
+	start := time.Now()
+	result := fn()
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", name), slog.Duration("duration", time.Since(start)))
+	return result
+}
+
+func timeShellVoid(ctx context.Context, name string, fn func()) {
+	start := time.Now()
+	fn()
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", name), slog.Duration("duration", time.Since(start)))
 }
 
 func loadShellQuestData(ctx context.Context, loader TUIDataLoader, data *render.ShellData, panelErrors []string) []string {
@@ -879,9 +928,13 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 			_, _ = fmt.Sscanf(after, "%d", &sourceID)
 		}
 		if sourceID > 0 {
+			start := time.Now()
 			if err := compendium.ToggleSource(ctx, databasePath, sourceID); err != nil {
 				return render.CommandResult{}, err
 			}
+			slog.InfoContext(ctx, "compendium toggle source",
+				slog.Int("source_id", sourceID),
+				slog.Duration("sql_duration", time.Since(start)))
 			message = render.StatusMessage{Level: render.StatusSuccess, Text: "Source toggled."}
 		}
 

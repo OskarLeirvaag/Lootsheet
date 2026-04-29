@@ -233,16 +233,41 @@ type LicenseEntity struct {
 }
 
 // LicenseBlock groups entitlements by EntityTypeID. Books are 496802664.
+// DDB returns EntityTypeID as a JSON number, not a string, so we keep the
+// Go field typed as int to avoid decode errors.
 type LicenseBlock struct {
-	EntityTypeID string          `json:"EntityTypeID"`
+	EntityTypeID int             `json:"EntityTypeID"`
 	Entities     []LicenseEntity `json:"Entities"`
 }
 
 // AvailableUserContent wraps the response from /mobile/api/v6/available-user-content.
+//
+// Some /mobile/api/v6 endpoints place their payload at the top level
+// (`{status, Licenses}`) and others nest it under `data`
+// (`{status, data: {Licenses}}`). We accept both shapes — see Books().
 type AvailableUserContent struct {
 	Status   string         `json:"status"`
 	Licenses []LicenseBlock `json:"Licenses"`
+	Data     LicenseEnvelope `json:"data"`
+}
+
+// LicenseEnvelope is the inner `data` payload for /mobile/api/v6 endpoints
+// that nest their license blocks. Kept as a named type so revive doesn't flag
+// it as a nested struct.
+type LicenseEnvelope struct {
+	Licenses []LicenseBlock `json:"Licenses"`
+}
+
+// Books returns the license blocks regardless of whether the response wraps
+// them in a `data` envelope.
+func (a AvailableUserContent) Books() []LicenseBlock {
+	if len(a.Licenses) > 0 {
+		return a.Licenses
+	}
+	return a.Data.Licenses
 }
 
 // EntityTypeIDBooks identifies the book license block in AvailableUserContent.
-const EntityTypeIDBooks = "496802664"
+// Other observed blocks: 701257905 (dice sets), 2103445194 (something else
+// — needs investigation if we ever care about non-book entitlements).
+const EntityTypeIDBooks = 496802664

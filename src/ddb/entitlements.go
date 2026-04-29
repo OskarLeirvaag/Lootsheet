@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 )
 
@@ -38,7 +39,33 @@ func (c *Client) GetAvailableUserContent(ctx context.Context, cobalt string) ([]
 	if resp.Status != "success" {
 		return nil, fmt.Errorf("ddb available-user-content: status %q", resp.Status)
 	}
+
+	// Diagnostic: log the shape we observed so we can tell whether the response
+	// was wrapped in `data` or top-level, and how many books DDB returned.
+	books := resp.Books()
+	totalEntities := 0
+	for _, b := range books {
+		totalEntities += len(b.Entities)
+	}
+	slog.InfoContext(ctx, "ddb available-user-content parsed",
+		slog.Bool("wrapped_in_data", len(resp.Licenses) == 0 && len(resp.Data.Licenses) > 0),
+		slog.Int("license_blocks", len(books)),
+		slog.Int("total_entities", totalEntities),
+		slog.Int("body_bytes", len(body)),
+		slog.String("body_preview", previewBody(body)),
+	)
+
 	return filterOwnedBookIDs(resp), nil
+}
+
+// previewBody returns a short prefix of the response body for diagnostic logs.
+// Long enough to see the JSON shape, short enough to keep log lines readable.
+func previewBody(body []byte) string {
+	const maxPreview = 256
+	if len(body) <= maxPreview {
+		return string(body)
+	}
+	return string(body[:maxPreview]) + "…"
 }
 
 // filterOwnedBookIDs returns the source IDs the user owns from an
@@ -46,7 +73,7 @@ func (c *Client) GetAvailableUserContent(ctx context.Context, cobalt string) ([]
 // 496802664) is considered; dice-set and other product types are dropped.
 func filterOwnedBookIDs(resp AvailableUserContent) []int {
 	var ids []int
-	for _, block := range resp.Licenses {
+	for _, block := range resp.Books() {
 		if block.EntityTypeID != EntityTypeIDBooks {
 			continue
 		}

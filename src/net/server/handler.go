@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	pb "github.com/OskarLeirvaag/Lootsheet/src/net/proto"
 	"github.com/OskarLeirvaag/Lootsheet/src/render/model"
@@ -61,15 +63,26 @@ func dispatch(ctx context.Context, req *pb.Request, svc TUIService) *pb.Response
 }
 
 func handleBuildShellData(ctx context.Context, svc TUIService) *pb.Response {
+	buildStart := time.Now()
 	data, err := svc.BuildShellData(ctx)
 	if err != nil {
 		return errorResponse(err.Error())
 	}
+	buildElapsed := time.Since(buildStart)
+
+	protoStart := time.Now()
+	protoData := pb.ShellDataToProto(&data)
+	protoElapsed := time.Since(protoStart)
+
+	slog.InfoContext(ctx, "handleBuildShellData",
+		slog.Duration("build", buildElapsed),
+		slog.Duration("proto", protoElapsed),
+	)
 	return &pb.Response{
 		Ok: true,
 		Payload: &pb.Response_BuildShellData{
 			BuildShellData: &pb.BuildShellDataResponse{
-				Data: pb.ShellDataToProto(&data),
+				Data: protoData,
 			},
 		},
 	}
@@ -81,7 +94,9 @@ func handleExecuteCommand(ctx context.Context, req *pb.ExecuteCommandRequest, sv
 	}
 
 	cmd := pb.CommandFromProto(req.Command)
+	cmdStart := time.Now()
 	result, err := svc.HandleCommand(ctx, cmd)
+	cmdElapsed := time.Since(cmdStart)
 	if err != nil {
 		// Check for input errors — these should be surfaced to the client
 		// as structured error responses so the TUI keeps the modal open.
@@ -95,11 +110,20 @@ func handleExecuteCommand(ctx context.Context, req *pb.ExecuteCommandRequest, sv
 		return errorResponse(err.Error())
 	}
 
+	protoStart := time.Now()
+	protoResult := pb.CommandResultToProto(&result)
+	protoElapsed := time.Since(protoStart)
+
+	slog.InfoContext(ctx, "handleExecuteCommand",
+		slog.String("command_id", cmd.ID),
+		slog.Duration("handle", cmdElapsed),
+		slog.Duration("proto", protoElapsed),
+	)
 	return &pb.Response{
 		Ok: true,
 		Payload: &pb.Response_ExecuteCommand{
 			ExecuteCommand: &pb.ExecuteCommandResponse{
-				Result: pb.CommandResultToProto(&result),
+				Result: protoResult,
 			},
 		},
 	}
