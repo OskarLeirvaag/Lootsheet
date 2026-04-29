@@ -41,10 +41,17 @@ const (
 // CompendiumTabs lists the virtual compendium sections.
 var CompendiumTabs = []Section{CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems, CompendiumTabRules, CompendiumTabConditions}
 
-// SearchableSections lists sections that appear in the search modal.
+// SearchableSections lists sections that appear in the regular (non-compendium)
+// search modal. Compendium tabs are intentionally absent — they use
+// CompendiumSearchSections instead.
 var SearchableSections = []Section{
 	SectionJournal, SectionQuests, SectionLoot,
 	SectionAssets, SectionCodex, SectionNotes,
+}
+
+// CompendiumSearchSections lists sections that appear in the compendium search
+// modal. Kept separate so each modal only shows relevant filter tabs.
+var CompendiumSearchSections = []Section{
 	CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems,
 	CompendiumTabRules, CompendiumTabConditions,
 }

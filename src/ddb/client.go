@@ -187,7 +187,7 @@ func (c *Client) doFormPost(ctx context.Context, endpoint string, form url.Value
 	return body, nil
 }
 
-func truncate(s string, n int) string {
+func truncate(s string, n int) string { //nolint:unparam // n is always truncateLen today; keep param for clarity at call sites
 	runes := []rune(s)
 	if len(runes) <= n {
 		return s

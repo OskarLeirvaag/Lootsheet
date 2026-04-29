@@ -174,6 +174,9 @@ func MigrateSQLiteDatabase(ctx context.Context, databasePath string, backupDir s
 		return MigrationResult{}, err
 	}
 
+	// Schema changed — force re-inspection on the next repo call.
+	InvalidateDatabaseCache(databasePath)
+
 	return result, nil
 }
 

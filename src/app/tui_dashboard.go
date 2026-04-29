@@ -84,7 +84,9 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 	defer func() {
 		slog.InfoContext(ctx, "buildTUIShellData total", slog.Duration("duration", time.Since(totalStart)), slog.Bool("remote", options.Remote))
 	}()
+	dbsStart := time.Now()
 	status, err := loader.GetDatabaseStatus(ctx)
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", "db_status"), slog.Duration("duration", time.Since(dbsStart)))
 	if err != nil {
 		return render.ErrorShellData("Database status unavailable.", err.Error()), nil
 	}
@@ -103,8 +105,10 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 	databaseName := loader.DatabaseName()
 	campaignName := loader.CampaignName()
 
+	clStart := time.Now()
 	var campaignOptions []render.CampaignOption
 	campaignRecords, campaignListErr := loader.ListCampaigns(ctx)
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", "list_campaigns"), slog.Duration("duration", time.Since(clStart)), slog.Int("count", len(campaignRecords)))
 	if campaignListErr == nil {
 		campaignOptions = make([]render.CampaignOption, len(campaignRecords))
 		for i, c := range campaignRecords {
@@ -204,7 +208,9 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 
 	var panelErrors []string
 
+	tbStart := time.Now()
 	trialBalance, err := loader.GetTrialBalance(ctx)
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", "trial_balance"), slog.Duration("duration", time.Since(tbStart)))
 	trialBalanceAvailable := false
 	if err != nil {
 		data.Dashboard.LedgerLines = unavailablePanelLines(err)
@@ -214,7 +220,9 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 		trialBalanceAvailable = true
 	}
 
+	accStart := time.Now()
 	accounts, err := loader.ListAccounts(ctx)
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", "list_accounts"), slog.Duration("duration", time.Since(accStart)), slog.Int("count", len(accounts)))
 	if err != nil {
 		data.Dashboard.AccountsLines = unavailablePanelLines(err)
 		data.Ledger = unavailableSectionData("Ledger unavailable.", err.Error())
@@ -222,12 +230,17 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 	} else {
 		data.Dashboard.AccountsLines = summarizeSettingsAccounts(accounts)
 
+		alStart := time.Now()
 		accountLedgers := make(map[string]journal.AccountLedgerReport, len(accounts))
 		for _, acct := range accounts {
 			if rpt, ledgerErr := loader.GetAccountLedger(ctx, acct.Code); ledgerErr == nil {
 				accountLedgers[acct.Code] = rpt
 			}
 		}
+		slog.InfoContext(ctx, "buildTUIShellData step",
+			slog.String("step", "account_ledgers_n_plus_1"),
+			slog.Duration("duration", time.Since(alStart)),
+			slog.Int("accounts", len(accounts)))
 
 		balanceMap := make(map[string]report.TrialBalanceRow, len(trialBalance.Accounts))
 		if trialBalanceAvailable {
@@ -247,7 +260,9 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 		data.EntryCatalog = buildEntryCatalog(accounts, tuiToday())
 	}
 
+	jsStart := time.Now()
 	journalSummary, err := loader.GetJournalSummary(ctx)
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", "journal_summary"), slog.Duration("duration", time.Since(jsStart)))
 	if err != nil {
 		data.Dashboard.JournalLines = unavailablePanelLines(err)
 		data.Journal = unavailableSectionData("Journal unavailable.", err.Error())
@@ -257,7 +272,9 @@ func buildTUIShellDataWithOptions(ctx context.Context, loader TUIDataLoader, opt
 		data.Journal.SummaryLines = summarizeJournal(journalSummary)
 	}
 
+	jeStart := time.Now()
 	journalEntries, err := loader.ListBrowseJournalEntries(ctx)
+	slog.InfoContext(ctx, "buildTUIShellData step", slog.String("step", "browse_journal_entries"), slog.Duration("duration", time.Since(jeStart)), slog.Int("count", len(journalEntries)))
 	if err != nil {
 		if len(data.Journal.SummaryLines) == 0 {
 			data.Journal = unavailableSectionData("Journal unavailable.", err.Error())
@@ -929,10 +946,11 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 		}
 		if sourceID > 0 {
 			start := time.Now()
-			if err := compendium.ToggleSource(ctx, databasePath, sourceID); err != nil {
+			if err := compendium.ToggleSource(ctx, databasePath, campaignID, sourceID); err != nil {
 				return render.CommandResult{}, err
 			}
 			slog.InfoContext(ctx, "compendium toggle source",
+				slog.String("campaign_id", campaignID),
 				slog.Int("source_id", sourceID),
 				slog.Duration("sql_duration", time.Since(start)))
 			message = render.StatusMessage{Level: render.StatusSuccess, Text: "Source toggled."}
@@ -940,7 +958,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 
 	case tuiCommandCompendiumInit:
 		cobalt := strings.TrimSpace(command.Fields["amount"])
-		result, err := initializeCompendium(ctx, databasePath, cobalt)
+		result, err := initializeCompendium(ctx, databasePath, cobalt, campaignID)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -948,7 +966,7 @@ func handleTUICommand(ctx context.Context, command render.Command, databasePath 
 
 	case tuiCommandCompendiumSync:
 		cobalt, force := parseSyncCobalt(command.Fields["amount"])
-		result, err := syncCompendiumContent(ctx, databasePath, cobalt, force)
+		result, err := syncCompendiumContent(ctx, databasePath, cobalt, force, campaignID)
 		if err != nil {
 			return render.CommandResult{}, err
 		}
@@ -992,7 +1010,7 @@ func parseSyncCobalt(raw string) (string, bool) {
 // authenticates and probes ownership via the available-user-content endpoint
 // so the source picker can show owned/locked badges. Phase A never fetches
 // monsters/spells/items.
-func initializeCompendium(ctx context.Context, databasePath string, cobalt string) (render.StatusMessage, error) {
+func initializeCompendium(ctx context.Context, databasePath string, cobalt string, campaignID string) (render.StatusMessage, error) {
 	startedAt := time.Now()
 	slog.InfoContext(ctx, "compendium init started", slog.Bool("cobalt_present", cobalt != ""))
 	defer func() {
@@ -1070,11 +1088,45 @@ func initializeCompendium(ctx context.Context, databasePath string, cobalt strin
 		return render.StatusMessage{}, fmt.Errorf("set ownership: %w", err)
 	}
 
+	// Discover the user's DDB campaigns so Phase B can include books shared
+	// into a campaign (e.g., a player gaining KftGV access through their DM's
+	// content sharing). Pick the most-recent campaign as the default if the
+	// user hasn't set one.
+	campaigns, err := client.GetUserCampaigns(ctx, cobalt)
+	if err != nil {
+		// Don't fail the whole init — log and continue. The user can still
+		// sync owned content; shared content just won't be detected.
+		slog.WarnContext(ctx, "compendium init user-campaigns failed", slog.String("error", err.Error()))
+	} else {
+		slog.InfoContext(ctx, "compendium init user-campaigns",
+			slog.Int("count", len(campaigns)))
+		for _, c := range campaigns {
+			slog.InfoContext(ctx, "compendium init user-campaign",
+				slog.Int("id", c.ID),
+				slog.String("name", c.Name),
+				slog.String("dm", c.DMUsername),
+				slog.String("created", c.DateCreated))
+		}
+		current, _ := compendium.GetDDBCampaignID(ctx, databasePath, campaignID)
+		if current == 0 && len(campaigns) > 0 {
+			// Default to the most recently created campaign — DDB returns the
+			// list sorted oldest-first, so the last entry is newest.
+			pick := campaigns[len(campaigns)-1]
+			if err := compendium.SetDDBCampaignID(ctx, databasePath, campaignID, pick.ID); err != nil {
+				slog.WarnContext(ctx, "compendium init set ddb_campaign_id failed", slog.String("error", err.Error()))
+			} else {
+				slog.InfoContext(ctx, "compendium init defaulted ddb_campaign_id",
+					slog.Int("ddb_campaign_id", pick.ID),
+					slog.String("name", pick.Name))
+			}
+		}
+	}
+
 	return render.StatusMessage{
 		Level: render.StatusSuccess,
 		Text: fmt.Sprintf(
-			"Initialized for %s: %d sources (%d owned). Press 't' on a source to enable, then 'S' to sync content.",
-			user.UserDisplayName, len(domainSources), len(ownedIDs),
+			"Initialized for %s: %d sources (%d owned, %d campaigns). Press 't' on a source to enable, then 'S' to sync content.",
+			user.UserDisplayName, len(domainSources), len(ownedIDs), len(campaigns),
 		),
 	}, nil
 }
@@ -1083,7 +1135,7 @@ func initializeCompendium(ctx context.Context, databasePath string, cobalt strin
 // enabled sources only. Honours the TTL guard (refuses to re-run within
 // syncTTL unless force=true) and the per-source content-type heuristics
 // (skips spell/item fetch when no enabled source has them).
-func syncCompendiumContent(ctx context.Context, databasePath string, cobalt string, force bool) (render.StatusMessage, error) { //nolint:revive // long but linear
+func syncCompendiumContent(ctx context.Context, databasePath string, cobalt string, force bool, campaignID string) (render.StatusMessage, error) { //nolint:revive // long but linear
 	startedAt := time.Now()
 	slog.InfoContext(ctx, "compendium sync started",
 		slog.Bool("cobalt_present", cobalt != ""),
@@ -1098,7 +1150,7 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 	}
 
 	if !force {
-		last, err := compendium.GetLastSyncedAt(ctx, databasePath)
+		last, err := compendium.GetLastSyncedAt(ctx, databasePath, campaignID)
 		if err != nil {
 			return render.StatusMessage{}, fmt.Errorf("get last synced: %w", err)
 		}
@@ -1115,7 +1167,7 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 		}
 	}
 
-	enabledSources, err := compendium.EnabledSourceIDs(ctx, databasePath)
+	enabledSources, err := compendium.EnabledSourceIDs(ctx, databasePath, campaignID)
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("enabled sources: %w", err)
 	}
@@ -1134,6 +1186,11 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 	}
 	slog.InfoContext(ctx, "compendium sync authenticate completed")
 
+	// Read the user's selected DDB campaign — when non-zero, spell/item
+	// fetches include books shared into the campaign (not just owned books).
+	ddbCampaignID, _ := compendium.GetDDBCampaignID(ctx, databasePath, campaignID)
+	slog.InfoContext(ctx, "compendium sync ddb_campaign_id loaded", slog.Int("ddb_campaign_id", ddbCampaignID))
+
 	// Re-fetch config — needed for cfg.SourceName / ChallengeRatingLabel /
 	// MonsterTypeName / CreatureSizeName lookups during conversion. This is a
 	// no-auth call so the rate-limit cost is negligible.
@@ -1151,7 +1208,9 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 		return render.StatusMessage{}, fmt.Errorf("fetch monsters: %w", err)
 	}
 	slog.InfoContext(ctx, "compendium sync fetch monsters completed", slog.Int("monsters", len(rawMonsters)))
-	monsters := convertDDBMonsters(rawMonsters, cfg)
+	rawMonsters = filterDDBMonstersBySource(rawMonsters, enabledSources)
+	slog.InfoContext(ctx, "compendium sync filtered monsters by enabled sources", slog.Int("monsters", len(rawMonsters)))
+	monsters := convertDDBMonsters(rawMonsters, cfg, enabledSources)
 	if err := compendium.UpsertMonsters(ctx, databasePath, monsters); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("upsert monsters: %w", err)
 	}
@@ -1160,17 +1219,30 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 	}
 	synced = append(synced, fmt.Sprintf("%d monsters", len(monsters)))
 
+	// Track which sources actually returned content across all three fetches.
+	// Sources that aren't owned but did return content must be accessible via
+	// the active DDB campaign — flip their `shared` flag below.
+	sharedCandidates := make(map[int]struct{})
+	for i := range rawMonsters {
+		for _, src := range rawMonsters[i].Sources {
+			sharedCandidates[src.SourceID] = struct{}{}
+		}
+	}
+
 	// --- Spells (skip-guard) ---
-	spellSourceIDs, err := compendium.SpellBearingEnabledSourceIDs(ctx, databasePath)
+	spellSourceIDs, err := compendium.SpellBearingEnabledSourceIDs(ctx, databasePath, campaignID)
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("spell-bearing sources: %w", err)
 	}
 	if len(spellSourceIDs) == 0 {
-		slog.InfoContext(ctx, "compendium sync skipped spells: no spell-bearing enabled sources")
-		synced = append(synced, "0 spells (skipped)")
+		slog.InfoContext(ctx, "compendium sync skipped spells: no spell-bearing enabled sources — pruning all")
+		if err := compendium.PruneSpells(ctx, databasePath, nil); err != nil {
+			return render.StatusMessage{}, fmt.Errorf("prune spells: %w", err)
+		}
+		synced = append(synced, "0 spells (pruned)")
 	} else {
-		slog.InfoContext(ctx, "compendium sync fetch spells started", slog.Int("spell_sources", len(spellSourceIDs)))
-		spellResult, err := client.FetchSpells(ctx, ddb.AllClassIDs())
+		slog.InfoContext(ctx, "compendium sync fetch spells started", slog.Int("spell_sources", len(spellSourceIDs)), slog.Int("ddb_campaign_id", ddbCampaignID))
+		spellResult, err := client.FetchSpells(ctx, ddb.AllClassIDs(), ddbCampaignID)
 		if err != nil {
 			return render.StatusMessage{}, fmt.Errorf("fetch spells: %w", err)
 		}
@@ -1186,9 +1258,12 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 		slog.InfoContext(ctx, "compendium sync spells completed", slog.Int("spells", len(spells)))
 
 		observed := observedSourceIDs(filtered, spellEntrySourceIDs)
+		for id := range observed {
+			sharedCandidates[id] = struct{}{}
+		}
 		for _, id := range spellSourceIDs {
 			_, present := observed[id]
-			if err := compendium.SetSourceHasSpells(ctx, databasePath, id, present); err != nil {
+			if err := compendium.SetSourceHasSpells(ctx, databasePath, campaignID, id, present); err != nil {
 				slog.WarnContext(ctx, "compendium sync update has_spells failed",
 					slog.Int("source_id", id), slog.String("error", err.Error()))
 			}
@@ -1196,16 +1271,19 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 	}
 
 	// --- Items (skip-guard) ---
-	itemSourceIDs, err := compendium.ItemBearingEnabledSourceIDs(ctx, databasePath)
+	itemSourceIDs, err := compendium.ItemBearingEnabledSourceIDs(ctx, databasePath, campaignID)
 	if err != nil {
 		return render.StatusMessage{}, fmt.Errorf("item-bearing sources: %w", err)
 	}
 	if len(itemSourceIDs) == 0 {
-		slog.InfoContext(ctx, "compendium sync skipped items: no item-bearing enabled sources")
-		synced = append(synced, "0 items (skipped)")
+		slog.InfoContext(ctx, "compendium sync skipped items: no item-bearing enabled sources — pruning all")
+		if err := compendium.PruneItems(ctx, databasePath, nil); err != nil {
+			return render.StatusMessage{}, fmt.Errorf("prune items: %w", err)
+		}
+		synced = append(synced, "0 items (pruned)")
 	} else {
-		slog.InfoContext(ctx, "compendium sync fetch items started", slog.Int("item_sources", len(itemSourceIDs)))
-		rawItems, err := client.FetchItems(ctx)
+		slog.InfoContext(ctx, "compendium sync fetch items started", slog.Int("item_sources", len(itemSourceIDs)), slog.Int("ddb_campaign_id", ddbCampaignID))
+		rawItems, err := client.FetchItems(ctx, ddbCampaignID)
 		if err != nil {
 			return render.StatusMessage{}, fmt.Errorf("fetch items: %w", err)
 		}
@@ -1221,16 +1299,32 @@ func syncCompendiumContent(ctx context.Context, databasePath string, cobalt stri
 		slog.InfoContext(ctx, "compendium sync items completed", slog.Int("items", len(items)))
 
 		observed := observedSourceIDs(filtered, itemSourceIDsOf)
+		for id := range observed {
+			sharedCandidates[id] = struct{}{}
+		}
 		for _, id := range itemSourceIDs {
 			_, present := observed[id]
-			if err := compendium.SetSourceHasItems(ctx, databasePath, id, present); err != nil {
+			if err := compendium.SetSourceHasItems(ctx, databasePath, campaignID, id, present); err != nil {
 				slog.WarnContext(ctx, "compendium sync update has_items failed",
 					slog.Int("source_id", id), slog.String("error", err.Error()))
 			}
 		}
 	}
 
-	if err := compendium.RecordSyncCompleted(ctx, databasePath); err != nil {
+	// Flip the `shared` flag for any source that returned content but isn't
+	// already marked owned. MarkSourceShared filters owned sources out via SQL.
+	candidateIDs := make([]int, 0, len(sharedCandidates))
+	for id := range sharedCandidates {
+		candidateIDs = append(candidateIDs, id)
+	}
+	if err := compendium.MarkSourceShared(ctx, databasePath, candidateIDs); err != nil {
+		slog.WarnContext(ctx, "compendium sync mark shared failed", slog.String("error", err.Error()))
+	} else {
+		slog.InfoContext(ctx, "compendium sync shared flags updated",
+			slog.Int("candidate_sources", len(candidateIDs)))
+	}
+
+	if err := compendium.RecordSyncCompleted(ctx, databasePath, campaignID); err != nil {
 		return render.StatusMessage{}, fmt.Errorf("record sync completed: %w", err)
 	}
 

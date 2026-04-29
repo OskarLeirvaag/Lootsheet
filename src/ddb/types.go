@@ -271,3 +271,24 @@ func (a AvailableUserContent) Books() []LicenseBlock {
 // Other observed blocks: 701257905 (dice sets), 2103445194 (something else
 // — needs investigation if we ever care about non-book entitlements).
 const EntityTypeIDBooks = 496802664
+
+// --- Campaigns (campaign-service via /api/campaign/stt/user-campaigns) ---
+
+// UserCampaign is one entry from /api/campaign/stt/user-campaigns. The
+// endpoint returns only metadata (no source list), so the consumer must
+// pass `id` as `campaignId=` to spell/item fetches to receive content shared
+// into that campaign.
+type UserCampaign struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	DMUsername   string `json:"dmUsername"`
+	DateCreated  string `json:"dateCreated"`
+	PlayerCount  int    `json:"playerCount"`
+	DMID         int    `json:"dmId"`
+}
+
+// userCampaignsResponse wraps the user-campaigns endpoint payload.
+type userCampaignsResponse struct {
+	Status string         `json:"status"`
+	Data   []UserCampaign `json:"data"`
+}

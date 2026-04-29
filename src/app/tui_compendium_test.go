@@ -32,6 +32,23 @@ func TestFilterDDBItemsBySource(t *testing.T) {
 	}
 }
 
+func TestFilterDDBMonstersBySourceDropsNonEnabledSources(t *testing.T) {
+	monsters := []ddb.RawMonster{
+		{ID: 1, Sources: []ddb.SourceRef{{SourceID: 5}}},   // MM 2014 only → keep
+		{ID: 2, Sources: []ddb.SourceRef{{SourceID: 198}}},  // MM 2024 only → drop
+		{ID: 3, Sources: []ddb.SourceRef{{SourceID: 5}, {SourceID: 198}}}, // both → keep (is in 2014)
+		{ID: 4},                                              // no sources → drop
+	}
+
+	got := filterDDBMonstersBySource(monsters, []int{5})
+	if len(got) != 2 {
+		t.Fatalf("filterDDBMonstersBySource = %d results, want 2: %+v", len(got), got)
+	}
+	if got[0].ID != 1 || got[1].ID != 3 {
+		t.Fatalf("unexpected IDs: %d %d", got[0].ID, got[1].ID)
+	}
+}
+
 func TestConvertDDBSourcesDropsBadAndUnreleasedIDs(t *testing.T) {
 	in := []ddb.ConfigSource{
 		{ID: 1, Description: "PHB", IsReleased: true, SourceCategoryID: 10},

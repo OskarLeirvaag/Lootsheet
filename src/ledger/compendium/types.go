@@ -66,21 +66,35 @@ type Condition struct {
 	SyncedAt    string
 }
 
-// Ownership tri-state values stored in compendium_sources.owned.
+// Ownership state values stored in compendium_sources.owned.
+//
+//   - Unknown: never probed (no cobalt cookie supplied to Phase A yet).
+//   - Owned: user purchased this book — `isOwned: true` in available-user-content.
+//   - Locked: user did NOT purchase this book and we have not observed any
+//     content for it via the active DDB campaign.
+//
+// "Shared" is encoded separately on the `shared` column rather than as a
+// fourth ownership value — a book can be shared into the active campaign
+// regardless of ownership, and we don't want to lose the underlying ownership
+// signal when sharing flips.
 const (
 	OwnershipUnknown = 0
 	OwnershipOwned   = 1
 	OwnershipLocked  = 2
 )
 
-// Source represents a D&D Beyond source book for filtering.
+// Source represents a D&D Beyond source book combined with the active
+// campaign's per-source selection state.
 type Source struct {
 	ID         int
 	Name       string
-	Enabled    bool
+	// global / account-level
 	Owned      int  // OwnershipUnknown / OwnershipOwned / OwnershipLocked
-	HasSpells  bool // false once we observe a sync return zero spells
-	HasItems   bool
+	Shared     bool // confirmed accessible via the active DDB campaign
 	IsReleased bool
 	CategoryID int
+	// per-campaign (from compendium_campaign_sources)
+	Enabled   bool
+	HasSpells bool
+	HasItems  bool
 }

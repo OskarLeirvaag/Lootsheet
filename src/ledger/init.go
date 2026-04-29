@@ -84,6 +84,10 @@ func EnsureSQLiteInitialized(ctx context.Context, databasePath string, assets co
 		return InitResult{}, fmt.Errorf("commit init transaction: %w", err)
 	}
 
+	// New schema landed — drop any cached "verified" verdict so subsequent
+	// repo calls re-inspect on demand.
+	InvalidateDatabaseCache(databasePath)
+
 	return InitResult{
 		Initialized: true,
 		SeededCounts: SeededCounts{

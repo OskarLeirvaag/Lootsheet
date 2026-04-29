@@ -8,6 +8,13 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
 
+// testCID returns the default campaign ID for tests, used wherever
+// per-campaign compendium functions require a campaign context.
+func testCID(t testing.TB, dbPath string) string {
+	t.Helper()
+	return testutil.DefaultCampaignID(t, dbPath)
+}
+
 func TestUpsertAndListMonsters(t *testing.T) {
 	dbPath := testutil.InitTestDB(t)
 	ctx := context.Background()
@@ -181,16 +188,17 @@ func TestUpsertAndListConditions(t *testing.T) {
 func TestUpsertAndListSources(t *testing.T) {
 	dbPath := testutil.InitTestDB(t)
 	ctx := context.Background()
+	cid := testCID(t, dbPath)
 
 	sources := []Source{
-		{ID: 1, Name: "Basic Rules", Enabled: true},
-		{ID: 2, Name: "Player's Handbook", Enabled: false},
+		{ID: 1, Name: "Basic Rules", IsReleased: true},
+		{ID: 2, Name: "Player's Handbook", IsReleased: true},
 	}
 	if err := UpsertSources(ctx, dbPath, sources); err != nil {
 		t.Fatalf("upsert sources: %v", err)
 	}
 
-	all, err := ListSources(ctx, dbPath)
+	all, err := ListSources(ctx, dbPath, cid)
 	if err != nil {
 		t.Fatalf("list sources: %v", err)
 	}
@@ -198,38 +206,48 @@ func TestUpsertAndListSources(t *testing.T) {
 		t.Fatalf("expected 2 sources, got %d", len(all))
 	}
 
-	enabled, err := EnabledSourceIDs(ctx, dbPath)
+	// Nothing enabled yet in this campaign.
+	enabled, err := EnabledSourceIDs(ctx, dbPath, cid)
 	if err != nil {
 		t.Fatalf("enabled sources: %v", err)
 	}
+	if len(enabled) != 0 {
+		t.Fatalf("expected 0 enabled initially, got %v", enabled)
+	}
+
+	// Toggle Basic Rules on.
+	if err := ToggleSource(ctx, dbPath, cid, 1); err != nil {
+		t.Fatalf("toggle source 1: %v", err)
+	}
+	enabled, _ = EnabledSourceIDs(ctx, dbPath, cid)
 	if len(enabled) != 1 || enabled[0] != 1 {
 		t.Fatalf("expected [1] enabled, got %v", enabled)
 	}
 
 	// Toggle PHB on.
-	if err := ToggleSource(ctx, dbPath, 2); err != nil {
-		t.Fatalf("toggle source: %v", err)
+	if err := ToggleSource(ctx, dbPath, cid, 2); err != nil {
+		t.Fatalf("toggle source 2: %v", err)
 	}
-	enabled, _ = EnabledSourceIDs(ctx, dbPath)
+	enabled, _ = EnabledSourceIDs(ctx, dbPath, cid)
 	if len(enabled) != 2 {
 		t.Fatalf("expected 2 enabled after toggle, got %d", len(enabled))
 	}
 
 	// Toggle PHB off.
-	if err := ToggleSource(ctx, dbPath, 2); err != nil {
+	if err := ToggleSource(ctx, dbPath, cid, 2); err != nil {
 		t.Fatalf("toggle source off: %v", err)
 	}
-	enabled, _ = EnabledSourceIDs(ctx, dbPath)
+	enabled, _ = EnabledSourceIDs(ctx, dbPath, cid)
 	if len(enabled) != 1 {
 		t.Fatalf("expected 1 enabled after toggle off, got %d", len(enabled))
 	}
 
-	// Upsert preserves enabled state (ON CONFLICT updates name only).
+	// Upsert updates name only; per-campaign enabled state is untouched.
 	sources[1].Name = "PHB (2014)"
 	if err := UpsertSources(ctx, dbPath, sources); err != nil {
 		t.Fatalf("re-upsert sources: %v", err)
 	}
-	all, _ = ListSources(ctx, dbPath)
+	all, _ = ListSources(ctx, dbPath, cid)
 	for _, s := range all {
 		if s.ID == 2 && s.Name != "PHB (2014)" {
 			t.Fatalf("expected updated name, got %q", s.Name)
@@ -257,7 +275,8 @@ func TestSetSourceOwnershipMarksOwnedAndLocked(t *testing.T) {
 		t.Fatalf("set ownership: %v", err)
 	}
 
-	all, _ := ListSources(ctx, dbPath)
+	cid := testCID(t, dbPath)
+	all, _ := ListSources(ctx, dbPath, cid)
 	got := map[int]int{}
 	for _, s := range all {
 		got[s.ID] = s.Owned
@@ -276,16 +295,20 @@ func TestSetSourceOwnershipMarksOwnedAndLocked(t *testing.T) {
 func TestSetSourceHasSpellsAndItemsAreIndependent(t *testing.T) {
 	dbPath := testutil.InitTestDB(t)
 	ctx := context.Background()
+	cid := testCID(t, dbPath)
 
 	if err := UpsertSources(ctx, dbPath, []Source{{ID: 1, Name: "MM", IsReleased: true}}); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
+	// Enable source so it appears in the junction table.
+	if err := ToggleSource(ctx, dbPath, cid, 1); err != nil {
+		t.Fatalf("toggle: %v", err)
+	}
 
-	// MM has no spells, but does have items.
-	if err := SetSourceHasSpells(ctx, dbPath, 1, false); err != nil {
+	if err := SetSourceHasSpells(ctx, dbPath, cid, 1, false); err != nil {
 		t.Fatalf("set has_spells: %v", err)
 	}
-	all, _ := ListSources(ctx, dbPath)
+	all, _ := ListSources(ctx, dbPath, cid)
 	if all[0].HasSpells {
 		t.Error("expected has_spells=false after SetSourceHasSpells")
 	}
@@ -293,10 +316,10 @@ func TestSetSourceHasSpellsAndItemsAreIndependent(t *testing.T) {
 		t.Error("has_items got cleared by has_spells update — should be independent")
 	}
 
-	if err := SetSourceHasItems(ctx, dbPath, 1, true); err != nil {
+	if err := SetSourceHasItems(ctx, dbPath, cid, 1, true); err != nil {
 		t.Fatalf("set has_items: %v", err)
 	}
-	all, _ = ListSources(ctx, dbPath)
+	all, _ = ListSources(ctx, dbPath, cid)
 	if all[0].HasSpells {
 		t.Error("setting has_items reset has_spells")
 	}
@@ -305,8 +328,9 @@ func TestSetSourceHasSpellsAndItemsAreIndependent(t *testing.T) {
 func TestGetLastSyncedAtZeroBeforeFirstSync(t *testing.T) {
 	dbPath := testutil.InitTestDB(t)
 	ctx := context.Background()
+	cid := testCID(t, dbPath)
 
-	last, err := GetLastSyncedAt(ctx, dbPath)
+	last, err := GetLastSyncedAt(ctx, dbPath, cid)
 	if err != nil {
 		t.Fatalf("get last_synced_at: %v", err)
 	}
@@ -318,12 +342,13 @@ func TestGetLastSyncedAtZeroBeforeFirstSync(t *testing.T) {
 func TestRecordSyncCompletedSetsRecentTimestamp(t *testing.T) {
 	dbPath := testutil.InitTestDB(t)
 	ctx := context.Background()
+	cid := testCID(t, dbPath)
 
 	before := time.Now().Add(-2 * time.Second)
-	if err := RecordSyncCompleted(ctx, dbPath); err != nil {
+	if err := RecordSyncCompleted(ctx, dbPath, cid); err != nil {
 		t.Fatalf("record sync completed: %v", err)
 	}
-	last, err := GetLastSyncedAt(ctx, dbPath)
+	last, err := GetLastSyncedAt(ctx, dbPath, cid)
 	if err != nil {
 		t.Fatalf("get last_synced_at: %v", err)
 	}
@@ -338,26 +363,27 @@ func TestRecordSyncCompletedSetsRecentTimestamp(t *testing.T) {
 func TestSpellAndItemBearingEnabledSourceIDsRespectFlags(t *testing.T) {
 	dbPath := testutil.InitTestDB(t)
 	ctx := context.Background()
+	cid := testCID(t, dbPath)
 
 	src := []Source{
-		{ID: 1, Name: "PHB", IsReleased: true}, // toggled on below
-		{ID: 2, Name: "MM", IsReleased: true},  // toggled on below; we'll clear has_spells
+		{ID: 1, Name: "PHB", IsReleased: true},
+		{ID: 2, Name: "MM", IsReleased: true},
 		{ID: 3, Name: "XGE", IsReleased: true}, // stays disabled
 	}
 	if err := UpsertSources(ctx, dbPath, src); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
-	if err := ToggleSource(ctx, dbPath, 1); err != nil {
+	if err := ToggleSource(ctx, dbPath, cid, 1); err != nil {
 		t.Fatalf("toggle 1: %v", err)
 	}
-	if err := ToggleSource(ctx, dbPath, 2); err != nil {
+	if err := ToggleSource(ctx, dbPath, cid, 2); err != nil {
 		t.Fatalf("toggle 2: %v", err)
 	}
-	if err := SetSourceHasSpells(ctx, dbPath, 2, false); err != nil {
+	if err := SetSourceHasSpells(ctx, dbPath, cid, 2, false); err != nil {
 		t.Fatalf("set has_spells: %v", err)
 	}
 
-	spellIDs, err := SpellBearingEnabledSourceIDs(ctx, dbPath)
+	spellIDs, err := SpellBearingEnabledSourceIDs(ctx, dbPath, cid)
 	if err != nil {
 		t.Fatalf("spell-bearing: %v", err)
 	}
@@ -365,7 +391,7 @@ func TestSpellAndItemBearingEnabledSourceIDsRespectFlags(t *testing.T) {
 		t.Errorf("spell-bearing = %v, want [1]", spellIDs)
 	}
 
-	itemIDs, err := ItemBearingEnabledSourceIDs(ctx, dbPath)
+	itemIDs, err := ItemBearingEnabledSourceIDs(ctx, dbPath, cid)
 	if err != nil {
 		t.Fatalf("item-bearing: %v", err)
 	}

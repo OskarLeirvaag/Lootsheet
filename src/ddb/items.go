@@ -9,12 +9,19 @@ import (
 const itemsURL = "https://character-service.dndbeyond.com/character/v5/game-data/items"
 
 // FetchItems retrieves all items from DDB. Requires authentication.
-func (c *Client) FetchItems(ctx context.Context) ([]RawItem, error) {
+//
+// campaignID, when non-zero, is appended as `&campaignId=N` so DDB also
+// returns items from books shared into that campaign (in addition to books
+// the user owns). Pass 0 to omit and get owned-only content.
+func (c *Client) FetchItems(ctx context.Context, campaignID int) ([]RawItem, error) {
 	if !c.IsAuthenticated() {
 		return nil, ErrNotAuthenticated
 	}
 
 	url := itemsURL + "?sharingSetting=2"
+	if campaignID > 0 {
+		url += fmt.Sprintf("&campaignId=%d", campaignID)
+	}
 
 	body, err := c.doGet(ctx, url)
 	if err != nil {

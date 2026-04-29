@@ -192,18 +192,18 @@ func (s *sqliteDataLoader) SearchNotes(ctx context.Context, query string) ([]not
 	return notes.SearchNotes(ctx, s.databasePath, s.campaignID, query)
 }
 
-// Compendium methods — cross-campaign, no campaignID needed.
+// Compendium methods — content is global; sources and filtering are per-campaign.
 
 func (s *sqliteDataLoader) ListCompendiumMonsters(ctx context.Context, query string) ([]compendium.Monster, error) {
-	return compendium.ListMonsters(ctx, s.databasePath, query)
+	return compendium.ListMonstersForCampaign(ctx, s.databasePath, s.campaignID, query)
 }
 
 func (s *sqliteDataLoader) ListCompendiumSpells(ctx context.Context, query string) ([]compendium.Spell, error) {
-	return compendium.ListSpells(ctx, s.databasePath, query)
+	return compendium.ListSpellsForCampaign(ctx, s.databasePath, s.campaignID, query)
 }
 
 func (s *sqliteDataLoader) ListCompendiumItems(ctx context.Context, query string) ([]compendium.Item, error) {
-	return compendium.ListItems(ctx, s.databasePath, query)
+	return compendium.ListItemsForCampaign(ctx, s.databasePath, s.campaignID, query)
 }
 
 func (s *sqliteDataLoader) ListCompendiumRules(ctx context.Context, query string) ([]compendium.Rule, error) {
@@ -215,5 +215,5 @@ func (s *sqliteDataLoader) ListCompendiumConditions(ctx context.Context, query s
 }
 
 func (s *sqliteDataLoader) ListCompendiumSources(ctx context.Context) ([]compendium.Source, error) {
-	return compendium.ListSources(ctx, s.databasePath)
+	return compendium.ListSources(ctx, s.databasePath, s.campaignID)
 }

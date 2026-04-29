@@ -7,9 +7,26 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	_ "modernc.org/sqlite" // register sqlite driver for database/sql
 )
+
+// verifiedDatabases caches the absolute paths of databases that have already
+// been inspected and confirmed initialized in this process. Inspection runs
+// `PRAGMA quick_check` over the whole file (~190ms on a 33 MB DB with FTS5
+// indexes), which is too expensive to repeat on every repo call. The cache is
+// invalidated by InvalidateDatabaseCache after `lootsheet init` or
+// `lootsheet db migrate` so the next call re-inspects.
+var verifiedDatabases sync.Map // map[string]struct{}
+
+// InvalidateDatabaseCache forgets the cached "initialized" verdict for a path,
+// forcing the next WithDB/WithDBResult call to re-run InspectSQLiteDatabase.
+// Call this after migrations or init to make sure stale state can't hide a
+// schema change.
+func InvalidateDatabaseCache(databasePath string) {
+	verifiedDatabases.Delete(databasePath)
+}
 
 // OpenDB opens a database connection with standard pragmas applied.
 func OpenDB(databasePath string) (*sql.DB, error) {
@@ -201,9 +218,15 @@ func WithDBResult[T any](ctx context.Context, databasePath string, fn func(db *s
 	return fn(db)
 }
 
-// EnsureInitializedDatabase checks that the database at the given path
-// has been initialized with the LootSheet schema.
+// EnsureInitializedDatabase checks that the database at the given path has
+// been initialized with the LootSheet schema. The result is cached per path
+// so subsequent calls skip the (expensive) PRAGMA quick_check inspection.
+// Call InvalidateDatabaseCache after init/migrate to force re-inspection.
 func EnsureInitializedDatabase(ctx context.Context, databasePath string) error {
+	if _, ok := verifiedDatabases.Load(databasePath); ok {
+		return nil
+	}
+
 	state, err := InspectSQLiteDatabase(ctx, databasePath)
 	if err != nil {
 		return err
@@ -222,6 +245,7 @@ func EnsureInitializedDatabase(ctx context.Context, databasePath string) error {
 		return fmt.Errorf("database %q is not initialized; run `lootsheet init`", databasePath)
 	}
 
+	verifiedDatabases.Store(databasePath, struct{}{})
 	return nil
 }
 

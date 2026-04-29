@@ -11,6 +11,122 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
 
+// ListMonstersForCampaign returns monsters from sources enabled for the given
+// campaign, optionally filtered by a full-text query. Used by the TUI data
+// loader so each campaign only sees its own source books.
+func ListMonstersForCampaign(ctx context.Context, databasePath string, campaignID string, query string) ([]Monster, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Monster, error) {
+		var rows *sql.Rows
+		var err error
+		if query != "" {
+			rows, err = db.QueryContext(ctx, `
+				SELECT DISTINCT m.id, m.ddb_id, m.name, m.cr, m.type, m.size, m.hp, m.ac, m.source_name, '', m.synced_at
+				FROM compendium_monsters m
+				JOIN compendium_monsters_fts f ON f.rowid = m.id
+				JOIN compendium_sources cs ON cs.name = m.source_name
+				JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ? AND ccs.enabled = 1
+				WHERE compendium_monsters_fts MATCH ?
+				ORDER BY m.name`, campaignID, ftsQuery(query))
+		} else {
+			rows, err = db.QueryContext(ctx, `
+				SELECT DISTINCT m.id, m.ddb_id, m.name, m.cr, m.type, m.size, m.hp, m.ac, m.source_name, '', m.synced_at
+				FROM compendium_monsters m
+				JOIN compendium_sources cs ON cs.name = m.source_name
+				JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ? AND ccs.enabled = 1
+				ORDER BY m.name`, campaignID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list monsters for campaign: %w", err)
+		}
+		defer rows.Close()
+		var result []Monster
+		for rows.Next() {
+			var m Monster
+			if err := rows.Scan(&m.ID, &m.DdbID, &m.Name, &m.CR, &m.Type, &m.Size, &m.HP, &m.AC, &m.SourceName, &m.DetailJSON, &m.SyncedAt); err != nil {
+				return nil, fmt.Errorf("scan monster: %w", err)
+			}
+			result = append(result, m)
+		}
+		return result, rows.Err()
+	})
+}
+
+// ListSpellsForCampaign returns spells from sources enabled for the given campaign.
+func ListSpellsForCampaign(ctx context.Context, databasePath string, campaignID string, query string) ([]Spell, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Spell, error) {
+		var rows *sql.Rows
+		var err error
+		if query != "" {
+			rows, err = db.QueryContext(ctx, `
+				SELECT DISTINCT s.id, s.ddb_id, s.name, s.level, s.school, s.casting_time, s.range, s.components, s.duration, s.classes, s.source_name, '', s.synced_at
+				FROM compendium_spells s
+				JOIN compendium_spells_fts f ON f.rowid = s.id
+				JOIN compendium_sources cs ON cs.name = s.source_name
+				JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ? AND ccs.enabled = 1
+				WHERE compendium_spells_fts MATCH ?
+				ORDER BY s.level, s.name`, campaignID, ftsQuery(query))
+		} else {
+			rows, err = db.QueryContext(ctx, `
+				SELECT DISTINCT s.id, s.ddb_id, s.name, s.level, s.school, s.casting_time, s.range, s.components, s.duration, s.classes, s.source_name, '', s.synced_at
+				FROM compendium_spells s
+				JOIN compendium_sources cs ON cs.name = s.source_name
+				JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ? AND ccs.enabled = 1
+				ORDER BY s.level, s.name`, campaignID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list spells for campaign: %w", err)
+		}
+		defer rows.Close()
+		var result []Spell
+		for rows.Next() {
+			var s Spell
+			if err := rows.Scan(&s.ID, &s.DdbID, &s.Name, &s.Level, &s.School, &s.CastingTime, &s.Range, &s.Components, &s.Duration, &s.Classes, &s.SourceName, &s.DetailJSON, &s.SyncedAt); err != nil {
+				return nil, fmt.Errorf("scan spell: %w", err)
+			}
+			result = append(result, s)
+		}
+		return result, rows.Err()
+	})
+}
+
+// ListItemsForCampaign returns items from sources enabled for the given campaign.
+func ListItemsForCampaign(ctx context.Context, databasePath string, campaignID string, query string) ([]Item, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Item, error) {
+		var rows *sql.Rows
+		var err error
+		if query != "" {
+			rows, err = db.QueryContext(ctx, `
+				SELECT DISTINCT i.id, i.ddb_id, i.name, i.type, i.rarity, i.attunement, i.source_name, '', i.synced_at
+				FROM compendium_items i
+				JOIN compendium_items_fts f ON f.rowid = i.id
+				JOIN compendium_sources cs ON cs.name = i.source_name
+				JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ? AND ccs.enabled = 1
+				WHERE compendium_items_fts MATCH ?
+				ORDER BY i.name`, campaignID, ftsQuery(query))
+		} else {
+			rows, err = db.QueryContext(ctx, `
+				SELECT DISTINCT i.id, i.ddb_id, i.name, i.type, i.rarity, i.attunement, i.source_name, '', i.synced_at
+				FROM compendium_items i
+				JOIN compendium_sources cs ON cs.name = i.source_name
+				JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ? AND ccs.enabled = 1
+				ORDER BY i.name`, campaignID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list items for campaign: %w", err)
+		}
+		defer rows.Close()
+		var result []Item
+		for rows.Next() {
+			var i Item
+			if err := rows.Scan(&i.ID, &i.DdbID, &i.Name, &i.Type, &i.Rarity, &i.Attunement, &i.SourceName, &i.DetailJSON, &i.SyncedAt); err != nil {
+				return nil, fmt.Errorf("scan item: %w", err)
+			}
+			result = append(result, i)
+		}
+		return result, rows.Err()
+	})
+}
+
 // ListMonsters returns all monsters, optionally filtered by a search query (FTS).
 func ListMonsters(ctx context.Context, databasePath string, query string) ([]Monster, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Monster, error) {
@@ -176,10 +292,18 @@ func ListConditions(ctx context.Context, databasePath string, query string) ([]C
 	})
 }
 
-// ListSources returns all source books.
-func ListSources(ctx context.Context, databasePath string) ([]Source, error) {
+// ListSources returns all source books for a campaign, joining the global
+// catalogue with the campaign's per-source selection state.
+func ListSources(ctx context.Context, databasePath string, campaignID string) ([]Source, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Source, error) {
-		rows, err := db.QueryContext(ctx, `SELECT id, name, enabled, owned, has_spells, has_items, is_released, category_id FROM compendium_sources ORDER BY name`)
+		rows, err := db.QueryContext(ctx, `
+			SELECT cs.id, cs.name, cs.owned, cs.shared, cs.is_released, cs.category_id,
+			       COALESCE(ccs.enabled, 0),
+			       COALESCE(ccs.has_spells, 1),
+			       COALESCE(ccs.has_items, 1)
+			FROM compendium_sources cs
+			LEFT JOIN compendium_campaign_sources ccs ON ccs.source_id = cs.id AND ccs.campaign_id = ?
+			ORDER BY cs.name`, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("list sources: %w", err)
 		}
@@ -188,7 +312,8 @@ func ListSources(ctx context.Context, databasePath string) ([]Source, error) {
 		var result []Source
 		for rows.Next() {
 			var s Source
-			if err := rows.Scan(&s.ID, &s.Name, &s.Enabled, &s.Owned, &s.HasSpells, &s.HasItems, &s.IsReleased, &s.CategoryID); err != nil {
+			if err := rows.Scan(&s.ID, &s.Name, &s.Owned, &s.Shared, &s.IsReleased, &s.CategoryID,
+				&s.Enabled, &s.HasSpells, &s.HasItems); err != nil {
 				return nil, fmt.Errorf("scan source: %w", err)
 			}
 			result = append(result, s)
@@ -197,10 +322,12 @@ func ListSources(ctx context.Context, databasePath string) ([]Source, error) {
 	})
 }
 
-// EnabledSourceIDs returns the IDs of all enabled source books.
-func EnabledSourceIDs(ctx context.Context, databasePath string) ([]int, error) {
+// EnabledSourceIDs returns the IDs of enabled source books for the given campaign.
+func EnabledSourceIDs(ctx context.Context, databasePath string, campaignID string) ([]int, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]int, error) {
-		rows, err := db.QueryContext(ctx, `SELECT id FROM compendium_sources WHERE enabled = 1`)
+		rows, err := db.QueryContext(ctx,
+			`SELECT source_id FROM compendium_campaign_sources WHERE campaign_id = ? AND enabled = 1`,
+			campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("enabled sources: %w", err)
 		}
@@ -218,17 +345,22 @@ func EnabledSourceIDs(ctx context.Context, databasePath string) ([]int, error) {
 	})
 }
 
-// ToggleSource flips the enabled state of a source book.
-func ToggleSource(ctx context.Context, databasePath string, sourceID int) error {
+// ToggleSource flips the enabled state of a source book for the given campaign.
+// Upserts the row so campaigns that never had an explicit selection work correctly.
+func ToggleSource(ctx context.Context, databasePath string, campaignID string, sourceID int) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		_, err := db.ExecContext(ctx, `UPDATE compendium_sources SET enabled = 1 - enabled WHERE id = ?`, sourceID)
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO compendium_campaign_sources (campaign_id, source_id, enabled)
+			VALUES (?, ?, 1)
+			ON CONFLICT(campaign_id, source_id) DO UPDATE SET enabled = 1 - enabled`,
+			campaignID, sourceID)
 		return err
 	})
 }
 
-// UpsertSources inserts or updates source books (from DDB config). Existing
-// rows preserve their `enabled`, `owned`, `has_spells`, `has_items` user state;
-// only catalogue fields (name, is_released, category_id) refresh.
+// UpsertSources inserts or updates source books (from DDB config). Only global
+// catalogue fields (name, is_released, category_id) are written; per-campaign
+// selection lives in compendium_campaign_sources.
 func UpsertSources(ctx context.Context, databasePath string, sources []Source) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
 		tx, err := db.BeginTx(ctx, nil)
@@ -238,8 +370,8 @@ func UpsertSources(ctx context.Context, databasePath string, sources []Source) e
 		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
 		stmt, err := tx.PrepareContext(ctx,
-			`INSERT INTO compendium_sources (id, name, enabled, is_released, category_id)
-			 VALUES (?, ?, ?, ?, ?)
+			`INSERT INTO compendium_sources (id, name, is_released, category_id)
+			 VALUES (?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
 			     name = excluded.name,
 			     is_released = excluded.is_released,
@@ -250,15 +382,11 @@ func UpsertSources(ctx context.Context, databasePath string, sources []Source) e
 		defer stmt.Close()
 
 		for _, s := range sources {
-			enabled := 0
-			if s.Enabled {
-				enabled = 1
-			}
 			released := 0
 			if s.IsReleased {
 				released = 1
 			}
-			if _, err := stmt.ExecContext(ctx, s.ID, s.Name, enabled, released, s.CategoryID); err != nil {
+			if _, err := stmt.ExecContext(ctx, s.ID, s.Name, released, s.CategoryID); err != nil {
 				return fmt.Errorf("upsert source %d: %w", s.ID, err)
 			}
 		}
@@ -269,6 +397,9 @@ func UpsertSources(ctx context.Context, databasePath string, sources []Source) e
 // SetSourceOwnership marks the listed source IDs as owned (1) and every other
 // known source as locked (2). Sources not yet probed should be filtered before
 // calling this — any row not in `ownedIDs` will be marked locked.
+//
+// `shared` is left untouched here; it's populated lazily during Phase B sync
+// when content actually comes back for a non-owned source.
 func SetSourceOwnership(ctx context.Context, databasePath string, ownedIDs []int) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
 		tx, err := db.BeginTx(ctx, nil)
@@ -290,20 +421,43 @@ func SetSourceOwnership(ctx context.Context, databasePath string, ownedIDs []int
 	})
 }
 
-// SetSourceHasSpells stores whether a source produced any spells in the most
-// recent Phase B fetch. Subsequent Phase B runs skip the spell pass entirely
-// when no enabled source has has_spells=1.
-func SetSourceHasSpells(ctx context.Context, databasePath string, sourceID int, hasSpells bool) error {
-	return setSourceContentFlag(ctx, databasePath, sourceID, "has_spells", hasSpells)
+// MarkSourceShared flips `shared = 1` for the given IDs that aren't already
+// marked owned. Used in Phase B when content for a non-owned source actually
+// returns from DDB — implying the active DDB campaign grants access.
+func MarkSourceShared(ctx context.Context, databasePath string, sourceIDs []int) error {
+	if len(sourceIDs) == 0 {
+		return nil
+	}
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck
+
+		for _, id := range sourceIDs {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE compendium_sources SET shared = 1 WHERE id = ? AND owned != ?`,
+				id, OwnershipOwned); err != nil {
+				return fmt.Errorf("mark source %d shared: %w", id, err)
+			}
+		}
+		return tx.Commit()
+	})
 }
 
-// SetSourceHasItems stores whether a source produced any items in the most
-// recent Phase B fetch.
-func SetSourceHasItems(ctx context.Context, databasePath string, sourceID int, hasItems bool) error {
-	return setSourceContentFlag(ctx, databasePath, sourceID, "has_items", hasItems)
+// SetSourceHasSpells records observed spell presence for a source in the given
+// campaign. Used after Phase B to update the skip-guard for subsequent syncs.
+func SetSourceHasSpells(ctx context.Context, databasePath string, campaignID string, sourceID int, hasSpells bool) error {
+	return setCampaignSourceFlag(ctx, databasePath, campaignID, sourceID, "has_spells", hasSpells)
 }
 
-func setSourceContentFlag(ctx context.Context, databasePath string, sourceID int, column string, value bool) error {
+// SetSourceHasItems records observed item presence for a source in the given campaign.
+func SetSourceHasItems(ctx context.Context, databasePath string, campaignID string, sourceID int, hasItems bool) error {
+	return setCampaignSourceFlag(ctx, databasePath, campaignID, sourceID, "has_items", hasItems)
+}
+
+func setCampaignSourceFlag(ctx context.Context, databasePath string, campaignID string, sourceID int, column string, value bool) error {
 	if column != "has_spells" && column != "has_items" {
 		return fmt.Errorf("invalid content column: %q", column)
 	}
@@ -312,20 +466,31 @@ func setSourceContentFlag(ctx context.Context, databasePath string, sourceID int
 		if value {
 			v = 1
 		}
-		query := "UPDATE compendium_sources SET " + column + " = ? WHERE id = ?" //nolint:gosec // column validated.
-		if _, err := db.ExecContext(ctx, query, v, sourceID); err != nil {
-			return fmt.Errorf("update %s for source %d: %w", column, sourceID, err)
+		// Upsert: ensure the row exists, then set the flag.
+		if column == "has_spells" {
+			_, err := db.ExecContext(ctx, `
+				INSERT INTO compendium_campaign_sources (campaign_id, source_id, has_spells)
+				VALUES (?, ?, ?)
+				ON CONFLICT(campaign_id, source_id) DO UPDATE SET has_spells = excluded.has_spells`,
+				campaignID, sourceID, v)
+			return err
 		}
-		return nil
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO compendium_campaign_sources (campaign_id, source_id, has_items)
+			VALUES (?, ?, ?)
+			ON CONFLICT(campaign_id, source_id) DO UPDATE SET has_items = excluded.has_items`,
+			campaignID, sourceID, v)
+		return err
 	})
 }
 
-// GetLastSyncedAt returns the timestamp of the last successful Phase B sync,
-// or the zero time if no sync has completed yet.
-func GetLastSyncedAt(ctx context.Context, databasePath string) (time.Time, error) {
+// GetLastSyncedAt returns the last successful Phase B sync timestamp for a
+// campaign, or the zero time if it has never synced.
+func GetLastSyncedAt(ctx context.Context, databasePath string, campaignID string) (time.Time, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (time.Time, error) {
 		var raw sql.NullString
-		err := db.QueryRowContext(ctx, `SELECT last_synced_at FROM compendium_sync_state WHERE id = 1`).Scan(&raw)
+		err := db.QueryRowContext(ctx,
+			`SELECT last_synced_at FROM compendium_campaign_sync WHERE campaign_id = ?`, campaignID).Scan(&raw)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return time.Time{}, nil
@@ -335,10 +500,8 @@ func GetLastSyncedAt(ctx context.Context, databasePath string) (time.Time, error
 		if !raw.Valid || raw.String == "" {
 			return time.Time{}, nil
 		}
-		// SQLite datetime('now') format: "2006-01-02 15:04:05".
 		t, err := time.Parse("2006-01-02 15:04:05", raw.String)
 		if err != nil {
-			// Try RFC3339 as a fallback.
 			t, err = time.Parse(time.RFC3339, raw.String)
 			if err != nil {
 				return time.Time{}, fmt.Errorf("parse last_synced_at %q: %w", raw.String, err)
@@ -348,11 +511,15 @@ func GetLastSyncedAt(ctx context.Context, databasePath string) (time.Time, error
 	})
 }
 
-// RecordSyncCompleted updates compendium_sync_state.last_synced_at to now.
-func RecordSyncCompleted(ctx context.Context, databasePath string) error {
+// RecordSyncCompleted updates last_synced_at to now for the given campaign.
+func RecordSyncCompleted(ctx context.Context, databasePath string, campaignID string) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
-		_, err := db.ExecContext(ctx,
-			`UPDATE compendium_sync_state SET last_synced_at = datetime('now'), last_phase = 'sync', in_progress = 0 WHERE id = 1`)
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO compendium_campaign_sync (campaign_id, last_synced_at, last_phase, in_progress)
+			VALUES (?, datetime('now'), 'sync', 0)
+			ON CONFLICT(campaign_id) DO UPDATE SET
+			    last_synced_at = datetime('now'), last_phase = 'sync', in_progress = 0`,
+			campaignID)
 		if err != nil {
 			return fmt.Errorf("record sync completed: %w", err)
 		}
@@ -360,23 +527,55 @@ func RecordSyncCompleted(ctx context.Context, databasePath string) error {
 	})
 }
 
-// SpellBearingEnabledSourceIDs returns enabled sources where has_spells=1.
-func SpellBearingEnabledSourceIDs(ctx context.Context, databasePath string) ([]int, error) {
-	return enabledSourceIDsByContent(ctx, databasePath, "has_spells")
+// GetDDBCampaignID returns the user's selected D&D Beyond campaign ID for a
+// Lootsheet campaign, or 0 if not yet set.
+func GetDDBCampaignID(ctx context.Context, databasePath string, campaignID string) (int, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (int, error) {
+		var id int
+		err := db.QueryRowContext(ctx,
+			`SELECT ddb_campaign_id FROM compendium_campaign_sync WHERE campaign_id = ?`, campaignID).Scan(&id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return 0, nil
+			}
+			return 0, fmt.Errorf("get ddb_campaign_id: %w", err)
+		}
+		return id, nil
+	})
 }
 
-// ItemBearingEnabledSourceIDs returns enabled sources where has_items=1.
-func ItemBearingEnabledSourceIDs(ctx context.Context, databasePath string) ([]int, error) {
-	return enabledSourceIDsByContent(ctx, databasePath, "has_items")
+// SetDDBCampaignID stores the active D&D Beyond campaign ID for a Lootsheet campaign.
+func SetDDBCampaignID(ctx context.Context, databasePath string, campaignID string, ddbCampaignID int) error {
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		_, err := db.ExecContext(ctx, `
+			INSERT INTO compendium_campaign_sync (campaign_id, ddb_campaign_id)
+			VALUES (?, ?)
+			ON CONFLICT(campaign_id) DO UPDATE SET ddb_campaign_id = excluded.ddb_campaign_id`,
+			campaignID, ddbCampaignID)
+		if err != nil {
+			return fmt.Errorf("set ddb_campaign_id: %w", err)
+		}
+		return nil
+	})
 }
 
-func enabledSourceIDsByContent(ctx context.Context, databasePath string, column string) ([]int, error) {
+// SpellBearingEnabledSourceIDs returns IDs of enabled sources where has_spells=1.
+func SpellBearingEnabledSourceIDs(ctx context.Context, databasePath string, campaignID string) ([]int, error) {
+	return enabledSourceIDsByContent(ctx, databasePath, campaignID, "has_spells")
+}
+
+// ItemBearingEnabledSourceIDs returns IDs of enabled sources where has_items=1.
+func ItemBearingEnabledSourceIDs(ctx context.Context, databasePath string, campaignID string) ([]int, error) {
+	return enabledSourceIDsByContent(ctx, databasePath, campaignID, "has_items")
+}
+
+func enabledSourceIDsByContent(ctx context.Context, databasePath string, campaignID string, column string) ([]int, error) {
 	if column != "has_spells" && column != "has_items" {
 		return nil, fmt.Errorf("invalid content column: %q", column)
 	}
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]int, error) {
-		query := "SELECT id FROM compendium_sources WHERE enabled = 1 AND " + column + " = 1" //nolint:gosec // column is validated above.
-		rows, err := db.QueryContext(ctx, query)
+		query := "SELECT source_id FROM compendium_campaign_sources WHERE campaign_id = ? AND enabled = 1 AND " + column + " = 1" //nolint:gosec // column validated.
+		rows, err := db.QueryContext(ctx, query, campaignID)
 		if err != nil {
 			return nil, fmt.Errorf("enabled %s: %w", column, err)
 		}

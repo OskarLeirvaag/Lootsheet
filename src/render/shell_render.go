@@ -475,11 +475,29 @@ func (s *Shell) renderGlossaryModal(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
+	accent := s.sectionStyle(theme)
+	bounds := modalBounds(rect, s.glossary.Lines, 74, 46, 86, 8)
+
+	if s.glossary.Body != "" {
+		// Render with markdown body — same pipeline as the list-view detail pane.
+		contentWidth := panelContentRect(bounds, buffer.Bounds()).W
+		if contentWidth <= 0 {
+			contentWidth = 60
+		}
+		mdLines := parseMarkdownLines(s.glossary.Body, contentWidth, theme)
+		footer := []string{"", "? close  Esc/q cancel"}
+		DrawStyledPanel(buffer, bounds, theme,
+			s.glossary.Title,
+			append(s.glossary.Lines, footer...),
+			mdLines,
+			accent, accent,
+		)
+		return
+	}
+
 	lines := append([]string{}, s.glossary.Lines...)
 	lines = append(lines, "", "? close  Esc/q cancel")
-
-	accent := s.sectionStyle(theme)
-	DrawPanel(buffer, modalBounds(rect, lines, 74, 46, 86, 8), theme, Panel{
+	DrawPanel(buffer, bounds, theme, Panel{
 		Title:       s.glossary.Title,
 		Lines:       lines,
 		BorderStyle: &accent,

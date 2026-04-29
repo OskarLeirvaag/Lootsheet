@@ -969,8 +969,8 @@ func TestSearchFiltersResults(t *testing.T) {
 	if len(shell.search.Results) != 1 {
 		t.Fatalf("expected 1 result for 'gold', got %d", len(shell.search.Results))
 	}
-	if shell.search.Results[0].ItemKey != "loot-1" {
-		t.Fatalf("expected loot-1, got %s", shell.search.Results[0].ItemKey)
+	if shell.search.Results[0].Item.Key != "loot-1" {
+		t.Fatalf("expected loot-1, got %s", shell.search.Results[0].Item.Key)
 	}
 }
 
@@ -1003,7 +1003,7 @@ func TestSearchSectionFilter(t *testing.T) {
 	if shell.search.FilterIndex != 2 {
 		t.Fatalf("expected filter index 2 (Quests), got %d", shell.search.FilterIndex)
 	}
-	if len(shell.search.Results) != 1 || shell.search.Results[0].ItemKey != "quest-1" {
+	if len(shell.search.Results) != 1 || shell.search.Results[0].Item.Key != "quest-1" {
 		t.Fatalf("expected quest-1 in Quests filter, got %v", shell.search.Results)
 	}
 }
@@ -1080,8 +1080,8 @@ func TestSearchUsesServerSideHandlerWhenAvailable(t *testing.T) {
 	if len(shell.search.Results) != 1 {
 		t.Fatalf("expected 1 server-side result, got %d", len(shell.search.Results))
 	}
-	if shell.search.Results[0].ItemKey != "codex-99" {
-		t.Fatalf("expected codex-99 from handler, got %s", shell.search.Results[0].ItemKey)
+	if shell.search.Results[0].Item.Key != "codex-99" {
+		t.Fatalf("expected codex-99 from handler, got %s", shell.search.Results[0].Item.Key)
 	}
 }
 
@@ -1116,8 +1116,8 @@ func TestSearchFallsBackToClientSideWhenHandlerReturnsNil(t *testing.T) {
 	if len(shell.search.Results) != 1 {
 		t.Fatalf("expected 1 client-side result, got %d", len(shell.search.Results))
 	}
-	if shell.search.Results[0].ItemKey != "quest-fallback" {
-		t.Fatalf("expected quest-fallback from client-side, got %s", shell.search.Results[0].ItemKey)
+	if shell.search.Results[0].Item.Key != "quest-fallback" {
+		t.Fatalf("expected quest-fallback from client-side, got %s", shell.search.Results[0].Item.Key)
 	}
 }
 
@@ -1138,5 +1138,51 @@ func TestSearchFooterHelp(t *testing.T) {
 	}
 	if strings.Contains(help, "/ search") {
 		t.Fatalf("search footer should not show '/ search': %s", help)
+	}
+}
+
+// TestNavigateCompendiumSubTabNormalisesToSectionCompendium guards against
+// both compendium bugs:
+//  1. Arrow keys locking the user inside the compendium after Navigate().
+//  2. Search+Enter "crashing" to Dashboard because Navigate() stored a
+//     virtual CompendiumTab* value in s.Section instead of SectionCompendium.
+func TestNavigateCompendiumSubTabNormalisesToSectionCompendium(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+
+	// Navigate to each virtual compendium sub-tab.
+	tabs := []Section{
+		CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems,
+		CompendiumTabRules, CompendiumTabConditions,
+	}
+	for i, tab := range tabs {
+		shell.Navigate(tab, "")
+		if shell.Section != SectionCompendium {
+			t.Errorf("Navigate(%v): shell.Section = %v, want SectionCompendium", tab, shell.Section)
+		}
+		if shell.compendiumTab != i {
+			t.Errorf("Navigate(%v): compendiumTab = %d, want %d", tab, shell.compendiumTab, i)
+		}
+
+		// Arrow keys must cycle within compendium, not escape to Dashboard.
+		result := shell.HandleAction(ActionNextSection)
+		if !result.Redraw || shell.Section == SectionDashboard {
+			t.Errorf("Navigate(%v) then ActionNextSection: escaped to Dashboard (Section=%v)", tab, shell.Section)
+		}
+		// Restore for next iteration.
+		shell.Navigate(tab, "")
+	}
+}
+
+func TestNavigateSettingsSubTabNormalisesToSectionSettings(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+
+	for i, tab := range settingsTabs {
+		shell.Navigate(tab, "")
+		if shell.Section != SectionSettings {
+			t.Errorf("Navigate(%v): shell.Section = %v, want SectionSettings", tab, shell.Section)
+		}
+		if shell.settingsTab != i {
+			t.Errorf("Navigate(%v): settingsTab = %d, want %d", tab, shell.settingsTab, i)
+		}
 	}
 }

@@ -62,6 +62,18 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 				}}
 			}
 		}
+		// Compendium: Enter opens the selected item's full detail overlay.
+		if s.Section == SectionCompendium {
+			tab := s.activeCompendiumSection()
+			if item := s.currentSelectedItem(tab); item != nil && item.DetailTitle != "" {
+				s.glossary = &glossaryState{
+					Title: item.DetailTitle,
+					Lines: item.DetailLines,
+					Body:  item.DetailBody,
+				}
+				return HandleResult{Redraw: true}
+			}
+		}
 		return HandleResult{}
 	case ActionQuit:
 		if s.Section == SectionSettings || s.Section == SectionCompendium {
@@ -84,10 +96,15 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		}
 		if s.Section == SectionCompendium {
 			s.compendiumTab = (s.compendiumTab + 1) % len(compendiumTabs)
-			s.reconcileSelection(s.activeCompendiumSection())
+			tab := s.activeCompendiumSection()
+			s.loadCompendiumTabIfEmpty(tab)
+			s.reconcileSelection(tab)
 			return HandleResult{Redraw: true}
 		}
 		s.Section = s.Section.Next()
+		if s.Section == SectionCompendium {
+			s.loadCompendiumTabIfEmpty(s.activeCompendiumSection())
+		}
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionPrevSection:
@@ -98,10 +115,15 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		}
 		if s.Section == SectionCompendium {
 			s.compendiumTab = (s.compendiumTab + len(compendiumTabs) - 1) % len(compendiumTabs)
-			s.reconcileSelection(s.activeCompendiumSection())
+			tab := s.activeCompendiumSection()
+			s.loadCompendiumTabIfEmpty(tab)
+			s.reconcileSelection(tab)
 			return HandleResult{Redraw: true}
 		}
 		s.Section = s.Section.Previous()
+		if s.Section == SectionCompendium {
+			s.loadCompendiumTabIfEmpty(s.activeCompendiumSection())
+		}
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionShowDashboard:
@@ -141,6 +163,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		return HandleResult{Redraw: true}
 	case ActionShowCompendium:
 		s.Section = SectionCompendium
+		s.loadCompendiumTabIfEmpty(s.activeCompendiumSection())
 		s.reconcileSelection(s.activeCompendiumSection())
 		return HandleResult{Redraw: true}
 	case ActionMoveUp:

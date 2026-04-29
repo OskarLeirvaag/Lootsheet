@@ -27,7 +27,11 @@ type FetchSpellsResult struct {
 
 // FetchSpells retrieves all spells from DDB by iterating over class IDs.
 // Requires authentication. Tracks which classes each spell belongs to.
-func (c *Client) FetchSpells(ctx context.Context, classIDs []int) (*FetchSpellsResult, error) {
+//
+// campaignID, when non-zero, is appended as `&campaignId=N` so DDB also
+// returns spells from books shared into that campaign (in addition to books
+// the user owns). Pass 0 to omit and get owned-only content.
+func (c *Client) FetchSpells(ctx context.Context, classIDs []int, campaignID int) (*FetchSpellsResult, error) {
 	if !c.IsAuthenticated() {
 		return nil, ErrNotAuthenticated
 	}
@@ -39,6 +43,9 @@ func (c *Client) FetchSpells(ctx context.Context, classIDs []int) (*FetchSpellsR
 	for _, classID := range classIDs {
 		className := ClassNames[classID]
 		url := fmt.Sprintf("%s?classId=%d&classLevel=20&sharingSetting=2", spellsURL, classID)
+		if campaignID > 0 {
+			url += fmt.Sprintf("&campaignId=%d", campaignID)
+		}
 
 		body, err := c.doGet(ctx, url)
 		if err != nil {

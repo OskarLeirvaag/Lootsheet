@@ -31,17 +31,19 @@ func summarizeCompendiumConditions(records []compendium.Condition) []string {
 }
 
 func summarizeCompendiumSources(records []compendium.Source) []string {
-	enabled, owned := 0, 0
+	enabled, owned, shared := 0, 0, 0
 	for _, s := range records {
 		if s.Enabled {
 			enabled++
 		}
 		if s.Owned == compendium.OwnershipOwned {
 			owned++
+		} else if s.Shared {
+			shared++
 		}
 	}
 	return []string{
-		fmt.Sprintf("Sources: %d enabled / %d owned / %d total", enabled, owned, len(records)),
+		fmt.Sprintf("Sources: %d enabled / %d owned / %d shared / %d total", enabled, owned, shared, len(records)),
 		"Press 's' to initialize, 't' to toggle, 'S' to sync content for enabled sources.",
 	}
 }
@@ -148,8 +150,8 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 		if s.Enabled {
 			status = "[x]"
 		}
-		badge := ownershipBadge(s.Owned)
-		ownership := ownershipLabel(s.Owned)
+		badge := ownershipBadge(s.Owned, s.Shared)
+		ownership := ownershipLabel(s.Owned, s.Shared)
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("source-%d", s.ID),
 			Row:         fmt.Sprintf("%s %s %s", status, s.Name, badge),
@@ -157,7 +159,7 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 			DetailLines: []string{
 				fmt.Sprintf("ID: %d", s.ID),
 				fmt.Sprintf("Enabled: %v", s.Enabled),
-				fmt.Sprintf("Ownership: %s", ownership),
+				fmt.Sprintf("Access: %s", ownership),
 			},
 			Actions: []render.ItemActionData{
 				{
@@ -174,23 +176,31 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 	return items
 }
 
-func ownershipBadge(owned int) string {
-	switch owned {
-	case compendium.OwnershipOwned:
+// ownershipBadge picks the most-informative label given both ownership and
+// observed sharing. Owned beats Shared (no need to flag a book as shared if
+// the user owns it). Shared beats Locked (the user has access — Phase B
+// actually saw content come back).
+func ownershipBadge(owned int, shared bool) string {
+	switch {
+	case owned == compendium.OwnershipOwned:
 		return "(✓ owned)"
-	case compendium.OwnershipLocked:
+	case shared:
+		return "(↗ shared)"
+	case owned == compendium.OwnershipLocked:
 		return "(— locked)"
 	default:
 		return "(? unknown)"
 	}
 }
 
-func ownershipLabel(owned int) string {
-	switch owned {
-	case compendium.OwnershipOwned:
+func ownershipLabel(owned int, shared bool) string {
+	switch {
+	case owned == compendium.OwnershipOwned:
 		return "owned"
-	case compendium.OwnershipLocked:
-		return "locked"
+	case shared:
+		return "shared (accessible via the active DDB campaign)"
+	case owned == compendium.OwnershipLocked:
+		return "locked (not owned and no shared access detected — try enabling and syncing to confirm)"
 	default:
 		return "unknown — initialize with cobalt cookie to detect"
 	}
@@ -318,12 +328,36 @@ func convertDDBRules(cfg *ddb.Config) []compendium.Rule {
 	return result
 }
 
-func convertDDBMonsters(monsters []ddb.RawMonster, cfg *ddb.Config) []compendium.Monster {
+func filterDDBMonstersBySource(monsters []ddb.RawMonster, sourceIDs []int) []ddb.RawMonster {
+	if len(sourceIDs) == 0 {
+		return nil
+	}
+	enabled := sourceIDSet(sourceIDs)
+	filtered := make([]ddb.RawMonster, 0, len(monsters))
+	for i := range monsters {
+		if hasEnabledSource(monsters[i].Sources, enabled) {
+			filtered = append(filtered, monsters[i])
+		}
+	}
+	return filtered
+}
+
+func convertDDBMonsters(monsters []ddb.RawMonster, cfg *ddb.Config, enabledSources []int) []compendium.Monster {
+	enabled := sourceIDSet(enabledSources)
 	result := make([]compendium.Monster, len(monsters))
 	for i := range monsters {
 		m := &monsters[i]
+		// Prefer an enabled source for the display name; DDB sometimes places
+		// a 2024-edition source first even when the monster was returned via a
+		// 2014-source query.
 		sourceName := ""
-		if len(m.Sources) > 0 {
+		for _, src := range m.Sources {
+			if _, ok := enabled[src.SourceID]; ok {
+				sourceName = cfg.SourceName(src.SourceID)
+				break
+			}
+		}
+		if sourceName == "" && len(m.Sources) > 0 {
 			sourceName = cfg.SourceName(m.Sources[0].SourceID)
 		}
 		rawJSON := "{}"

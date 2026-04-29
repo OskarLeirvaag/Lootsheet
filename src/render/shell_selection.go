@@ -102,6 +102,28 @@ func (s *Shell) setSelection(section Section, index int) {
 	s.selectedKeys[section] = data.Items[index].Key
 }
 
+// scrollToSelected adjusts s.scrolls[section] so the currently selected
+// item is visible. Used after programmatic navigation (search confirm, jump
+// to entry) where the scroll position was not updated alongside the selection.
+func (s *Shell) scrollToSelected(section Section) {
+	index := s.selectedIndexes[section]
+	pageH := s.viewHeights[section]
+	if pageH <= 0 {
+		pageH = 8 // conservative fallback before first render
+	}
+
+	scroll := s.scrolls[section]
+	if index < scroll {
+		scroll = index
+	} else if index >= scroll+pageH {
+		scroll = index - pageH + 1
+	}
+	if scroll < 0 {
+		scroll = 0
+	}
+	s.scrolls[section] = scroll
+}
+
 func (s *Shell) reconcileSelections() {
 	for _, section := range orderedSections {
 		if !section.Scrollable() {

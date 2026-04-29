@@ -43,10 +43,11 @@ const (
 )
 
 var (
-	settingsTabs       = model.SettingsTabs
-	compendiumTabs     = model.CompendiumTabs
-	searchableSections = model.SearchableSections
-	orderedSections    = model.OrderedSections
+	settingsTabs              = model.SettingsTabs
+	compendiumTabs            = model.CompendiumTabs
+	searchableSections        = model.SearchableSections
+	compendiumSearchSections  = model.CompendiumSearchSections
+	orderedSections           = model.OrderedSections
 )
 
 // SectionStyle bundles visual properties derived from a Section.

@@ -15,13 +15,13 @@ type SearchHandler func(section Section, query string) ([]ListItemData, error)
 
 type searchResult struct {
 	Section Section
-	ItemKey string
-	Row     string
+	Item    ListItemData // full item; Key/Row/Detail* all available on confirm
 }
 
 type searchState struct {
 	Query         string
-	FilterIndex   int // 0=All, 1..N=searchableSections[i-1]
+	Sections      []Section // which sections to search: regular or compendium
+	FilterIndex   int       // 0=All, 1..N=Sections[i-1]
 	Results       []searchResult
 	SelectedIndex int
 	Scroll        int
@@ -31,7 +31,11 @@ func (s *Shell) openSearch() bool {
 	if s == nil {
 		return false
 	}
-	s.search = &searchState{}
+	sections := searchableSections
+	if s.Section == SectionCompendium {
+		sections = compendiumSearchSections
+	}
+	s.search = &searchState{Sections: sections}
 	s.computeSearchResults()
 	return true
 }
@@ -42,11 +46,12 @@ func (s *Shell) computeSearchResults() { //nolint:revive // multi-source search 
 	}
 
 	query := strings.ToLower(strings.TrimSpace(s.search.Query))
+	available := s.search.Sections
 	var sections []Section
 	if s.search.FilterIndex == 0 {
-		sections = searchableSections
+		sections = available
 	} else {
-		sections = []Section{searchableSections[s.search.FilterIndex-1]}
+		sections = []Section{available[s.search.FilterIndex-1]}
 	}
 
 	results := make([]searchResult, 0, maxSearchResults)
@@ -66,8 +71,7 @@ func (s *Shell) computeSearchResults() { //nolint:revive // multi-source search 
 					}
 					results = append(results, searchResult{
 						Section: section,
-						ItemKey: items[i].Key,
-						Row:     items[i].Row,
+						Item:    items[i],
 					})
 				}
 				continue
@@ -87,8 +91,7 @@ func (s *Shell) computeSearchResults() { //nolint:revive // multi-source search 
 			if query == "" || matchesSearch(item, query) {
 				results = append(results, searchResult{
 					Section: section,
-					ItemKey: item.Key,
-					Row:     item.Row,
+					Item:    *item,
 				})
 			}
 		}
@@ -141,7 +144,11 @@ func (s *Shell) handleSearchKeyEvent(event *tcell.EventKey, action Action) (Hand
 		if len(s.search.Results) > 0 && s.search.SelectedIndex < len(s.search.Results) {
 			result := s.search.Results[s.search.SelectedIndex]
 			s.search = nil
-			s.Navigate(result.Section, result.ItemKey)
+			// Inject the result item into the target section's data so
+			// Navigate+reconcileSelection can find it. Required for remote
+			// compendium where the tab's Items list is empty by design.
+			s.injectSearchResult(result.Section, &result.Item)
+			s.Navigate(result.Section, result.Item.Key)
 			return HandleResult{Redraw: true}, true
 		}
 		return HandleResult{}, true
@@ -158,19 +165,19 @@ func (s *Shell) handleSearchKeyEvent(event *tcell.EventKey, action Action) (Hand
 		}
 		return HandleResult{}, true
 	case tcell.KeyLeft:
-		s.search.FilterIndex = (s.search.FilterIndex + len(searchableSections) + 1 - 1) % (len(searchableSections) + 1)
+		s.search.FilterIndex = (s.search.FilterIndex + len(s.search.Sections) + 1 - 1) % (len(s.search.Sections) + 1)
 		s.computeSearchResults()
 		return HandleResult{Redraw: true}, true
 	case tcell.KeyRight:
-		s.search.FilterIndex = (s.search.FilterIndex + 1) % (len(searchableSections) + 1)
+		s.search.FilterIndex = (s.search.FilterIndex + 1) % (len(s.search.Sections) + 1)
 		s.computeSearchResults()
 		return HandleResult{Redraw: true}, true
 	case tcell.KeyTab:
-		s.search.FilterIndex = (s.search.FilterIndex + 1) % (len(searchableSections) + 1)
+		s.search.FilterIndex = (s.search.FilterIndex + 1) % (len(s.search.Sections) + 1)
 		s.computeSearchResults()
 		return HandleResult{Redraw: true}, true
 	case tcell.KeyBacktab:
-		s.search.FilterIndex = (s.search.FilterIndex + len(searchableSections) + 1 - 1) % (len(searchableSections) + 1)
+		s.search.FilterIndex = (s.search.FilterIndex + len(s.search.Sections) + 1 - 1) % (len(s.search.Sections) + 1)
 		s.computeSearchResults()
 		return HandleResult{Redraw: true}, true
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
@@ -227,14 +234,14 @@ func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) { //n
 	// Filter tabs line.
 	if row < content.Y+content.H {
 		var tabs strings.Builder
-		filterCount := len(searchableSections) + 1
+		filterCount := len(s.search.Sections) + 1
 		for i := range filterCount {
 			if i > 0 {
 				_, _ = tabs.WriteString("  ")
 			}
 			label := "All"
 			if i > 0 {
-				label = searchableSections[i-1].Title()
+				label = s.search.Sections[i-1].Title()
 			}
 			if i == s.search.FilterIndex {
 				label = "[" + label + "]"
@@ -300,7 +307,7 @@ func (s *Shell) renderSearchModal(buffer *Buffer, rect Rect, theme *Theme) { //n
 			style = theme.SelectedRow
 			prefix = "> "
 		}
-		line := fmt.Sprintf("%s[%s] %s", prefix, r.Section.Title(), r.Row)
+		line := fmt.Sprintf("%s[%s] %s", prefix, r.Section.Title(), r.Item.Row)
 		buffer.WriteString(content.X, row+i, style, clipText(line, content.W))
 	}
 }
