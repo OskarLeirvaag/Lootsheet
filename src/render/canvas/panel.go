@@ -237,5 +237,6 @@ var (
 	ScatterLedger   = []rune{'#', 'Σ', '∞', '≡'}
 	ScatterPeople   = []rune{'@', '&', '~', '*'}
 	ScatterNotes    = []rune{'*', '~', '#', '+'}
-	ScatterSettings = []rune{'⚙', '◆', '●', '◇'}
+	ScatterSettings   = []rune{'⚙', '◆', '●', '◇'}
+	ScatterCompendium = []rune{'☽', '✦', '⊛', '☀'}
 )

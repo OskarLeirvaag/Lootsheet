@@ -49,5 +49,12 @@ Thumbs.db
 *.swp
 *.swo
 
+# DDB API test dumps
+ddb_*.json
+plan.md
+
 # Agents
 .claude/
+
+# Scratch scripts
+/tmp/

@@ -34,7 +34,7 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 			ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 			ActionEditTemplate, ActionExecuteTemplate,
 			ActionNewExpense, ActionNewIncome, ActionNewCustom, ActionSubmitCompose,
-			ActionShowNotes, ActionSearch:
+			ActionShowNotes, ActionShowCompendium, ActionSearch:
 			return HandleResult{}
 		case ActionQuit:
 			s.compose = nil
@@ -62,9 +62,21 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 				}}
 			}
 		}
+		// Compendium: Enter opens the selected item's full detail overlay.
+		if s.Section == SectionCompendium {
+			tab := s.activeCompendiumSection()
+			if item := s.currentSelectedItem(tab); item != nil && item.DetailTitle != "" {
+				s.glossary = &glossaryState{
+					Title: item.DetailTitle,
+					Lines: item.DetailLines,
+					Body:  item.DetailBody,
+				}
+				return HandleResult{Redraw: true}
+			}
+		}
 		return HandleResult{}
 	case ActionQuit:
-		if s.Section == SectionSettings {
+		if s.Section == SectionSettings || s.Section == SectionCompendium {
 			s.Section = SectionDashboard
 			return HandleResult{Redraw: true}
 		}
@@ -82,7 +94,17 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 			s.reconcileSelection(s.activeSettingsSection())
 			return HandleResult{Redraw: true}
 		}
+		if s.Section == SectionCompendium {
+			s.compendiumTab = (s.compendiumTab + 1) % len(compendiumTabs)
+			tab := s.activeCompendiumSection()
+			s.loadCompendiumTabIfEmpty(tab)
+			s.reconcileSelection(tab)
+			return HandleResult{Redraw: true}
+		}
 		s.Section = s.Section.Next()
+		if s.Section == SectionCompendium {
+			s.loadCompendiumTabIfEmpty(s.activeCompendiumSection())
+		}
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionPrevSection:
@@ -91,7 +113,17 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 			s.reconcileSelection(s.activeSettingsSection())
 			return HandleResult{Redraw: true}
 		}
+		if s.Section == SectionCompendium {
+			s.compendiumTab = (s.compendiumTab + len(compendiumTabs) - 1) % len(compendiumTabs)
+			tab := s.activeCompendiumSection()
+			s.loadCompendiumTabIfEmpty(tab)
+			s.reconcileSelection(tab)
+			return HandleResult{Redraw: true}
+		}
 		s.Section = s.Section.Previous()
+		if s.Section == SectionCompendium {
+			s.loadCompendiumTabIfEmpty(s.activeCompendiumSection())
+		}
 		s.reconcileSelection(s.Section)
 		return HandleResult{Redraw: true}
 	case ActionShowDashboard:
@@ -128,6 +160,11 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 	case ActionShowNotes:
 		s.Section = SectionNotes
 		s.reconcileSelection(s.Section)
+		return HandleResult{Redraw: true}
+	case ActionShowCompendium:
+		s.Section = SectionCompendium
+		s.loadCompendiumTabIfEmpty(s.activeCompendiumSection())
+		s.reconcileSelection(s.activeCompendiumSection())
 		return HandleResult{Redraw: true}
 	case ActionMoveUp:
 		if s.moveSelection(-1) {
@@ -169,7 +206,33 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 		if s.openSearch() {
 			return HandleResult{Redraw: true}
 		}
-	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
+	case ActionSell:
+		// On Settings Compendium tab, lowercase 's' initializes the compendium
+		// (Phase A: refresh sources/rules and probe ownership). Capital 'S' is
+		// intercepted earlier in HandleKeyEvent for content sync (Phase B).
+		if s.Section == SectionSettings && s.activeSettingsSection() == settingsTabCompendium {
+			s.input = &inputState{
+				Section: SectionSettings,
+				Action: ItemActionData{
+					ID:   "compendium.init",
+					Mode: ItemActionModeInput,
+				},
+				Title:       "Initialize Compendium",
+				Prompt:      "Cobalt cookie (Enter to skip ownership probe):",
+				Placeholder: "paste cookie or leave empty",
+				Optional:    true,
+				HelpLines: []string{
+					"Refreshes the source/rules/conditions catalogue.",
+					"With cobalt, also marks each source as owned or locked.",
+					"After this, press 't' on a source to enable, then 'S' to sync content.",
+				},
+			}
+			return HandleResult{Redraw: true}
+		}
+		if s.openAction(action) {
+			return HandleResult{Redraw: true}
+		}
+	case ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionTransfer, ActionEditTemplate, ActionExecuteTemplate:
 		if s.openAction(action) {
 			return HandleResult{Redraw: true}
 		}
@@ -190,7 +253,17 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 		return HandleResult{Quit: true}
 	}
 
-	action := keymap.Resolve(event)
+	action := ActionNone
+	if !s.pasteActive {
+		action = keymap.Resolve(event)
+	}
+
+	// Capital 'S' on Settings → Compendium triggers content-sync (Phase B).
+	// The keymap matcher is case-insensitive, so we route the raw rune
+	// separately from lowercase 's' (which initializes — Phase A).
+	if result, handled := s.maybeOpenCompendiumSyncModal(event, action); handled {
+		return result
+	}
 
 	if s.quitConfirm {
 		switch action {
@@ -237,6 +310,61 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 	return s.HandleAction(action)
 }
 
+// maybeOpenCompendiumSyncModal opens the Phase B (content sync) modal when the
+// user presses capital 'S' on Settings → Compendium. Returns handled=false if
+// the press should fall through to the normal action dispatch.
+func (s *Shell) maybeOpenCompendiumSyncModal(event *tcell.EventKey, action Action) (HandleResult, bool) {
+	if action != ActionSell || event == nil {
+		return HandleResult{}, false
+	}
+	if event.Key() != tcell.KeyRune || event.Rune() != 'S' {
+		return HandleResult{}, false
+	}
+	if s.Section != SectionSettings || s.activeSettingsSection() != settingsTabCompendium {
+		return HandleResult{}, false
+	}
+	if s.input != nil || s.confirm != nil || s.compose != nil {
+		return HandleResult{}, false
+	}
+
+	s.input = &inputState{
+		Section: SectionSettings,
+		Action: ItemActionData{
+			ID:   "compendium.sync",
+			Mode: ItemActionModeInput,
+		},
+		Title:       "Sync Compendium Content",
+		Prompt:      "Cobalt cookie (append :force to bypass 1h TTL):",
+		Placeholder: "paste cookie",
+		Optional:    false,
+		HelpLines: []string{
+			"Fetches monsters, spells, and items for enabled sources only.",
+			"Refuses to re-run within an hour unless you append ':force' to the cookie.",
+			"The cookie is not stored.",
+		},
+	}
+	return HandleResult{Redraw: true}, true
+}
+
+// HandlePasteEvent tracks bracketed paste so pasted text is not interpreted as
+// global shortcuts and redraws only once after the paste completes.
+func (s *Shell) HandlePasteEvent(event *tcell.EventPaste) HandleResult {
+	if s == nil || event == nil {
+		return HandleResult{}
+	}
+	if event.Start() {
+		s.pasteActive = true
+		return HandleResult{}
+	}
+
+	wasActive := s.pasteActive
+	s.pasteActive = false
+	if wasActive && s.input != nil {
+		return HandleResult{Redraw: true}
+	}
+	return HandleResult{}
+}
+
 func (s *Shell) handleConfirmAction(action Action) HandleResult {
 	switch action {
 	case ActionQuit:
@@ -259,7 +387,7 @@ func (s *Shell) handleConfirmAction(action Action) HandleResult {
 
 func (s *Shell) handleInputAction(action Action) HandleResult {
 	switch action {
-	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes,
+	case ActionNone, ActionHelp, ActionNextSection, ActionPrevSection, ActionShowDashboard, ActionShowSettings, ActionShowLedger, ActionShowJournal, ActionShowQuests, ActionShowLoot, ActionShowAssets, ActionShowCodex, ActionShowNotes, ActionShowCompendium,
 		ActionMoveUp, ActionMoveDown, ActionPageUp, ActionPageDown, ActionMoveTop, ActionMoveBottom,
 		ActionEdit, ActionDelete, ActionToggle, ActionReverse, ActionCollect, ActionWriteOff, ActionAppraise, ActionRecognize, ActionSell, ActionTransfer,
 		ActionEditTemplate, ActionExecuteTemplate,
@@ -312,11 +440,20 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (Handl
 		return HandleResult{}, false
 	}
 
+	if event.Key() == tcell.KeyRune {
+		s.input.Value += string(event.Rune())
+		s.input.ErrorText = ""
+		return HandleResult{Redraw: !s.pasteActive}, true
+	}
+	if s.pasteActive {
+		return HandleResult{}, true
+	}
+
 	switch action {
 	case ActionQuit, ActionRedraw:
 		return s.handleInputAction(action), true
 	case ActionConfirm:
-		if strings.TrimSpace(s.input.Value) == "" {
+		if !s.input.Optional && strings.TrimSpace(s.input.Value) == "" {
 			msg := s.input.RequiredMessage
 			if msg == "" {
 				msg = "Value is required."
@@ -348,10 +485,6 @@ func (s *Shell) handleInputKeyEvent(event *tcell.EventKey, action Action) (Handl
 			return HandleResult{}, true
 		}
 		s.input.Value = ""
-		s.input.ErrorText = ""
-		return HandleResult{Redraw: true}, true
-	case tcell.KeyRune:
-		s.input.Value += string(event.Rune())
 		s.input.ErrorText = ""
 		return HandleResult{Redraw: true}, true
 	default:

@@ -1,6 +1,7 @@
 package render
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -23,12 +24,14 @@ type inputState struct {
 	Placeholder     string
 	ErrorText       string
 	RequiredMessage string
+	Optional        bool // when true, empty input is allowed
 	HelpLines       []string
 }
 
 type glossaryState struct {
 	Title string
 	Lines []string
+	Body  string // optional markdown body; rendered below Lines when non-empty
 }
 
 type codexPickerState struct {
@@ -52,6 +55,7 @@ type Shell struct {
 	Data            ShellData
 	Section         Section
 	settingsTab     int
+	compendiumTab   int
 	scrolls         map[Section]int
 	selectedKeys    map[Section]string
 	selectedIndexes map[Section]int
@@ -70,6 +74,7 @@ type Shell struct {
 
 	editorSaveInFlight  bool
 	editorQuitAfterSave bool
+	pasteActive         bool
 	quitConfirm         bool
 	disconnected        bool
 }
@@ -117,11 +122,21 @@ func (s *Shell) activeSettingsSection() Section {
 	return settingsTabs[0]
 }
 
+func (s *Shell) activeCompendiumSection() Section {
+	if s.compendiumTab >= 0 && s.compendiumTab < len(compendiumTabs) {
+		return compendiumTabs[s.compendiumTab]
+	}
+	return compendiumTabs[0]
+}
+
 // listSection returns the effective section for list data operations.
-// For Settings, this returns the active tab's virtual section.
+// For Settings/Compendium, this returns the active tab's virtual section.
 func (s *Shell) listSection() Section {
 	if s.Section == SectionSettings {
 		return s.activeSettingsSection()
+	}
+	if s.Section == SectionCompendium {
+		return s.activeCompendiumSection()
 	}
 	return s.Section
 }
@@ -194,10 +209,89 @@ func (s *Shell) CloseModal() {
 	s.quitConfirm = false
 }
 
+// loadCompendiumTabIfEmpty fetches all items for the given compendium section
+// via the search handler when the tab is currently empty. Called on first visit
+// to each tab so the user can browse without having to open search. Results are
+// cached in shell data for the rest of the session; the tab is skipped on
+// subsequent calls when items are already present.
+func (s *Shell) loadCompendiumTabIfEmpty(section Section) {
+	if s.searchHandler == nil {
+		return
+	}
+	data := s.listDataForSection(section)
+	if data == nil || len(data.Items) > 0 {
+		return
+	}
+	items, err := s.searchHandler(section, "")
+	if err != nil || len(items) == 0 {
+		return
+	}
+	data.Items = items
+	data.SummaryLines = []string{fmt.Sprintf("%s: %d entries loaded", section.Title(), len(items))}
+	data.EmptyLines = nil
+	s.reconcileSelection(section)
+}
+
+// injectSearchResult ensures `item` is present in the section's item list so
+// that Navigate+reconcileSelection can find it. This is necessary for remote
+// compendium tabs which start empty (lazy loading): the search handler returns
+// matching items but they are never stored in s.Data.Compendium*.Items until
+// a full reload, so without injection the selection is silently dropped.
+//
+// If the item is already in the list (matched by Key), it is updated in place.
+// Otherwise it is appended. Existing items are preserved so the user can
+// still see context around the selected entry.
+func (s *Shell) injectSearchResult(section Section, item *ListItemData) {
+	data := s.listDataForSection(section)
+	if data == nil {
+		return
+	}
+	for i, existing := range data.Items {
+		if existing.Key == item.Key {
+			data.Items[i] = *item
+			return
+		}
+	}
+	data.Items = append(data.Items, *item)
+}
+
 // Navigate switches to the requested section and optionally selects the given item key.
+// Virtual sub-tab sections (CompendiumTab*, SettingsTab*) are normalised to
+// their parent section (SectionCompendium / SectionSettings) so that the
+// action handler's tab-cycling logic stays in sync — without this,
+// ActionNextSection / ActionPrevSection can't find the active section in
+// OrderedSections and falls back to SectionDashboard.
 func (s *Shell) Navigate(section Section, selectedKey string) {
 	if s == nil {
 		return
+	}
+
+	// Compendium virtual sub-tab.
+	for i, tab := range compendiumTabs {
+		if section == tab {
+			s.Section = SectionCompendium
+			s.compendiumTab = i
+			if strings.TrimSpace(selectedKey) != "" {
+				s.selectedKeys[section] = strings.TrimSpace(selectedKey)
+			}
+			s.reconcileSelection(section)
+			s.scrollToSelected(section)
+			return
+		}
+	}
+
+	// Settings virtual sub-tab.
+	for i, tab := range settingsTabs {
+		if section == tab {
+			s.Section = SectionSettings
+			s.settingsTab = i
+			if strings.TrimSpace(selectedKey) != "" {
+				s.selectedKeys[section] = strings.TrimSpace(selectedKey)
+			}
+			s.reconcileSelection(section)
+			s.scrollToSelected(section)
+			return
+		}
 	}
 
 	if section.Scrollable() {
@@ -206,6 +300,7 @@ func (s *Shell) Navigate(section Section, selectedKey string) {
 			s.selectedKeys[section] = strings.TrimSpace(selectedKey)
 		}
 		s.reconcileSelection(section)
+		s.scrollToSelected(section)
 		return
 	}
 
@@ -234,6 +329,18 @@ func (s *Shell) listDataForSection(section Section) *ListScreenData {
 		return &s.Data.SettingsCodexTypes
 	case settingsTabCampaigns:
 		return &s.Data.SettingsCampaigns
+	case settingsTabCompendium:
+		return &s.Data.SettingsCompendium
+	case compendiumTabMonsters:
+		return &s.Data.CompendiumMonsters
+	case compendiumTabSpells:
+		return &s.Data.CompendiumSpells
+	case compendiumTabItems:
+		return &s.Data.CompendiumItems
+	case compendiumTabRules:
+		return &s.Data.CompendiumRules
+	case compendiumTabConditions:
+		return &s.Data.CompendiumConditions
 	default:
 		return nil
 	}

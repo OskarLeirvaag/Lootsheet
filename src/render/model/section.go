@@ -12,6 +12,7 @@ const (
 	SectionAssets
 	SectionCodex
 	SectionNotes
+	SectionCompendium
 	SectionSettings
 )
 
@@ -22,13 +23,37 @@ const (
 	SettingsTabCampaigns
 )
 
-// SettingsTabs lists the virtual settings sections.
-var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns}
+// Virtual section for compendium settings (source selection & sync).
+const SettingsTabCompendium Section = 103
 
-// SearchableSections lists sections that appear in the search modal.
+// SettingsTabs lists the virtual settings sections.
+var SettingsTabs = []Section{SettingsTabAccounts, SettingsTabCodexTypes, SettingsTabCampaigns, SettingsTabCompendium}
+
+// Virtual sections for compendium sub-tabs — not in OrderedSections.
+const (
+	CompendiumTabMonsters   Section = 200 + iota
+	CompendiumTabSpells
+	CompendiumTabItems
+	CompendiumTabRules
+	CompendiumTabConditions
+)
+
+// CompendiumTabs lists the virtual compendium sections.
+var CompendiumTabs = []Section{CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems, CompendiumTabRules, CompendiumTabConditions}
+
+// SearchableSections lists sections that appear in the regular (non-compendium)
+// search modal. Compendium tabs are intentionally absent — they use
+// CompendiumSearchSections instead.
 var SearchableSections = []Section{
 	SectionJournal, SectionQuests, SectionLoot,
 	SectionAssets, SectionCodex, SectionNotes,
+}
+
+// CompendiumSearchSections lists sections that appear in the compendium search
+// modal. Kept separate so each modal only shows relevant filter tabs.
+var CompendiumSearchSections = []Section{
+	CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems,
+	CompendiumTabRules, CompendiumTabConditions,
 }
 
 // OrderedSections lists sections in tab order.
@@ -40,6 +65,7 @@ var OrderedSections = []Section{
 	SectionAssets,
 	SectionCodex,
 	SectionNotes,
+	SectionCompendium,
 }
 
 // Title returns the user-facing section name.
@@ -61,6 +87,20 @@ func (s Section) Title() string {
 		return "Codex"
 	case SectionNotes:
 		return "Notes"
+	case SectionCompendium:
+		return "Compendium"
+	case SettingsTabCompendium:
+		return "Compendium"
+	case CompendiumTabMonsters:
+		return "Monsters"
+	case CompendiumTabSpells:
+		return "Spells"
+	case CompendiumTabItems:
+		return "Items"
+	case CompendiumTabRules:
+		return "Rules"
+	case CompendiumTabConditions:
+		return "Conditions"
 	case SectionSettings:
 		return "Settings"
 	case SettingsTabCodexTypes:

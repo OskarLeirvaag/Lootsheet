@@ -145,6 +145,7 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      - ^tmp/
 
 issues:
   max-issues-per-linter: 0

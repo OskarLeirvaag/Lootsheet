@@ -85,6 +85,16 @@ func RemoteSearchHandler(c *Client) func(model.Section, string) ([]model.ListIte
 				Method:  pb.Method_SEARCH_NOTES,
 				Payload: &pb.Request_SearchNotes{SearchNotes: &pb.SearchRequest{Query: query}},
 			}, func(r *pb.Response) *pb.SearchResponse { return r.GetSearchNotes() })
+		case model.CompendiumTabMonsters, model.CompendiumTabSpells, model.CompendiumTabItems, model.CompendiumTabRules, model.CompendiumTabConditions:
+			return remoteSearch(c, &pb.Request{
+				Method: pb.Method_SEARCH_COMPENDIUM,
+				Payload: &pb.Request_SearchCompendium{
+					SearchCompendium: &pb.SearchRequest{
+						Query:   query,
+						Section: int32(section), //nolint:gosec // Section values are small constants
+					},
+				},
+			}, func(r *pb.Response) *pb.SearchResponse { return r.GetSearchCompendium() })
 		default:
 			return nil, nil
 		}

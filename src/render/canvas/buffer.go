@@ -23,6 +23,7 @@ type Screen interface {
 	Show()
 	Sync()
 	EnableMouse(...tcell.MouseFlags)
+	EnablePaste()
 	PollEvent() tcell.Event
 	PostEvent(tcell.Event) error
 	SetContent(x int, y int, primary rune, combining []rune, style tcell.Style)

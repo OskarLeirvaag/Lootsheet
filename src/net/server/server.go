@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+	"time"
 
 	pb "github.com/OskarLeirvaag/Lootsheet/src/net/proto"
 	"github.com/OskarLeirvaag/Lootsheet/src/net/wire"
@@ -205,7 +206,14 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 				return
 			}
 
+			s.logRequestStart(ctx, remote, rr.req)
+			startedAt := time.Now()
 			resp := s.handler(ctx, rr.req)
+			if resp != nil && !resp.Ok {
+				s.logRequestError(ctx, remote, rr.req, resp.Error, time.Since(startedAt))
+			} else {
+				s.logRequestComplete(ctx, remote, rr.req, time.Since(startedAt))
+			}
 			if err := wire.WriteMessage(conn, resp); err != nil {
 				s.log.WarnContext(ctx, "write response failed", slog.String("remote", remote), slog.String("error", err.Error()))
 				return
@@ -217,6 +225,41 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn) {
 func (*Server) writeError(conn net.Conn, msg string) {
 	resp := &pb.Response{Ok: false, Error: msg}
 	_ = wire.WriteMessage(conn, resp)
+}
+
+func (s *Server) logRequestStart(ctx context.Context, remote string, req *pb.Request) {
+	s.log.LogAttrs(ctx, slog.LevelInfo, "request started", requestLogAttrs(remote, req)...)
+}
+
+func (s *Server) logRequestComplete(ctx context.Context, remote string, req *pb.Request, duration time.Duration) {
+	attrs := requestLogAttrs(remote, req)
+	attrs = append(attrs, slog.Duration("duration", duration))
+	s.log.LogAttrs(ctx, slog.LevelInfo, "request completed", attrs...)
+}
+
+func (s *Server) logRequestError(ctx context.Context, remote string, req *pb.Request, message string, duration time.Duration) {
+	attrs := requestLogAttrs(remote, req)
+	attrs = append(attrs,
+		slog.String("error", message),
+		slog.Duration("duration", duration),
+	)
+	s.log.LogAttrs(ctx, slog.LevelError, "request failed", attrs...)
+}
+
+func requestLogAttrs(remote string, req *pb.Request) []slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("remote", remote),
+	}
+	if req != nil {
+		attrs = append(attrs, slog.String("method", req.Method.String()))
+		if command := req.GetExecuteCommand().GetCommand(); command != nil {
+			attrs = append(attrs,
+				slog.String("command_id", command.Id),
+				slog.String("item_key", command.ItemKey),
+			)
+		}
+	}
+	return attrs
 }
 
 // versionUpgradeTarget returns "server" or "client" depending on which side

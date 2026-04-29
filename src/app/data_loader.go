@@ -9,6 +9,7 @@ import (
 	"github.com/OskarLeirvaag/Lootsheet/src/config"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/account"
+	"github.com/OskarLeirvaag/Lootsheet/src/ledger/compendium"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/campaign"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/codex"
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger/journal"
@@ -45,6 +46,12 @@ type TUIDataLoader interface {
 	GetAccountLedger(ctx context.Context, accountCode string) (journal.AccountLedgerReport, error)
 	SearchCodexEntries(ctx context.Context, query string) ([]codex.CodexEntry, error)
 	SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error)
+	ListCompendiumMonsters(ctx context.Context, query string) ([]compendium.Monster, error)
+	ListCompendiumSpells(ctx context.Context, query string) ([]compendium.Spell, error)
+	ListCompendiumItems(ctx context.Context, query string) ([]compendium.Item, error)
+	ListCompendiumRules(ctx context.Context, query string) ([]compendium.Rule, error)
+	ListCompendiumConditions(ctx context.Context, query string) ([]compendium.Condition, error)
+	ListCompendiumSources(ctx context.Context) ([]compendium.Source, error)
 	CampaignID() string
 	CampaignName() string
 	SetCampaign(id, name string)
@@ -183,4 +190,30 @@ func (s *sqliteDataLoader) SearchCodexEntries(ctx context.Context, query string)
 
 func (s *sqliteDataLoader) SearchNotes(ctx context.Context, query string) ([]notes.NoteRecord, error) {
 	return notes.SearchNotes(ctx, s.databasePath, s.campaignID, query)
+}
+
+// Compendium methods — content is global; sources and filtering are per-campaign.
+
+func (s *sqliteDataLoader) ListCompendiumMonsters(ctx context.Context, query string) ([]compendium.Monster, error) {
+	return compendium.ListMonstersForCampaign(ctx, s.databasePath, s.campaignID, query)
+}
+
+func (s *sqliteDataLoader) ListCompendiumSpells(ctx context.Context, query string) ([]compendium.Spell, error) {
+	return compendium.ListSpellsForCampaign(ctx, s.databasePath, s.campaignID, query)
+}
+
+func (s *sqliteDataLoader) ListCompendiumItems(ctx context.Context, query string) ([]compendium.Item, error) {
+	return compendium.ListItemsForCampaign(ctx, s.databasePath, s.campaignID, query)
+}
+
+func (s *sqliteDataLoader) ListCompendiumRules(ctx context.Context, query string) ([]compendium.Rule, error) {
+	return compendium.ListRules(ctx, s.databasePath, query)
+}
+
+func (s *sqliteDataLoader) ListCompendiumConditions(ctx context.Context, query string) ([]compendium.Condition, error) {
+	return compendium.ListConditions(ctx, s.databasePath, query)
+}
+
+func (s *sqliteDataLoader) ListCompendiumSources(ctx context.Context) ([]compendium.Source, error) {
+	return compendium.ListSources(ctx, s.databasePath, s.campaignID)
 }

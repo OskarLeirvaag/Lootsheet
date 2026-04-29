@@ -24,7 +24,8 @@ var (
 	scatterLedger   = canvas.ScatterLedger
 	scatterPeople   = canvas.ScatterPeople
 	scatterNotes    = canvas.ScatterNotes
-	scatterSettings = canvas.ScatterSettings
+	scatterSettings   = canvas.ScatterSettings
+	scatterCompendium = canvas.ScatterCompendium
 )
 
 // panelStyle converts theme fields into a canvas.PanelStyle.

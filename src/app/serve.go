@@ -115,6 +115,7 @@ func (a *Application) runServe(ctx context.Context, addr string, noTLS bool) err
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
 
 	cfg := server.Config{
 		Addr:    addr,

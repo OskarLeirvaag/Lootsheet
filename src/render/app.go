@@ -165,6 +165,10 @@ func Run(ctx context.Context, options *Options) error { //nolint:revive // TUI e
 			if result.Redraw {
 				drawFrame(terminal, shell, &theme, keymap, true)
 			}
+		case *tcell.EventPaste:
+			if result := shell.HandlePasteEvent(typed); result.Redraw {
+				drawFrame(terminal, shell, &theme, keymap, true)
+			}
 		case *tcell.EventMouse:
 			var mouseResult HandleResult
 			switch typed.Buttons() { //nolint:exhaustive // only wheel events are relevant

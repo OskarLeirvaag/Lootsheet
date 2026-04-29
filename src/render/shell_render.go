@@ -3,6 +3,8 @@ package render
 import (
 	"fmt"
 	"strings"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 // Render draws the full shell for the current section.
@@ -53,6 +55,8 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 			s.renderNotesSection(buffer, body, theme)
 		case SectionSettings:
 			s.renderSettingsSection(buffer, body, theme)
+		case SectionCompendium:
+			s.renderCompendiumSection(buffer, body, theme)
 		default:
 			drawDashboardPanels(buffer, body, theme, &s.Data.Dashboard, s.rain)
 		}
@@ -90,8 +94,17 @@ func (s *Shell) Render(buffer *Buffer, theme *Theme, keymap KeyMap) {
 }
 
 func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
+	s.renderTabbedSection(buffer, rect, theme, settingsTabs, s.settingsTab, theme.SectionSettings, s.activeSettingsSection)
+}
+
+func (s *Shell) renderCompendiumSection(buffer *Buffer, rect Rect, theme *Theme) {
+	s.renderTabbedSection(buffer, rect, theme, compendiumTabs, s.compendiumTab, theme.SectionCompendium, s.activeCompendiumSection)
+}
+
+func (s *Shell) renderTabbedSection(buffer *Buffer, rect Rect, theme *Theme, tabs []Section, activeIdx int, accentStyle tcell.Style, activeFn func() Section) {
+	active := activeFn()
 	if rect.H < 3 {
-		s.renderListSection(buffer, rect, theme, s.activeSettingsSection(), s.listDataForSection(s.activeSettingsSection()))
+		s.renderListSection(buffer, rect, theme, active, s.listDataForSection(active))
 		return
 	}
 
@@ -100,14 +113,14 @@ func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
 	buffer.FillRect(tabRect, ' ', theme.Muted)
 
 	x := tabRect.X + 1
-	for i, tab := range settingsTabs {
+	for i, tab := range tabs {
 		if i > 0 {
 			x += buffer.WriteString(x, tabRect.Y, theme.Muted, "  ")
 		}
 		label := tab.Title()
-		if i == s.settingsTab {
+		if i == activeIdx {
 			label = "[" + label + "]"
-			x += buffer.WriteString(x, tabRect.Y, theme.SectionSettings, label)
+			x += buffer.WriteString(x, tabRect.Y, accentStyle, label)
 		} else {
 			label = " " + label + " "
 			x += buffer.WriteString(x, tabRect.Y, theme.TabInactive, label)
@@ -116,7 +129,6 @@ func (s *Shell) renderSettingsSection(buffer *Buffer, rect Rect, theme *Theme) {
 
 	// Render the active tab's list section in the remaining space.
 	bodyRect := Rect{X: rect.X, Y: rect.Y + 1, W: rect.W, H: rect.H - 1}
-	active := s.activeSettingsSection()
 	s.renderListSection(buffer, bodyRect, theme, active, s.listDataForSection(active))
 }
 
@@ -432,24 +444,24 @@ func (s *Shell) renderInputModal(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
-	lines := make([]string, 0, len(s.input.HelpLines)+5)
-	if prompt := strings.TrimSpace(s.input.Prompt); prompt != "" {
-		lines = append(lines, prompt+": "+s.input.displayValue())
-	} else {
-		lines = append(lines, s.input.displayValue())
-	}
+	modalW := clampInt(70, 40, min(90, rect.W))
+	contentW := max(1, modalW-2)
+	lines := make([]string, 0, len(s.input.HelpLines)+8)
+	lines = append(lines, s.input.displayLines(contentW)...)
 
 	if strings.TrimSpace(s.input.ErrorText) != "" {
-		lines = append(lines, "Error: "+s.input.ErrorText)
+		lines = append(lines, wrapPlainText("Error: "+s.input.ErrorText, contentW)...)
 	}
 	if len(s.input.HelpLines) > 0 {
 		lines = append(lines, "")
-		lines = append(lines, s.input.HelpLines...)
+		for _, line := range s.input.HelpLines {
+			lines = append(lines, wrapPlainText(line, contentW)...)
+		}
 	}
-	lines = append(lines, "", "Enter submit  Esc/q cancel")
+	lines = append(lines, "", "Enter submit  Esc cancel")
 
 	accent := s.sectionStyle(theme)
-	DrawPanel(buffer, modalBounds(rect, lines, 60, 40, 70, 6), theme, Panel{
+	DrawPanel(buffer, modalBounds(rect, lines, modalW, 40, modalW, 6), theme, Panel{
 		Title:       s.input.Title,
 		Lines:       lines,
 		BorderStyle: &accent,
@@ -463,11 +475,29 @@ func (s *Shell) renderGlossaryModal(buffer *Buffer, rect Rect, theme *Theme) {
 		return
 	}
 
+	accent := s.sectionStyle(theme)
+	bounds := modalBounds(rect, s.glossary.Lines, 74, 46, 86, 8)
+
+	if s.glossary.Body != "" {
+		// Render with markdown body — same pipeline as the list-view detail pane.
+		contentWidth := panelContentRect(bounds, buffer.Bounds()).W
+		if contentWidth <= 0 {
+			contentWidth = 60
+		}
+		mdLines := parseMarkdownLines(s.glossary.Body, contentWidth, theme)
+		footer := []string{"", "? close  Esc/q cancel"}
+		DrawStyledPanel(buffer, bounds, theme,
+			s.glossary.Title,
+			append(s.glossary.Lines, footer...),
+			mdLines,
+			accent, accent,
+		)
+		return
+	}
+
 	lines := append([]string{}, s.glossary.Lines...)
 	lines = append(lines, "", "? close  Esc/q cancel")
-
-	accent := s.sectionStyle(theme)
-	DrawPanel(buffer, modalBounds(rect, lines, 74, 46, 86, 8), theme, Panel{
+	DrawPanel(buffer, bounds, theme, Panel{
 		Title:       s.glossary.Title,
 		Lines:       lines,
 		BorderStyle: &accent,
@@ -557,4 +587,34 @@ func (s *inputState) displayValue() string {
 		return "[" + s.Placeholder + "]"
 	}
 	return ""
+}
+
+func (s *inputState) displayLines(width int) []string {
+	if s == nil {
+		return []string{""}
+	}
+	if width <= 0 {
+		width = 1
+	}
+
+	value := s.displayValue()
+	prompt := strings.TrimSpace(s.Prompt)
+	if prompt == "" {
+		return wrapPlainText(value, width)
+	}
+
+	promptLine := prompt
+	if !strings.HasSuffix(promptLine, ":") {
+		promptLine += ":"
+	}
+	if value == "" {
+		return wrapPlainText(promptLine, width)
+	}
+	if len([]rune(promptLine))+1+len([]rune(value)) <= width {
+		return []string{promptLine + " " + value}
+	}
+
+	lines := wrapPlainText(promptLine, width)
+	lines = append(lines, wrapPlainText(value, width)...)
+	return lines
 }

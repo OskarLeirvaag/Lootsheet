@@ -34,6 +34,7 @@ func OpenTerminal(factory ScreenFactory, theme *Theme) (*Terminal, error) {
 	}
 
 	screen.EnableMouse(tcell.MouseButtonEvents)
+	screen.EnablePaste()
 	screen.SetStyle(theme.Base)
 	screen.HideCursor()
 	screen.Clear()

@@ -1,5 +1,6 @@
 FROM scratch
 
+COPY --from=alpine:3.20 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY lootsheet-raspi /lootsheet
 
 ENV XDG_DATA_HOME=/data

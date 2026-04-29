@@ -11,7 +11,7 @@ import (
 func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	theme := DefaultTheme()
 	keymap := DefaultKeyMap()
-	buffer := NewBuffer(100, 28, theme.Base)
+	buffer := NewBuffer(140, 28, theme.Base)
 
 	data := DefaultShellData()
 	NewShell(&data).Render(buffer, &theme, keymap)
@@ -20,8 +20,9 @@ func TestShellRenderShowsTabsAndFooterHelp(t *testing.T) {
 	for _, token := range []string{
 		"LootSheet TUI",
 		"Section: Dashboard",
-		"Sections: [Dashboard]   Journal      Quests       Loot",
-		"1-7 jump",
+		"Sections: [Dashboard]",
+		"Compendium",
+		"1-8 jump",
 		"e/i/a entry",
 		"? terms",
 		"q quit",
@@ -514,6 +515,141 @@ func TestShellInputModalShowsBlankSubmitErrorAndClearHelp(t *testing.T) {
 	if help := shell.footerHelpText(DefaultKeyMap()); !strings.Contains(help, "Ctrl+U clear") {
 		t.Fatalf("input footer help = %q, want clear help", help)
 	}
+	if help := shell.footerHelpText(DefaultKeyMap()); strings.Contains(help, "q cancel") {
+		t.Fatalf("input footer help = %q, should not advertise q cancel for text input", help)
+	}
+}
+
+func TestShellCompendiumInitInputAcceptsCobaltLikeToken(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.HandleAction(ActionShowSettings)
+	shell.settingsTab = len(settingsTabs) - 1
+
+	result := shell.HandleAction(ActionSell)
+	if !result.Redraw || shell.input == nil {
+		t.Fatalf("expected compendium init input to open: %#v", result)
+	}
+
+	sample := "header.q-s-123.tail9"
+	for _, r := range sample {
+		event := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
+		result, handled := shell.handleInputKeyEvent(event, DefaultKeyMap().Resolve(event))
+		if !handled || !result.Redraw {
+			t.Fatalf("typing rune %q did not update input: %#v handled=%v", r, result, handled)
+		}
+	}
+
+	result, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || result.Command == nil {
+		t.Fatalf("enter did not emit init command: %#v handled=%v", result, handled)
+	}
+	if result.Command.ID != "compendium.init" {
+		t.Fatalf("command id = %q, want compendium.init", result.Command.ID)
+	}
+	if result.Command.Fields["amount"] != sample {
+		t.Fatalf("command amount = %q, want %q", result.Command.Fields["amount"], sample)
+	}
+}
+
+func TestShellCompendiumSyncCapitalSEmitsContentSyncCommand(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.HandleAction(ActionShowSettings)
+	shell.settingsTab = len(settingsTabs) - 1
+
+	// Capital 'S' (Shift+s) should open the sync-content modal, not the init one.
+	event := tcell.NewEventKey(tcell.KeyRune, 'S', tcell.ModShift)
+	result := shell.HandleKeyEvent(event, DefaultKeyMap())
+	if !result.Redraw || shell.input == nil {
+		t.Fatalf("expected compendium sync input to open on capital S: %#v", result)
+	}
+	if shell.input.Action.ID != "compendium.sync" {
+		t.Fatalf("input action id = %q, want compendium.sync", shell.input.Action.ID)
+	}
+	if shell.input.Optional {
+		t.Fatal("sync content modal should require cobalt (Optional=false)")
+	}
+
+	sample := "abc:force"
+	for _, r := range sample {
+		ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
+		_, _ = shell.handleInputKeyEvent(ev, DefaultKeyMap().Resolve(ev))
+	}
+	res, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || res.Command == nil {
+		t.Fatalf("enter did not emit sync command: %#v handled=%v", res, handled)
+	}
+	if res.Command.ID != "compendium.sync" {
+		t.Fatalf("command id = %q, want compendium.sync", res.Command.ID)
+	}
+	if res.Command.Fields["amount"] != sample {
+		t.Fatalf("command amount = %q, want %q", res.Command.Fields["amount"], sample)
+	}
+}
+
+func TestShellCompendiumLowercaseSDoesNotTriggerSync(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.HandleAction(ActionShowSettings)
+	shell.settingsTab = len(settingsTabs) - 1
+
+	// Lowercase 's' must open the *init* modal, not sync.
+	event := tcell.NewEventKey(tcell.KeyRune, 's', tcell.ModNone)
+	result := shell.HandleKeyEvent(event, DefaultKeyMap())
+	if !result.Redraw || shell.input == nil {
+		t.Fatalf("expected init modal to open on lowercase s: %#v", result)
+	}
+	if shell.input.Action.ID != "compendium.init" {
+		t.Fatalf("lowercase 's' opened wrong modal: %q", shell.input.Action.ID)
+	}
+}
+
+func TestShellInputBracketedPasteDefersRedrawAndAcceptsShortcutRunes(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.input = &inputState{
+		Section: SectionSettings,
+		Action:  ItemActionData{ID: "compendium.sync"},
+	}
+
+	if result := shell.HandlePasteEvent(tcell.NewEventPaste(true)); result.Redraw {
+		t.Fatalf("paste start should not redraw: %#v", result)
+	}
+
+	sample := "abc.qrs-123"
+	for _, r := range sample {
+		result := shell.HandleKeyEvent(tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone), DefaultKeyMap())
+		if result.Redraw || result.Command != nil || result.Quit || result.Reload {
+			t.Fatalf("pasted rune %q should be buffered without side effects: %#v", r, result)
+		}
+	}
+
+	if result := shell.HandlePasteEvent(tcell.NewEventPaste(false)); !result.Redraw {
+		t.Fatalf("paste end should redraw once: %#v", result)
+	}
+	if shell.input.Value != sample {
+		t.Fatalf("input value = %q, want %q", shell.input.Value, sample)
+	}
+}
+
+func TestInputStateDisplayLinesWrapLongCobaltLikeValue(t *testing.T) {
+	s := &inputState{
+		Prompt: "Cobalt cookie (Enter to sync rules only):",
+		Value:  strings.Repeat("abc.qrs-123-", 18),
+	}
+
+	lines := s.displayLines(68)
+	if len(lines) < 4 {
+		t.Fatalf("display lines = %#v, want wrapped value", lines)
+	}
+	if lines[0] != "Cobalt cookie (Enter to sync rules only):" {
+		t.Fatalf("first line = %q, want prompt", lines[0])
+	}
+	for _, line := range lines {
+		if len([]rune(line)) > 68 {
+			t.Fatalf("line %q has width %d, want <= 68", line, len([]rune(line)))
+		}
+	}
+	if got := strings.Join(lines[1:], ""); got != s.Value {
+		t.Fatalf("wrapped value changed:\n got %q\nwant %q", got, s.Value)
+	}
 }
 
 func TestShellReloadPreservesSelectionByKey(t *testing.T) {
@@ -833,8 +969,8 @@ func TestSearchFiltersResults(t *testing.T) {
 	if len(shell.search.Results) != 1 {
 		t.Fatalf("expected 1 result for 'gold', got %d", len(shell.search.Results))
 	}
-	if shell.search.Results[0].ItemKey != "loot-1" {
-		t.Fatalf("expected loot-1, got %s", shell.search.Results[0].ItemKey)
+	if shell.search.Results[0].Item.Key != "loot-1" {
+		t.Fatalf("expected loot-1, got %s", shell.search.Results[0].Item.Key)
 	}
 }
 
@@ -867,7 +1003,7 @@ func TestSearchSectionFilter(t *testing.T) {
 	if shell.search.FilterIndex != 2 {
 		t.Fatalf("expected filter index 2 (Quests), got %d", shell.search.FilterIndex)
 	}
-	if len(shell.search.Results) != 1 || shell.search.Results[0].ItemKey != "quest-1" {
+	if len(shell.search.Results) != 1 || shell.search.Results[0].Item.Key != "quest-1" {
 		t.Fatalf("expected quest-1 in Quests filter, got %v", shell.search.Results)
 	}
 }
@@ -944,8 +1080,8 @@ func TestSearchUsesServerSideHandlerWhenAvailable(t *testing.T) {
 	if len(shell.search.Results) != 1 {
 		t.Fatalf("expected 1 server-side result, got %d", len(shell.search.Results))
 	}
-	if shell.search.Results[0].ItemKey != "codex-99" {
-		t.Fatalf("expected codex-99 from handler, got %s", shell.search.Results[0].ItemKey)
+	if shell.search.Results[0].Item.Key != "codex-99" {
+		t.Fatalf("expected codex-99 from handler, got %s", shell.search.Results[0].Item.Key)
 	}
 }
 
@@ -980,8 +1116,8 @@ func TestSearchFallsBackToClientSideWhenHandlerReturnsNil(t *testing.T) {
 	if len(shell.search.Results) != 1 {
 		t.Fatalf("expected 1 client-side result, got %d", len(shell.search.Results))
 	}
-	if shell.search.Results[0].ItemKey != "quest-fallback" {
-		t.Fatalf("expected quest-fallback from client-side, got %s", shell.search.Results[0].ItemKey)
+	if shell.search.Results[0].Item.Key != "quest-fallback" {
+		t.Fatalf("expected quest-fallback from client-side, got %s", shell.search.Results[0].Item.Key)
 	}
 }
 
@@ -1002,5 +1138,51 @@ func TestSearchFooterHelp(t *testing.T) {
 	}
 	if strings.Contains(help, "/ search") {
 		t.Fatalf("search footer should not show '/ search': %s", help)
+	}
+}
+
+// TestNavigateCompendiumSubTabNormalisesToSectionCompendium guards against
+// both compendium bugs:
+//  1. Arrow keys locking the user inside the compendium after Navigate().
+//  2. Search+Enter "crashing" to Dashboard because Navigate() stored a
+//     virtual CompendiumTab* value in s.Section instead of SectionCompendium.
+func TestNavigateCompendiumSubTabNormalisesToSectionCompendium(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+
+	// Navigate to each virtual compendium sub-tab.
+	tabs := []Section{
+		CompendiumTabMonsters, CompendiumTabSpells, CompendiumTabItems,
+		CompendiumTabRules, CompendiumTabConditions,
+	}
+	for i, tab := range tabs {
+		shell.Navigate(tab, "")
+		if shell.Section != SectionCompendium {
+			t.Errorf("Navigate(%v): shell.Section = %v, want SectionCompendium", tab, shell.Section)
+		}
+		if shell.compendiumTab != i {
+			t.Errorf("Navigate(%v): compendiumTab = %d, want %d", tab, shell.compendiumTab, i)
+		}
+
+		// Arrow keys must cycle within compendium, not escape to Dashboard.
+		result := shell.HandleAction(ActionNextSection)
+		if !result.Redraw || shell.Section == SectionDashboard {
+			t.Errorf("Navigate(%v) then ActionNextSection: escaped to Dashboard (Section=%v)", tab, shell.Section)
+		}
+		// Restore for next iteration.
+		shell.Navigate(tab, "")
+	}
+}
+
+func TestNavigateSettingsSubTabNormalisesToSectionSettings(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+
+	for i, tab := range settingsTabs {
+		shell.Navigate(tab, "")
+		if shell.Section != SectionSettings {
+			t.Errorf("Navigate(%v): shell.Section = %v, want SectionSettings", tab, shell.Section)
+		}
+		if shell.settingsTab != i {
+			t.Errorf("Navigate(%v): settingsTab = %d, want %d", tab, shell.settingsTab, i)
+		}
 	}
 }
