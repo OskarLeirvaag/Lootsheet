@@ -3,6 +3,7 @@ package compendium
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/testutil"
 )
@@ -236,5 +237,139 @@ func TestUpsertAndListSources(t *testing.T) {
 		if s.ID == 2 && s.Enabled {
 			t.Fatal("expected PHB to stay disabled after re-upsert")
 		}
+	}
+}
+
+func TestSetSourceOwnershipMarksOwnedAndLocked(t *testing.T) {
+	dbPath := testutil.InitTestDB(t)
+	ctx := context.Background()
+
+	src := []Source{
+		{ID: 1, Name: "PHB", IsReleased: true},
+		{ID: 2, Name: "MM", IsReleased: true},
+		{ID: 3, Name: "XGE", IsReleased: true},
+	}
+	if err := UpsertSources(ctx, dbPath, src); err != nil {
+		t.Fatalf("upsert sources: %v", err)
+	}
+
+	if err := SetSourceOwnership(ctx, dbPath, []int{1, 3}); err != nil {
+		t.Fatalf("set ownership: %v", err)
+	}
+
+	all, _ := ListSources(ctx, dbPath)
+	got := map[int]int{}
+	for _, s := range all {
+		got[s.ID] = s.Owned
+	}
+	if got[1] != OwnershipOwned {
+		t.Errorf("source 1 owned = %d, want %d", got[1], OwnershipOwned)
+	}
+	if got[2] != OwnershipLocked {
+		t.Errorf("source 2 owned = %d, want %d", got[2], OwnershipLocked)
+	}
+	if got[3] != OwnershipOwned {
+		t.Errorf("source 3 owned = %d, want %d", got[3], OwnershipOwned)
+	}
+}
+
+func TestSetSourceHasSpellsAndItemsAreIndependent(t *testing.T) {
+	dbPath := testutil.InitTestDB(t)
+	ctx := context.Background()
+
+	if err := UpsertSources(ctx, dbPath, []Source{{ID: 1, Name: "MM", IsReleased: true}}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	// MM has no spells, but does have items.
+	if err := SetSourceHasSpells(ctx, dbPath, 1, false); err != nil {
+		t.Fatalf("set has_spells: %v", err)
+	}
+	all, _ := ListSources(ctx, dbPath)
+	if all[0].HasSpells {
+		t.Error("expected has_spells=false after SetSourceHasSpells")
+	}
+	if !all[0].HasItems {
+		t.Error("has_items got cleared by has_spells update — should be independent")
+	}
+
+	if err := SetSourceHasItems(ctx, dbPath, 1, true); err != nil {
+		t.Fatalf("set has_items: %v", err)
+	}
+	all, _ = ListSources(ctx, dbPath)
+	if all[0].HasSpells {
+		t.Error("setting has_items reset has_spells")
+	}
+}
+
+func TestGetLastSyncedAtZeroBeforeFirstSync(t *testing.T) {
+	dbPath := testutil.InitTestDB(t)
+	ctx := context.Background()
+
+	last, err := GetLastSyncedAt(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("get last_synced_at: %v", err)
+	}
+	if !last.IsZero() {
+		t.Fatalf("expected zero time before first sync, got %v", last)
+	}
+}
+
+func TestRecordSyncCompletedSetsRecentTimestamp(t *testing.T) {
+	dbPath := testutil.InitTestDB(t)
+	ctx := context.Background()
+
+	before := time.Now().Add(-2 * time.Second)
+	if err := RecordSyncCompleted(ctx, dbPath); err != nil {
+		t.Fatalf("record sync completed: %v", err)
+	}
+	last, err := GetLastSyncedAt(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("get last_synced_at: %v", err)
+	}
+	if last.Before(before) {
+		t.Fatalf("last_synced_at %v is before %v", last, before)
+	}
+	if time.Since(last) > time.Minute {
+		t.Fatalf("last_synced_at %v is too far in the past", last)
+	}
+}
+
+func TestSpellAndItemBearingEnabledSourceIDsRespectFlags(t *testing.T) {
+	dbPath := testutil.InitTestDB(t)
+	ctx := context.Background()
+
+	src := []Source{
+		{ID: 1, Name: "PHB", IsReleased: true}, // toggled on below
+		{ID: 2, Name: "MM", IsReleased: true},  // toggled on below; we'll clear has_spells
+		{ID: 3, Name: "XGE", IsReleased: true}, // stays disabled
+	}
+	if err := UpsertSources(ctx, dbPath, src); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	if err := ToggleSource(ctx, dbPath, 1); err != nil {
+		t.Fatalf("toggle 1: %v", err)
+	}
+	if err := ToggleSource(ctx, dbPath, 2); err != nil {
+		t.Fatalf("toggle 2: %v", err)
+	}
+	if err := SetSourceHasSpells(ctx, dbPath, 2, false); err != nil {
+		t.Fatalf("set has_spells: %v", err)
+	}
+
+	spellIDs, err := SpellBearingEnabledSourceIDs(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("spell-bearing: %v", err)
+	}
+	if len(spellIDs) != 1 || spellIDs[0] != 1 {
+		t.Errorf("spell-bearing = %v, want [1]", spellIDs)
+	}
+
+	itemIDs, err := ItemBearingEnabledSourceIDs(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("item-bearing: %v", err)
+	}
+	if len(itemIDs) != 2 {
+		t.Errorf("item-bearing = %v, want both enabled", itemIDs)
 	}
 }

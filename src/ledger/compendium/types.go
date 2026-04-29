@@ -66,9 +66,21 @@ type Condition struct {
 	SyncedAt    string
 }
 
+// Ownership tri-state values stored in compendium_sources.owned.
+const (
+	OwnershipUnknown = 0
+	OwnershipOwned   = 1
+	OwnershipLocked  = 2
+)
+
 // Source represents a D&D Beyond source book for filtering.
 type Source struct {
-	ID      int
-	Name    string
-	Enabled bool
+	ID         int
+	Name       string
+	Enabled    bool
+	Owned      int  // OwnershipUnknown / OwnershipOwned / OwnershipLocked
+	HasSpells  bool // false once we observe a sync return zero spells
+	HasItems   bool
+	IsReleased bool
+	CategoryID int
 }

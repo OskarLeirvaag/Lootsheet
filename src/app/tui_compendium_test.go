@@ -31,3 +31,64 @@ func TestFilterDDBItemsBySource(t *testing.T) {
 		t.Fatalf("filtered items = %#v, want only item 1", got)
 	}
 }
+
+func TestConvertDDBSourcesDropsBadAndUnreleasedIDs(t *testing.T) {
+	in := []ddb.ConfigSource{
+		{ID: 1, Description: "PHB", IsReleased: true, SourceCategoryID: 10},
+		{ID: 4, Description: "EE players", IsReleased: true},      // BAD
+		{ID: 31, Description: "CR data", IsReleased: true},        // BAD
+		{ID: 99, Description: "Unreleased", IsReleased: false},    // dropped
+		{ID: 2, Description: "MM", IsReleased: true, SourceCategoryID: 10},
+	}
+
+	got := convertDDBSources(in)
+	if len(got) != 2 {
+		t.Fatalf("convertDDBSources kept %d rows, want 2: %#v", len(got), got)
+	}
+	if got[0].ID != 1 || got[1].ID != 2 {
+		t.Fatalf("convertDDBSources order/IDs unexpected: %#v", got)
+	}
+	if !got[0].IsReleased || got[0].CategoryID != 10 {
+		t.Fatalf("convertDDBSources lost flags: %#v", got[0])
+	}
+}
+
+func TestParseSyncCobaltExtractsForceFlag(t *testing.T) {
+	tests := []struct {
+		in        string
+		wantToken string
+		wantForce bool
+	}{
+		{"abc123", "abc123", false},
+		{"abc123:force", "abc123", true},
+		{"  abc123:FORCE  ", "abc123", true},
+		{"abc123:force:force", "abc123:force", true}, // strip only one trailing
+		{":force", "", true},
+		{"", "", false},
+	}
+	for _, tc := range tests {
+		gotTok, gotForce := parseSyncCobalt(tc.in)
+		if gotTok != tc.wantToken || gotForce != tc.wantForce {
+			t.Errorf("parseSyncCobalt(%q) = (%q, %v), want (%q, %v)",
+				tc.in, gotTok, gotForce, tc.wantToken, tc.wantForce)
+		}
+	}
+}
+
+func TestObservedSourceIDsCollectsAllReferences(t *testing.T) {
+	spells := []ddb.RawSpellEntry{
+		{Definition: ddb.RawSpellDef{ID: 1, Sources: []ddb.SourceRef{{SourceID: 1}, {SourceID: 5}}}},
+		{Definition: ddb.RawSpellDef{ID: 2, Sources: []ddb.SourceRef{{SourceID: 1}}}},
+		{Definition: ddb.RawSpellDef{ID: 3}},
+	}
+	got := observedSourceIDs(spells, spellEntrySourceIDs)
+	if _, ok := got[1]; !ok {
+		t.Errorf("observed missing source 1: %v", got)
+	}
+	if _, ok := got[5]; !ok {
+		t.Errorf("observed missing source 5: %v", got)
+	}
+	if len(got) != 2 {
+		t.Errorf("observed has %d entries, want 2: %v", len(got), got)
+	}
+}

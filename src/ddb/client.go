@@ -9,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -85,10 +87,10 @@ func (c *Client) IsAuthenticated() bool {
 }
 
 // doGet performs an authenticated GET request.
-func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
+func (c *Client) doGet(ctx context.Context, endpoint string) ([]byte, error) {
 	startedAt := time.Now()
-	slog.InfoContext(ctx, "ddb get started", slog.String("url", url))
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	slog.InfoContext(ctx, "ddb get started", slog.String("url", endpoint))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +102,7 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		slog.ErrorContext(ctx, "ddb get failed",
-			slog.String("url", url),
+			slog.String("url", endpoint),
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startedAt)),
 		)
@@ -111,7 +113,7 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
 	if err != nil {
 		slog.ErrorContext(ctx, "ddb get failed",
-			slog.String("url", url),
+			slog.String("url", endpoint),
 			slog.Int("status", resp.StatusCode),
 			slog.String("error", err.Error()),
 			slog.Duration("duration", time.Since(startedAt)),
@@ -120,7 +122,7 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		slog.ErrorContext(ctx, "ddb get failed",
-			slog.String("url", url),
+			slog.String("url", endpoint),
 			slog.Int("status", resp.StatusCode),
 			slog.Int("bytes", len(body)),
 			slog.Duration("duration", time.Since(startedAt)),
@@ -129,7 +131,55 @@ func (c *Client) doGet(ctx context.Context, url string) ([]byte, error) {
 	}
 
 	slog.InfoContext(ctx, "ddb get completed",
-		slog.String("url", url),
+		slog.String("url", endpoint),
+		slog.Int("status", resp.StatusCode),
+		slog.Int("bytes", len(body)),
+		slog.Duration("duration", time.Since(startedAt)),
+	)
+	return body, nil
+}
+
+// doFormPost performs a POST with application/x-www-form-urlencoded body.
+// Used by the mobile/api/v6 endpoints (user-data, available-user-content) which
+// accept the cobalt token directly in the body rather than as a Cookie.
+func (c *Client) doFormPost(ctx context.Context, endpoint string, form url.Values) ([]byte, error) {
+	startedAt := time.Now()
+	slog.InfoContext(ctx, "ddb post started", slog.String("url", endpoint))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		slog.ErrorContext(ctx, "ddb post failed",
+			slog.String("url", endpoint),
+			slog.String("error", err.Error()),
+			slog.Duration("duration", time.Since(startedAt)),
+		)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBody))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		slog.ErrorContext(ctx, "ddb post failed",
+			slog.String("url", endpoint),
+			slog.Int("status", resp.StatusCode),
+			slog.Int("bytes", len(body)),
+			slog.Duration("duration", time.Since(startedAt)),
+		)
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(string(body), truncateLen))
+	}
+
+	slog.InfoContext(ctx, "ddb post completed",
+		slog.String("url", endpoint),
 		slog.Int("status", resp.StatusCode),
 		slog.Int("bytes", len(body)),
 		slog.Duration("duration", time.Since(startedAt)),

@@ -31,13 +31,19 @@ func summarizeCompendiumConditions(records []compendium.Condition) []string {
 }
 
 func summarizeCompendiumSources(records []compendium.Source) []string {
-	enabled := 0
+	enabled, owned := 0, 0
 	for _, s := range records {
 		if s.Enabled {
 			enabled++
 		}
+		if s.Owned == compendium.OwnershipOwned {
+			owned++
+		}
 	}
-	return []string{fmt.Sprintf("Sources: %d enabled / %d total", enabled, len(records))}
+	return []string{
+		fmt.Sprintf("Sources: %d enabled / %d owned / %d total", enabled, owned, len(records)),
+		"Press 's' to initialize, 't' to toggle, 'S' to sync content for enabled sources.",
+	}
 }
 
 func buildCompendiumMonsterItems(records []compendium.Monster) []render.ListItemData {
@@ -142,13 +148,16 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 		if s.Enabled {
 			status = "[x]"
 		}
+		badge := ownershipBadge(s.Owned)
+		ownership := ownershipLabel(s.Owned)
 		items = append(items, render.ListItemData{
 			Key:         fmt.Sprintf("source-%d", s.ID),
-			Row:         fmt.Sprintf("%s %s", status, s.Name),
+			Row:         fmt.Sprintf("%s %s %s", status, s.Name, badge),
 			DetailTitle: s.Name,
 			DetailLines: []string{
 				fmt.Sprintf("ID: %d", s.ID),
 				fmt.Sprintf("Enabled: %v", s.Enabled),
+				fmt.Sprintf("Ownership: %s", ownership),
 			},
 			Actions: []render.ItemActionData{
 				{
@@ -163,6 +172,28 @@ func buildCompendiumSourceItems(records []compendium.Source) []render.ListItemDa
 		})
 	}
 	return items
+}
+
+func ownershipBadge(owned int) string {
+	switch owned {
+	case compendium.OwnershipOwned:
+		return "(✓ owned)"
+	case compendium.OwnershipLocked:
+		return "(— locked)"
+	default:
+		return "(? unknown)"
+	}
+}
+
+func ownershipLabel(owned int) string {
+	switch owned {
+	case compendium.OwnershipOwned:
+		return "owned"
+	case compendium.OwnershipLocked:
+		return "locked"
+	default:
+		return "unknown — initialize with cobalt cookie to detect"
+	}
 }
 
 func buildMonsterDetailBody(m *compendium.Monster) string {
@@ -191,6 +222,7 @@ func truncateField(s string, maxLen int) string {
 // Command constants for compendium operations.
 const (
 	tuiCommandCompendiumToggleSource = "compendium.toggle_source"
+	tuiCommandCompendiumInit         = "compendium.init"
 	tuiCommandCompendiumSync         = "compendium.sync"
 )
 
@@ -221,10 +253,24 @@ const (
 
 // --- DDB → domain converters ---
 
+// convertDDBSources maps DDB config sources into domain rows, dropping
+// known-bad IDs (ddb-adventure-muncher's BAD_IDS) and unreleased entries.
+// IsReleased and CategoryID flow through so the catalogue stays current.
 func convertDDBSources(sources []ddb.ConfigSource) []compendium.Source {
-	result := make([]compendium.Source, len(sources))
-	for i, s := range sources {
-		result[i] = compendium.Source{ID: s.ID, Name: s.Description}
+	result := make([]compendium.Source, 0, len(sources))
+	for _, s := range sources {
+		if _, bad := ddb.BadSourceIDs[s.ID]; bad {
+			continue
+		}
+		if !s.IsReleased {
+			continue
+		}
+		result = append(result, compendium.Source{
+			ID:         s.ID,
+			Name:       s.Description,
+			IsReleased: s.IsReleased,
+			CategoryID: s.SourceCategoryID,
+		})
 	}
 	return result
 }

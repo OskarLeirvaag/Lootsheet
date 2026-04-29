@@ -184,22 +184,24 @@ func (s *Shell) HandleAction(action Action) HandleResult { //nolint:revive // la
 			return HandleResult{Redraw: true}
 		}
 	case ActionSell:
-		// On Settings Compendium tab, 's' triggers sync instead of sell.
+		// On Settings Compendium tab, lowercase 's' initializes the compendium
+		// (Phase A: refresh sources/rules and probe ownership). Capital 'S' is
+		// intercepted earlier in HandleKeyEvent for content sync (Phase B).
 		if s.Section == SectionSettings && s.activeSettingsSection() == settingsTabCompendium {
 			s.input = &inputState{
 				Section: SectionSettings,
 				Action: ItemActionData{
-					ID:   "compendium.sync",
+					ID:   "compendium.init",
 					Mode: ItemActionModeInput,
 				},
-				Title:       "Sync Compendium",
-				Prompt:      "Cobalt cookie (Enter to sync rules only):",
+				Title:       "Initialize Compendium",
+				Prompt:      "Cobalt cookie (Enter to skip ownership probe):",
 				Placeholder: "paste cookie or leave empty",
 				Optional:    true,
 				HelpLines: []string{
-					"Rules and conditions sync without a cookie.",
-					"Monsters, spells, and items require a DDB cobalt cookie.",
-					"The cookie is not stored.",
+					"Refreshes the source/rules/conditions catalogue.",
+					"With cobalt, also marks each source as owned or locked.",
+					"After this, press 't' on a source to enable, then 'S' to sync content.",
 				},
 			}
 			return HandleResult{Redraw: true}
@@ -231,6 +233,13 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 	action := ActionNone
 	if !s.pasteActive {
 		action = keymap.Resolve(event)
+	}
+
+	// Capital 'S' on Settings → Compendium triggers content-sync (Phase B).
+	// The keymap matcher is case-insensitive, so we route the raw rune
+	// separately from lowercase 's' (which initializes — Phase A).
+	if result, handled := s.maybeOpenCompendiumSyncModal(event, action); handled {
+		return result
 	}
 
 	if s.quitConfirm {
@@ -276,6 +285,42 @@ func (s *Shell) HandleKeyEvent(event *tcell.EventKey, keymap KeyMap) HandleResul
 	}
 
 	return s.HandleAction(action)
+}
+
+// maybeOpenCompendiumSyncModal opens the Phase B (content sync) modal when the
+// user presses capital 'S' on Settings → Compendium. Returns handled=false if
+// the press should fall through to the normal action dispatch.
+func (s *Shell) maybeOpenCompendiumSyncModal(event *tcell.EventKey, action Action) (HandleResult, bool) {
+	if action != ActionSell || event == nil {
+		return HandleResult{}, false
+	}
+	if event.Key() != tcell.KeyRune || event.Rune() != 'S' {
+		return HandleResult{}, false
+	}
+	if s.Section != SectionSettings || s.activeSettingsSection() != settingsTabCompendium {
+		return HandleResult{}, false
+	}
+	if s.input != nil || s.confirm != nil || s.compose != nil {
+		return HandleResult{}, false
+	}
+
+	s.input = &inputState{
+		Section: SectionSettings,
+		Action: ItemActionData{
+			ID:   "compendium.sync",
+			Mode: ItemActionModeInput,
+		},
+		Title:       "Sync Compendium Content",
+		Prompt:      "Cobalt cookie (append :force to bypass 1h TTL):",
+		Placeholder: "paste cookie",
+		Optional:    false,
+		HelpLines: []string{
+			"Fetches monsters, spells, and items for enabled sources only.",
+			"Refuses to re-run within an hour unless you append ':force' to the cookie.",
+			"The cookie is not stored.",
+		},
+	}
+	return HandleResult{Redraw: true}, true
 }
 
 // HandlePasteEvent tracks bracketed paste so pasted text is not interpreted as

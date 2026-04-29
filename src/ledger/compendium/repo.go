@@ -3,8 +3,10 @@ package compendium
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/OskarLeirvaag/Lootsheet/src/ledger"
 )
@@ -177,7 +179,7 @@ func ListConditions(ctx context.Context, databasePath string, query string) ([]C
 // ListSources returns all source books.
 func ListSources(ctx context.Context, databasePath string) ([]Source, error) {
 	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]Source, error) {
-		rows, err := db.QueryContext(ctx, `SELECT id, name, enabled FROM compendium_sources ORDER BY name`)
+		rows, err := db.QueryContext(ctx, `SELECT id, name, enabled, owned, has_spells, has_items, is_released, category_id FROM compendium_sources ORDER BY name`)
 		if err != nil {
 			return nil, fmt.Errorf("list sources: %w", err)
 		}
@@ -186,7 +188,7 @@ func ListSources(ctx context.Context, databasePath string) ([]Source, error) {
 		var result []Source
 		for rows.Next() {
 			var s Source
-			if err := rows.Scan(&s.ID, &s.Name, &s.Enabled); err != nil {
+			if err := rows.Scan(&s.ID, &s.Name, &s.Enabled, &s.Owned, &s.HasSpells, &s.HasItems, &s.IsReleased, &s.CategoryID); err != nil {
 				return nil, fmt.Errorf("scan source: %w", err)
 			}
 			result = append(result, s)
@@ -224,7 +226,9 @@ func ToggleSource(ctx context.Context, databasePath string, sourceID int) error 
 	})
 }
 
-// UpsertSources inserts or updates source books (from DDB config).
+// UpsertSources inserts or updates source books (from DDB config). Existing
+// rows preserve their `enabled`, `owned`, `has_spells`, `has_items` user state;
+// only catalogue fields (name, is_released, category_id) refresh.
 func UpsertSources(ctx context.Context, databasePath string, sources []Source) error {
 	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
 		tx, err := db.BeginTx(ctx, nil)
@@ -234,8 +238,12 @@ func UpsertSources(ctx context.Context, databasePath string, sources []Source) e
 		defer tx.Rollback() //nolint:errcheck // rollback after commit is a no-op
 
 		stmt, err := tx.PrepareContext(ctx,
-			`INSERT INTO compendium_sources (id, name, enabled) VALUES (?, ?, ?)
-			 ON CONFLICT(id) DO UPDATE SET name = excluded.name`)
+			`INSERT INTO compendium_sources (id, name, enabled, is_released, category_id)
+			 VALUES (?, ?, ?, ?, ?)
+			 ON CONFLICT(id) DO UPDATE SET
+			     name = excluded.name,
+			     is_released = excluded.is_released,
+			     category_id = excluded.category_id`)
 		if err != nil {
 			return fmt.Errorf("prepare upsert sources: %w", err)
 		}
@@ -246,11 +254,143 @@ func UpsertSources(ctx context.Context, databasePath string, sources []Source) e
 			if s.Enabled {
 				enabled = 1
 			}
-			if _, err := stmt.ExecContext(ctx, s.ID, s.Name, enabled); err != nil {
+			released := 0
+			if s.IsReleased {
+				released = 1
+			}
+			if _, err := stmt.ExecContext(ctx, s.ID, s.Name, enabled, released, s.CategoryID); err != nil {
 				return fmt.Errorf("upsert source %d: %w", s.ID, err)
 			}
 		}
 		return tx.Commit()
+	})
+}
+
+// SetSourceOwnership marks the listed source IDs as owned (1) and every other
+// known source as locked (2). Sources not yet probed should be filtered before
+// calling this — any row not in `ownedIDs` will be marked locked.
+func SetSourceOwnership(ctx context.Context, databasePath string, ownedIDs []int) error {
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback() //nolint:errcheck
+
+		// First mark everything as locked, then re-mark owned IDs as owned.
+		if _, err := tx.ExecContext(ctx, `UPDATE compendium_sources SET owned = ?`, OwnershipLocked); err != nil {
+			return fmt.Errorf("set sources locked: %w", err)
+		}
+		for _, id := range ownedIDs {
+			if _, err := tx.ExecContext(ctx, `UPDATE compendium_sources SET owned = ? WHERE id = ?`, OwnershipOwned, id); err != nil {
+				return fmt.Errorf("set source %d owned: %w", id, err)
+			}
+		}
+		return tx.Commit()
+	})
+}
+
+// SetSourceHasSpells stores whether a source produced any spells in the most
+// recent Phase B fetch. Subsequent Phase B runs skip the spell pass entirely
+// when no enabled source has has_spells=1.
+func SetSourceHasSpells(ctx context.Context, databasePath string, sourceID int, hasSpells bool) error {
+	return setSourceContentFlag(ctx, databasePath, sourceID, "has_spells", hasSpells)
+}
+
+// SetSourceHasItems stores whether a source produced any items in the most
+// recent Phase B fetch.
+func SetSourceHasItems(ctx context.Context, databasePath string, sourceID int, hasItems bool) error {
+	return setSourceContentFlag(ctx, databasePath, sourceID, "has_items", hasItems)
+}
+
+func setSourceContentFlag(ctx context.Context, databasePath string, sourceID int, column string, value bool) error {
+	if column != "has_spells" && column != "has_items" {
+		return fmt.Errorf("invalid content column: %q", column)
+	}
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		v := 0
+		if value {
+			v = 1
+		}
+		query := "UPDATE compendium_sources SET " + column + " = ? WHERE id = ?" //nolint:gosec // column validated.
+		if _, err := db.ExecContext(ctx, query, v, sourceID); err != nil {
+			return fmt.Errorf("update %s for source %d: %w", column, sourceID, err)
+		}
+		return nil
+	})
+}
+
+// GetLastSyncedAt returns the timestamp of the last successful Phase B sync,
+// or the zero time if no sync has completed yet.
+func GetLastSyncedAt(ctx context.Context, databasePath string) (time.Time, error) {
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) (time.Time, error) {
+		var raw sql.NullString
+		err := db.QueryRowContext(ctx, `SELECT last_synced_at FROM compendium_sync_state WHERE id = 1`).Scan(&raw)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return time.Time{}, nil
+			}
+			return time.Time{}, fmt.Errorf("get last_synced_at: %w", err)
+		}
+		if !raw.Valid || raw.String == "" {
+			return time.Time{}, nil
+		}
+		// SQLite datetime('now') format: "2006-01-02 15:04:05".
+		t, err := time.Parse("2006-01-02 15:04:05", raw.String)
+		if err != nil {
+			// Try RFC3339 as a fallback.
+			t, err = time.Parse(time.RFC3339, raw.String)
+			if err != nil {
+				return time.Time{}, fmt.Errorf("parse last_synced_at %q: %w", raw.String, err)
+			}
+		}
+		return t, nil
+	})
+}
+
+// RecordSyncCompleted updates compendium_sync_state.last_synced_at to now.
+func RecordSyncCompleted(ctx context.Context, databasePath string) error {
+	return ledger.WithDB(ctx, databasePath, func(db *sql.DB) error {
+		_, err := db.ExecContext(ctx,
+			`UPDATE compendium_sync_state SET last_synced_at = datetime('now'), last_phase = 'sync', in_progress = 0 WHERE id = 1`)
+		if err != nil {
+			return fmt.Errorf("record sync completed: %w", err)
+		}
+		return nil
+	})
+}
+
+// SpellBearingEnabledSourceIDs returns enabled sources where has_spells=1.
+func SpellBearingEnabledSourceIDs(ctx context.Context, databasePath string) ([]int, error) {
+	return enabledSourceIDsByContent(ctx, databasePath, "has_spells")
+}
+
+// ItemBearingEnabledSourceIDs returns enabled sources where has_items=1.
+func ItemBearingEnabledSourceIDs(ctx context.Context, databasePath string) ([]int, error) {
+	return enabledSourceIDsByContent(ctx, databasePath, "has_items")
+}
+
+func enabledSourceIDsByContent(ctx context.Context, databasePath string, column string) ([]int, error) {
+	if column != "has_spells" && column != "has_items" {
+		return nil, fmt.Errorf("invalid content column: %q", column)
+	}
+	return ledger.WithDBResult(ctx, databasePath, func(db *sql.DB) ([]int, error) {
+		query := "SELECT id FROM compendium_sources WHERE enabled = 1 AND " + column + " = 1" //nolint:gosec // column is validated above.
+		rows, err := db.QueryContext(ctx, query)
+		if err != nil {
+			return nil, fmt.Errorf("enabled %s: %w", column, err)
+		}
+		defer rows.Close()
+
+		var ids []int
+		for rows.Next() {
+			var id int
+			if err := rows.Scan(&id); err != nil {
+				return nil, fmt.Errorf("scan %s id: %w", column, err)
+			}
+			ids = append(ids, id)
+		}
+		return ids, rows.Err()
 	})
 }
 

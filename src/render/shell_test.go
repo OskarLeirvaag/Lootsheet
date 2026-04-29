@@ -520,14 +520,14 @@ func TestShellInputModalShowsBlankSubmitErrorAndClearHelp(t *testing.T) {
 	}
 }
 
-func TestShellCompendiumSyncInputAcceptsCobaltLikeToken(t *testing.T) {
+func TestShellCompendiumInitInputAcceptsCobaltLikeToken(t *testing.T) {
 	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
 	shell.HandleAction(ActionShowSettings)
 	shell.settingsTab = len(settingsTabs) - 1
 
 	result := shell.HandleAction(ActionSell)
 	if !result.Redraw || shell.input == nil {
-		t.Fatalf("expected compendium sync input to open: %#v", result)
+		t.Fatalf("expected compendium init input to open: %#v", result)
 	}
 
 	sample := "header.q-s-123.tail9"
@@ -541,13 +541,64 @@ func TestShellCompendiumSyncInputAcceptsCobaltLikeToken(t *testing.T) {
 
 	result, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
 	if !handled || result.Command == nil {
-		t.Fatalf("enter did not emit sync command: %#v handled=%v", result, handled)
+		t.Fatalf("enter did not emit init command: %#v handled=%v", result, handled)
 	}
-	if result.Command.ID != "compendium.sync" {
-		t.Fatalf("command id = %q, want compendium.sync", result.Command.ID)
+	if result.Command.ID != "compendium.init" {
+		t.Fatalf("command id = %q, want compendium.init", result.Command.ID)
 	}
 	if result.Command.Fields["amount"] != sample {
 		t.Fatalf("command amount = %q, want %q", result.Command.Fields["amount"], sample)
+	}
+}
+
+func TestShellCompendiumSyncCapitalSEmitsContentSyncCommand(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.HandleAction(ActionShowSettings)
+	shell.settingsTab = len(settingsTabs) - 1
+
+	// Capital 'S' (Shift+s) should open the sync-content modal, not the init one.
+	event := tcell.NewEventKey(tcell.KeyRune, 'S', tcell.ModShift)
+	result := shell.HandleKeyEvent(event, DefaultKeyMap())
+	if !result.Redraw || shell.input == nil {
+		t.Fatalf("expected compendium sync input to open on capital S: %#v", result)
+	}
+	if shell.input.Action.ID != "compendium.sync" {
+		t.Fatalf("input action id = %q, want compendium.sync", shell.input.Action.ID)
+	}
+	if shell.input.Optional {
+		t.Fatal("sync content modal should require cobalt (Optional=false)")
+	}
+
+	sample := "abc:force"
+	for _, r := range sample {
+		ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
+		_, _ = shell.handleInputKeyEvent(ev, DefaultKeyMap().Resolve(ev))
+	}
+	res, handled := shell.handleInputKeyEvent(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), ActionConfirm)
+	if !handled || res.Command == nil {
+		t.Fatalf("enter did not emit sync command: %#v handled=%v", res, handled)
+	}
+	if res.Command.ID != "compendium.sync" {
+		t.Fatalf("command id = %q, want compendium.sync", res.Command.ID)
+	}
+	if res.Command.Fields["amount"] != sample {
+		t.Fatalf("command amount = %q, want %q", res.Command.Fields["amount"], sample)
+	}
+}
+
+func TestShellCompendiumLowercaseSDoesNotTriggerSync(t *testing.T) {
+	shell := NewShell(&ShellData{Dashboard: DefaultDashboardData()})
+	shell.HandleAction(ActionShowSettings)
+	shell.settingsTab = len(settingsTabs) - 1
+
+	// Lowercase 's' must open the *init* modal, not sync.
+	event := tcell.NewEventKey(tcell.KeyRune, 's', tcell.ModNone)
+	result := shell.HandleKeyEvent(event, DefaultKeyMap())
+	if !result.Redraw || shell.input == nil {
+		t.Fatalf("expected init modal to open on lowercase s: %#v", result)
+	}
+	if shell.input.Action.ID != "compendium.init" {
+		t.Fatalf("lowercase 's' opened wrong modal: %q", shell.input.Action.ID)
 	}
 }
 

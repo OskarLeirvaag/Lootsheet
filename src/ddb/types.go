@@ -19,8 +19,24 @@ type Config struct {
 }
 
 type ConfigSource struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
+	ID               int    `json:"id"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	IsReleased       bool   `json:"isReleased"`
+	SourceCategoryID int    `json:"sourceCategoryId"`
+}
+
+// BadSourceIDs are DDB source IDs we always exclude. Ported from
+// ddb-adventure-muncher (munch/data/ddb.js BAD_IDS): broken/empty entries that
+// otherwise pollute the picker.
+var BadSourceIDs = map[int]struct{}{
+	31: {}, // CR data, file not found
+	53: {}, // SAC, file not found
+	42: {}, // TMR, file not found
+	29: {}, // UA, no content
+	4:  {}, // EE players
+	26: {}, // CoS players
+	30: {}, // ddb
 }
 
 type ConfigConditionEntry struct {
@@ -200,3 +216,33 @@ type RawItem struct {
 type AuthResponse struct {
 	Token string `json:"token"`
 }
+
+// --- User-data and entitlements (mobile API v6, cobalt-authenticated) ---
+
+// UserData is the lightweight identity payload returned by /mobile/api/v6/user-data.
+type UserData struct {
+	Status          string `json:"status"`
+	UserID          int    `json:"userId"`
+	UserDisplayName string `json:"userDisplayName"`
+}
+
+// LicenseEntity is one product/book entry inside a License block.
+type LicenseEntity struct {
+	ID      int  `json:"id"`
+	IsOwned bool `json:"isOwned"`
+}
+
+// LicenseBlock groups entitlements by EntityTypeID. Books are 496802664.
+type LicenseBlock struct {
+	EntityTypeID string          `json:"EntityTypeID"`
+	Entities     []LicenseEntity `json:"Entities"`
+}
+
+// AvailableUserContent wraps the response from /mobile/api/v6/available-user-content.
+type AvailableUserContent struct {
+	Status   string         `json:"status"`
+	Licenses []LicenseBlock `json:"Licenses"`
+}
+
+// EntityTypeIDBooks identifies the book license block in AvailableUserContent.
+const EntityTypeIDBooks = "496802664"
